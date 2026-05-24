@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pesca Con Fe Ecommerce Frontend
 
-## Getting Started
+Frontend completo para un ecommerce moderno de artículos de pesca en Shushufindi, Ecuador. Está construido con Next.js App Router, TypeScript, Tailwind CSS, componentes estilo shadcn/ui, lucide-react, Zustand, React Hook Form y Zod.
 
-First, run the development server:
+## Estado del proyecto
+
+- Tienda pública con inicio, catálogo, filtros, detalle de producto, carrito, checkout, quiénes somos y contacto.
+- Checkout por transferencia bancaria con cuentas nacionales de Ecuador y mensaje de WhatsApp prellenado.
+- Carrito global con Zustand, drawer rápido, página de revisión, subtotal, envío Servientrega y total.
+- Panel administrador visual con dashboard, gestión de productos, formularios, ventas, venta manual y configuración.
+- Datos mock estructurados para productos, pedidos, cuentas bancarias y configuración del negocio.
+- Base preparada para integrar Supabase, Cloudinary, Supabase Auth, RLS y Server Actions reales.
+
+## Stack
+
+- Next.js con App Router
+- TypeScript
+- pnpm
+- Tailwind CSS
+- shadcn/ui style components
+- lucide-react
+- tailwindcss-animate
+- Framer Motion
+- Zustand
+- React Hook Form
+- Zod
+
+## Ejecutar en local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Luego abre:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Rutas principales
 
-## Learn More
+- `/` inicio
+- `/productos` catálogo con filtros
+- `/productos/[slug]` detalle de producto
+- `/carrito` carrito
+- `/checkout` checkout por transferencia
+- `/quienes-somos` historia, misión y comunidad de Pesca Con Fe
+- `/contacto` contacto y mapa
+- `/login` login visual mock
+- `/admin` dashboard administrador
+- `/admin/productos` gestión de productos
+- `/admin/productos/nuevo` crear producto
+- `/admin/productos/[id]/editar` editar producto mock
+- `/admin/ventas` gestión de ventas y pedidos
+- `/admin/ventas/nueva` crear venta manual
+- `/admin/configuracion` configuración visual
 
-To learn more about Next.js, take a look at the following resources:
+## Integraciones futuras
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Los comentarios `TODO` marcan puntos de integración para:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Supabase Database
+- Supabase Auth
+- Cloudinary upload
+- Supabase Storage si se decide usarlo
+- RLS por roles
+- Server Actions reales
+- Persistencia de órdenes, productos, stock y configuración
 
-## Deploy on Vercel
+## Flujo de pedido
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. El cliente agrega productos al carrito.
+2. Abre el drawer del carrito y pasa a `/carrito` para revisar cantidades, envío y total.
+3. Completa sus datos en checkout.
+4. Elige transferencia bancaria.
+5. El sistema genera un pedido pendiente de pago.
+6. Se abre WhatsApp con el mensaje prellenado.
+7. El cliente envía el comprobante.
+8. El administrador confirma el pago.
+9. Solo al confirmar pago se simula la reducción de stock.
+10. El pedido puede marcarse como enviado.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Envío
+
+Servicio: Servientrega Ecuador.
+
+- Cañas: `$8.50`
+- Carretes: `$6.50`
+- Otros productos: mínimo `$6.50`
+- Si el carrito tiene varios productos, se toma el valor más alto aplicable.
+
+
+## Reglas
+- No corras lint y build despues de cada cambio. hazlo cada 5 cambios.

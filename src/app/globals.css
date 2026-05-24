@@ -1,26 +1,92 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #3d3638;
+  --card: #ffffff;
+  --card-foreground: #3d3638;
+  --popover: #ffffff;
+  --popover-foreground: #3d3638;
+  --primary: #215ea1;
+  --primary-foreground: #ffffff;
+  --secondary: #f2fafa;
+  --secondary-foreground: #253b5b;
+  --muted: #eef5f6;
+  --muted-foreground: #667085;
+  --accent: #c5ad84;
+  --accent-foreground: #253b5b;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #dbe8ea;
+  --input: #dbe8ea;
+  --ring: #2563b0;
+  --dark-blue: #253b5b;
+  --medium-blue: #2563b0;
+  --gold: #c5ad84;
+  --gold-light: #e1ce9a;
+  --radius: 0.75rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-dark-blue: var(--dark-blue);
+  --color-medium-blue: var(--medium-blue);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-soft: 0 18px 45px rgb(37 59 91 / 0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgb(225 206 154 / 0.18), transparent 34rem),
+    linear-gradient(180deg, #ffffff 0%, #f2fafa 56%, #ffffff 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  outline-color: var(--ring);
+}
+
+::selection {
+  background: rgb(197 173 132 / 0.35);
+  color: var(--dark-blue);
 }

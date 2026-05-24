@@ -1,0 +1,31 @@
+import type { MetadataRoute } from "next";
+import { mockProducts } from "@/data/mock-products";
+import { SITE_URL } from "@/lib/constants";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const staticRoutes = [
+    "",
+    "/productos",
+    "/carrito",
+    "/checkout",
+    "/quienes-somos",
+    "/contacto",
+    "/login",
+  ].map((route) => ({
+    url: `${SITE_URL}${route}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: route === "" ? 1 : 0.75,
+  }));
+
+  const productRoutes = mockProducts
+    .filter((product) => product.isActive)
+    .map((product) => ({
+      url: `${SITE_URL}/productos/${product.slug}`,
+      lastModified: new Date(product.createdAt),
+      changeFrequency: "weekly" as const,
+      priority: product.isFeatured ? 0.9 : 0.7,
+    }));
+
+  return [...staticRoutes, ...productRoutes];
+}
