@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PublicShell } from "@/components/layout/public-shell";
 import { ProductCatalog } from "@/components/products/product-catalog";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { mockProducts } from "@/data/mock-products";
+import { getBrands, getCategories, getProducts } from "@/lib/supabase/data";
 
 export const metadata: Metadata = {
   title: "Catálogo de productos",
@@ -16,6 +16,11 @@ export default async function ProductsPage({
   searchParams: Promise<{ categoria?: string }>;
 }) {
   const params = await searchParams;
+  const [products, categories, brands] = await Promise.all([
+    getProducts(),
+    getCategories(),
+    getBrands(),
+  ]);
 
   return (
     <PublicShell>
@@ -31,7 +36,9 @@ export default async function ProductsPage({
       <section className="py-10 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <ProductCatalog
-            products={mockProducts.filter((product) => product.isActive)}
+            products={products.filter((product) => product.isActive)}
+            categories={categories}
+            brands={brands.map((brand) => brand.nombre)}
             initialCategory={params.categoria}
           />
         </div>

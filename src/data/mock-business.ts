@@ -25,7 +25,7 @@ export const businessConfig: BusinessConfig = {
   shippingBase: 6.5,
   localPickupEnabled: true,
   localPickupInstructions:
-    "Retira tu pedido en el Mega Mercado Municipal, Local Nro. 145 - Planta Alta. Espera la confirmacion por WhatsApp antes de acercarte.",
+    "Retira tu pedido en el Mega Mercado Municipal, Local Nro. 145 - Planta Alta. Espera la confirmación por WhatsApp antes de acercarte.",
 };
 
 export const categories: ProductCategory[] = [

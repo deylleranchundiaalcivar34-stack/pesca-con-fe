@@ -52,17 +52,17 @@ function makeOrder(
         id === "ord-001"
           ? "Carlos Andrade"
           : id === "ord-002"
-            ? "Maria Fernanda Lopez"
+            ? "María Fernanda López"
             : id === "ord-003"
               ? "Jorge Lema"
               : "Andrea Zambrano",
       cedula: id === "ord-002" ? "2100457788" : undefined,
       phone: id === "ord-003" ? "0985554411" : "0939920000",
       email: id === "ord-001" ? "carlos@example.com" : undefined,
-      province: isPickup ? undefined : id === "ord-004" ? "Manabi" : "Sucumbios",
+      province: isPickup ? undefined : id === "ord-004" ? "Manabí" : "Sucumbíos",
       city: isPickup ? undefined : id === "ord-004" ? "Manta" : "Shushufindi",
       address: isPickup ? undefined : "Barrio Central, calle principal y segunda",
-      deliveryReference: isPickup ? undefined : "Casa de dos pisos, porton azul",
+      deliveryReference: isPickup ? undefined : "Casa de dos pisos, portón azul",
     },
     items,
     subtotal: orderSubtotal,

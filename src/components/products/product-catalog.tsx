@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Filter } from "lucide-react";
-import type { Product } from "@/types/product";
+import type { Product, ProductCategory } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -23,10 +23,17 @@ import { ProductGrid } from "./product-grid";
 
 interface ProductCatalogProps {
   products: Product[];
+  categories: ProductCategory[];
+  brands: string[];
   initialCategory?: string;
 }
 
-export function ProductCatalog({ products, initialCategory }: ProductCatalogProps) {
+export function ProductCatalog({
+  products,
+  categories,
+  brands,
+  initialCategory,
+}: ProductCatalogProps) {
   const maxProductPrice = Math.ceil(
     products.reduce((highest, product) => Math.max(highest, product.price), 0),
   );
@@ -95,6 +102,8 @@ export function ProductCatalog({ products, initialCategory }: ProductCatalogProp
           value={filters}
           onChange={setFilters}
           maxProductPrice={maxProductPrice}
+          categories={categories}
+          brands={brands}
         />
       </aside>
 
@@ -126,6 +135,8 @@ export function ProductCatalog({ products, initialCategory }: ProductCatalogProp
                     value={filters}
                     onChange={setFilters}
                     maxProductPrice={maxProductPrice}
+                    categories={categories}
+                    brands={brands}
                   />
                 </div>
               </SheetContent>

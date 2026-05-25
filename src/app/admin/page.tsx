@@ -12,17 +12,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockOrders } from "@/data/mock-orders";
-import { mockProducts } from "@/data/mock-products";
+import { getAdminOrders, getAdminProducts } from "@/lib/supabase/data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export default function AdminDashboardPage() {
-  const confirmedOrders = mockOrders.filter(
+export default async function AdminDashboardPage() {
+  const [orders, products] = await Promise.all([getAdminOrders(), getAdminProducts()]);
+  const confirmedOrders = orders.filter(
     (order) => order.status === "pagado_confirmado" || order.status === "enviado",
   );
-  const pendingOrders = mockOrders.filter((order) => order.status === "pendiente_pago");
-  const activeProducts = mockProducts.filter((product) => product.isActive);
-  const lowStockProducts = mockProducts.filter(
+  const pendingOrders = orders.filter((order) => order.status === "pendiente_pago");
+  const activeProducts = products.filter((product) => product.isActive);
+  const lowStockProducts = products.filter(
     (product) => product.stock > 0 && product.stock <= 4,
   );
   const salesTotal = confirmedOrders.reduce((sum, order) => sum + order.total, 0);
@@ -31,29 +31,24 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-dark-blue">Dashboard</h1>
+          <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Dashboard</h1>
           <p className="mt-1 text-muted-foreground">
             Resumen visual de ventas, pedidos pendientes e inventario.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild>
-            <Link href="/admin/productos/nuevo">
-              <PackagePlus aria-hidden="true" />
-              Crear producto
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/admin/ventas/nueva">Crear venta manual</Link>
-          </Button>
-        </div>
+        <Button asChild className="w-full sm:w-auto">
+          <Link href="/admin/productos/nuevo">
+            <PackagePlus aria-hidden="true" />
+            Crear producto
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminMetricCard
           title="Ventas del día"
           value={formatCurrency(salesTotal)}
-          helper="Total confirmado en datos mock"
+          helper="Total confirmado"
           icon={DollarSign}
         />
         <AdminMetricCard
@@ -82,7 +77,26 @@ export default function AdminDashboardPage() {
             <CardTitle>Pedidos recientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
+            <div className="grid gap-3 sm:hidden">
+              {orders.slice(0, 5).map((order) => (
+                <div key={order.id} className="rounded-md border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-dark-blue">{order.code}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {order.customer.fullName}
+                      </p>
+                    </div>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{formatDate(order.createdAt)}</span>
+                    <span className="font-bold text-dark-blue">{formatCurrency(order.total)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Table className="hidden sm:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Pedido</TableHead>
@@ -93,7 +107,7 @@ export default function AdminDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockOrders.slice(0, 5).map((order) => (
+                {orders.slice(0, 5).map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-semibold text-dark-blue">{order.code}</TableCell>
                     <TableCell>{order.customer.fullName}</TableCell>

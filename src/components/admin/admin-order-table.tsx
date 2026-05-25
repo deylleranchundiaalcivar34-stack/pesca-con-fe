@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, Eye, PackageCheck, Store, XCircle } from "lucide-react";
-import { toast } from "sonner";
+import { Fragment, useMemo, useState } from "react";
+import { CheckCircle2, Eye, PackageCheck, Store } from "lucide-react";
+import {
+  confirmOrderPayment,
+  markOrderPickedUp,
+  markOrderReadyForPickup,
+  markOrderShipped,
+} from "@/app/admin/ventas/actions";
 import type { Order, OrderStatus } from "@/types/order";
 import { businessConfig } from "@/data/mock-business";
-import { mockProducts } from "@/data/mock-products";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,43 +34,23 @@ import {
   SALES_CHANNEL_LABELS,
 } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { reduceStockForPaidOrder } from "@/lib/stock";
 
 interface AdminOrderTableProps {
   orders: Order[];
 }
 
 export function AdminOrderTable({ orders }: AdminOrderTableProps) {
-  const [rows, setRows] = useState(orders);
-  const [products, setProducts] = useState(mockProducts);
   const [status, setStatus] = useState<OrderStatus | "all">("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const filtered = useMemo(
-    () => rows.filter((order) => status === "all" || order.status === status),
-    [rows, status],
+    () => orders.filter((order) => status === "all" || order.status === status),
+    [orders, status],
   );
 
-  const updateStatus = (order: Order, nextStatus: OrderStatus) => {
-    if (nextStatus === "pagado_confirmado" && order.status === "pendiente_pago") {
-      setProducts((current) => reduceStockForPaidOrder(current, order.items));
-      toast.success("Pago confirmado y stock reducido en modo demo.");
-    }
-
-    setRows((current) =>
-      current.map((candidate) =>
-        candidate.id === order.id ? { ...candidate, status: nextStatus } : candidate,
-      ),
-    );
-
-    setSelectedOrder((current) =>
-      current?.id === order.id ? { ...current, status: nextStatus } : current,
-    );
+  const toggleDetail = (orderId: string) => {
+    setExpandedOrderId((current) => (current === orderId ? null : orderId));
   };
-
-  const lowStockAfterDemo = products.filter(
-    (product) => product.stock > 0 && product.stock <= 4,
-  ).length;
 
   return (
     <div className="space-y-4">
@@ -74,10 +58,16 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
         <div>
           <p className="font-semibold text-dark-blue">Pedidos y ventas</p>
           <p className="text-sm text-muted-foreground">
-            Bajo stock simulado tras confirmaciones: {lowStockAfterDemo}
+            Revisa y actualiza el estado de las ventas.
           </p>
         </div>
-        <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus | "all")}>
+        <Select
+          value={status}
+          onValueChange={(value) => {
+            setStatus(value as OrderStatus | "all");
+            setExpandedOrderId(null);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-64">
             <SelectValue />
           </SelectTrigger>
@@ -92,7 +82,56 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
         </Select>
       </div>
 
-      <div className="rounded-lg border border-border bg-white shadow-sm">
+      <div className="grid gap-3 md:hidden">
+        {filtered.map((order) => {
+          const isExpanded = expandedOrderId === order.id;
+          const detailLabel = isExpanded
+            ? `Ocultar detalle de ${order.code}`
+            : `Ver detalle de ${order.code}`;
+
+          return (
+            <div
+              key={order.id}
+              className="rounded-lg border border-border bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-dark-blue">{order.code}</p>
+                  <p className="mt-1 truncate text-sm font-medium">
+                    {order.customer.fullName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
+                </div>
+                <StatusBadge status={order.status} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <Info label="Origen" value={SALES_CHANNEL_LABELS[order.channel]} />
+                <Info label="Fecha" value={formatDate(order.createdAt)} />
+                <Info label="Entrega" value={DELIVERY_TYPE_LABELS[order.deliveryType]} />
+                <Info label="Total" value={formatCurrency(order.total)} strong />
+              </div>
+
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => toggleDetail(order.id)}
+                  aria-label={detailLabel}
+                  title={detailLabel}
+                >
+                  <Eye aria-hidden="true" />
+                </Button>
+                <OrderActionButtons order={order} />
+              </div>
+
+              {isExpanded ? <OrderDetail order={order} compact /> : null}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden rounded-lg border border-border bg-white shadow-sm md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -107,138 +146,190 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-semibold text-dark-blue">{order.code}</TableCell>
-                <TableCell>
-                  <p className="font-medium">{order.customer.fullName}</p>
-                  <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
-                </TableCell>
-                <TableCell>{SALES_CHANNEL_LABELS[order.channel]}</TableCell>
-                <TableCell>{DELIVERY_TYPE_LABELS[order.deliveryType]}</TableCell>
-                <TableCell>{formatCurrency(order.total)}</TableCell>
-                <TableCell>
-                  <StatusBadge status={order.status} />
-                </TableCell>
-                <TableCell>{formatDate(order.createdAt)}</TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setSelectedOrder(order)}
-                      aria-label={`Ver detalle de ${order.code}`}
-                    >
-                      <Eye aria-hidden="true" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={order.status !== "pendiente_pago"}
-                      onClick={() => updateStatus(order, "pagado_confirmado")}
-                      aria-label={`Confirmar pago de ${order.code}`}
-                    >
-                      <CheckCircle2 aria-hidden="true" />
-                    </Button>
-                    {order.deliveryType === "retiro_local" ? (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={order.status !== "pagado_confirmado"}
-                        onClick={() => updateStatus(order, "listo_retiro")}
-                        aria-label={`Marcar listo para retiro ${order.code}`}
-                      >
-                        <Store aria-hidden="true" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        disabled={order.status !== "pagado_confirmado"}
-                        onClick={() => updateStatus(order, "enviado")}
-                        aria-label={`Marcar enviado ${order.code}`}
-                      >
-                        <PackageCheck aria-hidden="true" />
-                      </Button>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={order.status !== "listo_retiro"}
-                      onClick={() => updateStatus(order, "retirado")}
-                      aria-label={`Marcar retirado ${order.code}`}
-                    >
-                      <PackageCheck aria-hidden="true" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      disabled={["cancelado", "enviado", "retirado"].includes(order.status)}
-                      onClick={() => updateStatus(order, "cancelado")}
-                      aria-label={`Cancelar ${order.code}`}
-                    >
-                      <XCircle aria-hidden="true" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filtered.map((order) => {
+              const isExpanded = expandedOrderId === order.id;
+              const detailLabel = isExpanded
+                ? `Ocultar detalle de ${order.code}`
+                : `Ver detalle de ${order.code}`;
+
+              return (
+                <Fragment key={order.id}>
+                  <TableRow data-state={isExpanded ? "selected" : undefined}>
+                    <TableCell className="font-semibold text-dark-blue">{order.code}</TableCell>
+                    <TableCell>
+                      <p className="font-medium">{order.customer.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
+                    </TableCell>
+                    <TableCell>{SALES_CHANNEL_LABELS[order.channel]}</TableCell>
+                    <TableCell>{DELIVERY_TYPE_LABELS[order.deliveryType]}</TableCell>
+                    <TableCell>{formatCurrency(order.total)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={order.status} />
+                    </TableCell>
+                    <TableCell>{formatDate(order.createdAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => toggleDetail(order.id)}
+                          aria-label={detailLabel}
+                          title={detailLabel}
+                        >
+                          <Eye aria-hidden="true" />
+                        </Button>
+                        <OrderActionButtons order={order} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={8} className="bg-secondary/45 p-0">
+                        <div className="border-t border-primary/20 p-4">
+                          <OrderDetail order={order} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
 
-      {selectedOrder ? (
-        <div className="rounded-lg border border-border bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-lg font-bold text-dark-blue">
-                Detalle {selectedOrder.code}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {selectedOrder.deliveryType === "retiro_local"
-                  ? `${DELIVERY_TYPE_LABELS.retiro_local}: ${businessConfig.location}, ${businessConfig.city}`
-                  : `${selectedOrder.customer.address}, ${selectedOrder.customer.city}`}
-              </p>
-            </div>
-            <StatusBadge status={selectedOrder.status} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge variant="premium">{DELIVERY_TYPE_LABELS[selectedOrder.deliveryType]}</Badge>
-            {selectedOrder.deliveryType === "retiro_local" ? (
-              <Badge variant="success">Envio $0.00</Badge>
-            ) : null}
-          </div>
-          <div className="mt-4 grid gap-3">
-            {selectedOrder.items.map((item) => (
-              <div key={item.productId} className="flex justify-between rounded-md bg-secondary p-3 text-sm">
-                <span>
-                  {item.productName} x{item.quantity}
-                </span>
-                <span className="font-semibold">
-                  {formatCurrency(item.price * item.quantity)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(selectedOrder.subtotal)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Entrega</span>
-              <span>{formatCurrency(selectedOrder.shipping)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-dark-blue">
-              <span>Total</span>
-              <span>{formatCurrency(selectedOrder.total)}</span>
-            </div>
-          </div>
-          <Badge variant="premium" className="mt-4">
-            Stock se descuenta unicamente al confirmar pago.
-          </Badge>
+function OrderActionButtons({ order }: { order: Order }) {
+  return (
+    <>
+      <form action={confirmOrderPayment}>
+        <input type="hidden" name="id" value={order.id} />
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={order.status !== "pendiente_pago"}
+          aria-label={`Confirmar pago de ${order.code}`}
+          title={`Confirmar pago de ${order.code}`}
+        >
+          <CheckCircle2 aria-hidden="true" />
+        </Button>
+      </form>
+      {order.deliveryType === "retiro_local" ? (
+        <form action={markOrderReadyForPickup}>
+          <input type="hidden" name="id" value={order.id} />
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={order.status !== "pagado_confirmado"}
+            aria-label={`Marcar listo para retiro ${order.code}`}
+            title={`Marcar listo para retiro ${order.code}`}
+          >
+            <Store aria-hidden="true" />
+          </Button>
+        </form>
+      ) : (
+        <form action={markOrderShipped}>
+          <input type="hidden" name="id" value={order.id} />
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={order.status !== "pagado_confirmado"}
+            aria-label={`Marcar enviado ${order.code}`}
+            title={`Marcar enviado ${order.code}`}
+          >
+            <PackageCheck aria-hidden="true" />
+          </Button>
+        </form>
+      )}
+      <form action={markOrderPickedUp}>
+        <input type="hidden" name="id" value={order.id} />
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={order.status !== "listo_retiro"}
+          aria-label={`Marcar retirado ${order.code}`}
+          title={`Marcar retirado ${order.code}`}
+        >
+          <PackageCheck aria-hidden="true" />
+        </Button>
+      </form>
+    </>
+  );
+}
+
+function OrderDetail({ order, compact = false }: { order: Order; compact?: boolean }) {
+  return (
+    <div className={compact ? "mt-4 rounded-lg border border-border bg-secondary/40 p-3" : "rounded-lg border border-border bg-white p-4 shadow-sm"}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-lg font-bold text-dark-blue">Detalle {order.code}</p>
+          <p className="text-sm text-muted-foreground">
+            {order.deliveryType === "retiro_local"
+              ? `${DELIVERY_TYPE_LABELS.retiro_local}: ${businessConfig.location}, ${businessConfig.city}`
+              : `${order.customer.address}, ${order.customer.city}`}
+          </p>
         </div>
-      ) : null}
+        <StatusBadge status={order.status} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Badge variant="premium">{DELIVERY_TYPE_LABELS[order.deliveryType]}</Badge>
+        {order.deliveryType === "retiro_local" ? (
+          <Badge variant="success">Envío $0.00</Badge>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_280px]">
+        <div className="grid gap-2">
+          {order.items.map((item) => (
+            <div
+              key={item.productId}
+              className="flex justify-between gap-3 rounded-md bg-white p-3 text-sm md:bg-secondary"
+            >
+              <span>
+                {item.productName} x{item.quantity}
+              </span>
+              <span className="font-semibold">
+                {formatCurrency(item.price * item.quantity)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2 rounded-md border border-border bg-white p-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{formatCurrency(order.subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Entrega</span>
+            <span>{formatCurrency(order.shipping)}</span>
+          </div>
+          <div className="flex justify-between border-t border-border pt-2 font-bold text-dark-blue">
+            <span>Total</span>
+            <span>{formatCurrency(order.total)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Info({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={strong ? "font-bold text-dark-blue" : "font-medium"}>{value}</p>
     </div>
   );
 }

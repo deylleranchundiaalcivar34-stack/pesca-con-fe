@@ -60,7 +60,12 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster
+          richColors
+          position="top-right"
+          offset={{ top: 76, right: 24 }}
+          mobileOffset={{ top: 88, right: 16, left: 16 }}
+        />
         <LocalBusinessJsonLd />
       </body>
     </html>

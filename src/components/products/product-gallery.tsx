@@ -10,7 +10,11 @@ interface ProductGalleryProps {
 }
 
 export function ProductGallery({ product }: ProductGalleryProps) {
-  const [selected, setSelected] = useState(product.images[0]);
+  const [selected, setSelected] = useState(product.images[0] ?? {
+    id: "placeholder",
+    url: "/images/products/product-placeholder.png",
+    alt: product.name,
+  });
 
   return (
     <div className="space-y-4">

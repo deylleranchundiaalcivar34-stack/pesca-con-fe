@@ -19,6 +19,6 @@ export const SALES_CHANNEL_LABELS = {
 } as const;
 
 export const DELIVERY_TYPE_LABELS = {
-  envio_servientrega: "Envio por Servientrega",
+  envio_servientrega: "Envío por Servientrega",
   retiro_local: "Retiro en local",
 } as const;

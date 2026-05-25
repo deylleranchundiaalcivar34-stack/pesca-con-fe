@@ -1,4 +1,4 @@
-import type { BankAccount } from "@/types/business";
+import type { BankAccount, BusinessConfig } from "@/types/business";
 import type { CustomerInfo, DeliveryType, OrderItem } from "@/types/order";
 import { businessConfig } from "@/data/mock-business";
 import { formatCurrency } from "./utils";
@@ -12,6 +12,7 @@ interface CheckoutMessageInput {
   bankAccount: BankAccount;
   deliveryType: DeliveryType;
   orderCode?: string;
+  business?: BusinessConfig;
 }
 
 export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
@@ -25,7 +26,7 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     .join("\n");
 
   return [
-    `Hola, soy ${input.customer.fullName}. Genere un pedido en Pesca Con Fe.`,
+    `Hola, soy ${input.customer.fullName}. Generé un pedido en Pesca Con Fe.`,
     input.orderCode ? `Pedido: ${input.orderCode}` : undefined,
     "",
     "Productos:",
@@ -33,8 +34,8 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     "",
     `Subtotal: ${formatCurrency(input.subtotal)}`,
     input.deliveryType === "retiro_local"
-      ? "Retiro en local: sin costo de envio"
-      : `Envio Servientrega: ${formatCurrency(input.shipping)}`,
+      ? "Retiro en local: sin costo de envío"
+      : `Envío Servientrega: ${formatCurrency(input.shipping)}`,
     `Total: ${formatCurrency(input.total)}`,
     "",
     `Banco elegido: ${input.bankAccount.bank}`,
@@ -42,17 +43,12 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     `Titular: ${input.bankAccount.owner}`,
     "",
     input.deliveryType === "retiro_local"
-      ? "Entrega: retiro en local fisico"
+      ? "Entrega: retiro en local físico"
       : `Entrega: ${input.customer.city}, ${input.customer.province}`,
-    input.deliveryType === "retiro_local"
-      ? `Direccion de retiro: ${businessConfig.location}, ${businessConfig.city}`
-      : `Direccion: ${input.customer.address}`,
-    input.deliveryType === "retiro_local"
-      ? `Horario: ${businessConfig.schedule}`
+    input.deliveryType === "envio_servientrega"
+      ? `Dirección: ${input.customer.address}`
       : undefined,
-    input.deliveryType === "retiro_local"
-      ? businessConfig.localPickupInstructions
-      : input.customer.deliveryReference
+    input.deliveryType === "envio_servientrega" && input.customer.deliveryReference
         ? `Referencia: ${input.customer.deliveryReference}`
         : undefined,
     "",
@@ -62,11 +58,11 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     .join("\n");
 }
 
-export function getWhatsAppPrefilledUrl(message: string) {
+export function getWhatsAppPrefilledUrl(message: string, business: BusinessConfig = businessConfig) {
   // Los enlaces https://wa.me/message/<codigo> abren el perfil/mensaje del negocio,
   // pero WhatsApp no garantiza que acepten un parametro ?text prellenado.
   // Para checkout se usa el numero E.164 con https://wa.me/<numero>?text=...
-  return `https://wa.me/${businessConfig.whatsappPhoneE164}?text=${encodeURIComponent(
+  return `https://wa.me/${business.whatsappPhoneE164}?text=${encodeURIComponent(
     message,
   )}`;
 }

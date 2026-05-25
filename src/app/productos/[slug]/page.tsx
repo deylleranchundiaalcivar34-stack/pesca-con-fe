@@ -11,13 +11,12 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { ProductJsonLd } from "@/components/shared/product-json-ld";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { YouTubeEmbed } from "@/components/shared/youtube-embed";
-import { getProductBySlug, getRelatedProducts, mockProducts } from "@/data/mock-products";
+import {
+  getProductBySlug,
+  getRelatedProducts,
+} from "@/lib/supabase/data";
 import { formatCurrency } from "@/lib/utils";
 import { SITE_URL } from "@/lib/constants";
-
-export function generateStaticParams() {
-  return mockProducts.map((product) => ({ slug: product.slug }));
-}
 
 export async function generateMetadata({
   params,
@@ -25,7 +24,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
 
   if (!product) return {};
 
@@ -54,11 +53,11 @@ export default async function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
 
   if (!product) notFound();
 
-  const related = getRelatedProducts(product);
+  const related = await getRelatedProducts(product);
 
   return (
     <PublicShell>

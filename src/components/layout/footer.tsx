@@ -47,7 +47,7 @@ export function Footer() {
             <span className="text-2xl font-bold text-white">Pesca Con Fe</span>
           </Link>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/75">
-            Equipos de pesca seleccionados para cada aventura. Compra facil,
+            Equipos de pesca seleccionados para cada aventura. Compra fácil,
             paga por transferencia y confirma por WhatsApp.
           </p>
         </div>
@@ -67,7 +67,7 @@ export function Footer() {
               <MapPin className="mt-0.5 size-4 text-gold-light" aria-hidden="true" />
               <span className="text-sm leading-6 text-white/75">
                 <span className="block">Mega Mercado Municipal</span>
-                <span className="block">Local N&deg; 145 - Planta Alta</span>
+                <span className="block">Local N° 145 - Planta Alta</span>
                 <span className="block">Shushufindi, Ecuador</span>
               </span>
             </li>
@@ -75,7 +75,7 @@ export function Footer() {
         </div>
 
         <div>
-          <p className="font-semibold text-gold-light">Siguenos</p>
+          <p className="font-semibold text-gold-light">Síguenos</p>
           <div className="mt-4 flex gap-2">
             {socialLinks.map((item) => (
               <Button
@@ -102,7 +102,7 @@ export function Footer() {
           <div className="mt-5">
             <p className="text-sm font-semibold text-gold-light">Horario del negocio</p>
             <p className="mt-2 text-sm leading-7 text-white/70">
-              <span className="block">Lunes a S&aacute;bado</span>
+              <span className="block">Lunes a Sábado</span>
               <span className="block">08:30 AM - 06:00 PM</span>
             </p>
           </div>

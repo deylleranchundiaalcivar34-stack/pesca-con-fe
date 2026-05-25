@@ -26,7 +26,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
 
       <div className="relative flex min-h-[21rem] flex-col justify-end p-6 sm:p-8">
         <span className="w-fit rounded-full border border-gold/50 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gold-light backdrop-blur">
-          Categor&iacute;a
+          Categoría
         </span>
         <div className="mt-4 flex items-end justify-between gap-6">
           <div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { SlidersHorizontal } from "lucide-react";
-import { categories, brands } from "@/data/mock-business";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ProductAvailability } from "@/types/product";
+import type { ProductAvailability, ProductCategory } from "@/types/product";
 import { formatCurrency } from "@/lib/utils";
 
 export interface ProductFilterState {
@@ -29,12 +28,16 @@ interface ProductFiltersProps {
   value: ProductFilterState;
   onChange: (value: ProductFilterState) => void;
   maxProductPrice: number;
+  categories: ProductCategory[];
+  brands: string[];
 }
 
 export function ProductFilters({
   value,
   onChange,
   maxProductPrice,
+  categories,
+  brands,
 }: ProductFiltersProps) {
   const currentCategory = categories.find(
     (category) => category.slug === value.category,

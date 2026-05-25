@@ -30,7 +30,7 @@ export function CartSummary({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
-            Revision
+            Revisión
           </p>
           <h2 className="mt-1 text-2xl font-bold text-dark-blue">Resumen</h2>
         </div>
@@ -57,7 +57,7 @@ export function CartSummary({
 
       <p className="mt-3 flex gap-2 text-xs leading-5 text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        Elige envio por Servientrega o retiro gratis en local durante el checkout.
+        Elige envío por Servientrega o retiro gratis en local durante el checkout.
       </p>
     </div>
   );

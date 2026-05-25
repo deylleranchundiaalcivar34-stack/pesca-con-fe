@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Edit, PackagePlus, Power, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { deleteProduct, toggleProductActive } from "@/app/admin/productos/actions";
 import type { Product } from "@/types/product";
 import { brands, categories } from "@/data/mock-business";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ interface AdminProductTableProps {
 
 export function AdminProductTable({ products }: AdminProductTableProps) {
   const [rows, setRows] = useState(products);
+  const [pendingProductIds, setPendingProductIds] = useState<string[]>([]);
+  const [, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [brand, setBrand] = useState("all");
@@ -57,18 +60,68 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
     });
   }, [brand, category, rows, search, stock]);
 
-  const toggleActive = (id: string) => {
-    setRows((current) =>
-      current.map((product) =>
-        product.id === id ? { ...product, isActive: !product.isActive } : product,
-      ),
+  const setProductPending = (productId: string, pending: boolean) => {
+    setPendingProductIds((current) =>
+      pending
+        ? [...new Set([...current, productId])]
+        : current.filter((id) => id !== productId),
     );
-    toast.success("Estado del producto actualizado en modo demo.");
   };
 
-  const remove = (id: string) => {
-    setRows((current) => current.filter((product) => product.id !== id));
-    toast.success("Producto eliminado de la tabla mock.");
+  const toggleActive = (product: Product) => {
+    const nextActive = !product.isActive;
+    const formData = new FormData();
+    formData.set("id", product.id);
+    formData.set("active", String(product.isActive));
+
+    setProductPending(product.id, true);
+    setRows((current) =>
+      current.map((item) =>
+        item.id === product.id ? { ...item, isActive: nextActive } : item,
+      ),
+    );
+
+    startTransition(async () => {
+      try {
+        await toggleProductActive(formData);
+      } catch {
+        setRows((current) =>
+          current.map((item) =>
+            item.id === product.id ? { ...item, isActive: product.isActive } : item,
+          ),
+        );
+        toast.error("No se pudo actualizar el estado del producto.");
+      } finally {
+        setProductPending(product.id, false);
+      }
+    });
+  };
+
+  const hideProduct = (product: Product) => {
+    const formData = new FormData();
+    formData.set("id", product.id);
+
+    setProductPending(product.id, true);
+    setRows((current) =>
+      current.map((item) =>
+        item.id === product.id ? { ...item, isActive: false } : item,
+      ),
+    );
+
+    startTransition(async () => {
+      try {
+        await deleteProduct(formData);
+      } catch {
+        setRows((current) =>
+          current.map((item) =>
+            item.id === product.id ? { ...item, isActive: product.isActive } : item,
+          ),
+        );
+        toast.error("No se pudo ocultar el producto.");
+      } finally {
+        setProductPending(product.id, false);
+      }
+    });
   };
 
   return (
@@ -122,7 +175,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
             </SelectContent>
           </Select>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full lg:w-auto">
           <Link href="/admin/productos/nuevo">
             <PackagePlus aria-hidden="true" />
             Crear
@@ -130,7 +183,89 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
         </Button>
       </div>
 
-      <div className="rounded-lg border border-border bg-white shadow-sm">
+      <div className="grid gap-3 md:hidden">
+        {filtered.map((product) => (
+          <div key={product.id} className="rounded-lg border border-border bg-white p-4 shadow-sm">
+            <div className="flex gap-3">
+              <div className="relative size-16 shrink-0 overflow-hidden rounded-md bg-secondary">
+                <Image
+                  src={product.mainImage}
+                  alt={product.imageAlt}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 font-semibold text-dark-blue">{product.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{product.sku}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{product.brand}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Categoría</p>
+                <p className="font-medium">{product.category}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Precio</p>
+                <p className="font-bold text-dark-blue">{formatCurrency(product.price)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Stock</p>
+                <Badge variant={product.stock === 0 ? "destructive" : product.stock <= 4 ? "warning" : "success"}>
+                  {product.stock}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Estado</p>
+                <Badge variant={product.isActive ? "success" : "muted"}>
+                  {product.isActive ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                asChild
+                size="icon"
+                variant="ghost"
+                aria-label={`Editar ${product.name}`}
+                title={`Editar ${product.name}`}
+              >
+                <Link href={`/admin/productos/${product.id}/editar`}>
+                  <Edit aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={pendingProductIds.includes(product.id)}
+                onClick={() => toggleActive(product)}
+                aria-label={`${product.isActive ? "Desactivar" : "Activar"} ${product.name}`}
+                title={`${product.isActive ? "Desactivar" : "Activar"} ${product.name}`}
+              >
+                <Power aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={pendingProductIds.includes(product.id) || !product.isActive}
+                onClick={() => hideProduct(product)}
+                aria-label={`Ocultar ${product.name}`}
+                title={`Ocultar ${product.name}`}
+              >
+                <Trash2 aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden rounded-lg border border-border bg-white shadow-sm md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -178,24 +313,36 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
-                    <Button asChild size="icon" variant="ghost" aria-label={`Editar ${product.name}`}>
+                    <Button
+                      asChild
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Editar ${product.name}`}
+                      title={`Editar ${product.name}`}
+                    >
                       <Link href={`/admin/productos/${product.id}/editar`}>
                         <Edit aria-hidden="true" />
                       </Link>
                     </Button>
                     <Button
+                      type="button"
                       size="icon"
                       variant="ghost"
-                      onClick={() => toggleActive(product.id)}
+                      disabled={pendingProductIds.includes(product.id)}
+                      onClick={() => toggleActive(product)}
                       aria-label={`${product.isActive ? "Desactivar" : "Activar"} ${product.name}`}
+                      title={`${product.isActive ? "Desactivar" : "Activar"} ${product.name}`}
                     >
                       <Power aria-hidden="true" />
                     </Button>
                     <Button
+                      type="button"
                       size="icon"
                       variant="ghost"
-                      onClick={() => remove(product.id)}
-                      aria-label={`Eliminar ${product.name}`}
+                      disabled={pendingProductIds.includes(product.id) || !product.isActive}
+                      onClick={() => hideProduct(product)}
+                      aria-label={`Ocultar ${product.name}`}
+                      title={`Ocultar ${product.name}`}
                     >
                       <Trash2 aria-hidden="true" />
                     </Button>

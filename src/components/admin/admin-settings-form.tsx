@@ -1,114 +1,137 @@
-"use client";
-
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { Save } from "lucide-react";
-import { toast } from "sonner";
-import { bankAccounts, businessConfig } from "@/data/mock-business";
+import { saveAdminSettings } from "@/app/admin/configuracion/actions";
+import type { BankAccount, BusinessConfig } from "@/types/business";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function AdminSettingsForm() {
-  const [business, setBusiness] = useState(businessConfig);
-  const [banks, setBanks] = useState(bankAccounts);
-  const [shippingBase, setShippingBase] = useState(businessConfig.shippingBase);
+interface AdminSettingsFormProps {
+  business: BusinessConfig;
+  bankAccounts: BankAccount[];
+}
 
-  const save = () => {
-    // TODO: Guardar configuración en Supabase con control de roles administrativos.
-    toast.success("Configuración guardada en estado local mock.");
-  };
-
+export function AdminSettingsForm({
+  business,
+  bankAccounts,
+}: AdminSettingsFormProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-      <Card>
-        <CardHeader>
-          <CardTitle>Datos del negocio</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="name">Nombre</Label>
-            <Input
-              id="name"
-              className="mt-2"
-              value={business.name}
-              onChange={(event) => setBusiness({ ...business, name: event.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="email">Correo</Label>
-            <Input
-              id="email"
-              className="mt-2"
-              value={business.email}
-              onChange={(event) => setBusiness({ ...business, email: event.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="location">Ubicación</Label>
-            <Input
-              id="location"
-              className="mt-2"
-              value={business.location}
-              onChange={(event) => setBusiness({ ...business, location: event.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="schedule">Horario</Label>
-            <Input
-              id="schedule"
-              className="mt-2"
-              value={business.schedule}
-              onChange={(event) => setBusiness({ ...business, schedule: event.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="phones">Celulares</Label>
-            <Input
-              id="phones"
-              className="mt-2"
-              value={business.phones.join(", ")}
-              onChange={(event) =>
-                setBusiness({
-                  ...business,
-                  phones: event.target.value.split(",").map((item) => item.trim()),
-                })
-              }
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="maps">Google Maps iframe URL</Label>
-            <Textarea
-              id="maps"
-              className="mt-2"
-              value={business.mapsEmbedUrl}
-              onChange={(event) =>
-                setBusiness({ ...business, mapsEmbedUrl: event.target.value })
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-6">
+    <form action={saveAdminSettings} className="space-y-6">
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Costos de envío</CardTitle>
+            <CardTitle>Datos del negocio</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Label htmlFor="shipping">Base otros productos</Label>
-            <Input
-              id="shipping"
-              className="mt-2"
-              type="number"
-              step="0.01"
-              value={shippingBase}
-              onChange={(event) => setShippingBase(Number(event.target.value))}
-            />
-            <p className="mt-3 text-sm text-muted-foreground">
-              Cañas usan $8.50; carretes y otros productos parten de $6.50.
-            </p>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field id="name" label="Nombre">
+              <Input id="name" name="name" defaultValue={business.name} required />
+            </Field>
+            <Field id="email" label="Correo">
+              <Input id="email" name="email" type="email" defaultValue={business.email} />
+            </Field>
+            <Field id="location" label="Ubicación" className="sm:col-span-2">
+              <Input id="location" name="location" defaultValue={business.location} required />
+            </Field>
+            <Field id="city" label="Ciudad">
+              <Input id="city" name="city" defaultValue={business.city} required />
+            </Field>
+            <Field id="country" label="País">
+              <Input id="country" name="country" defaultValue={business.country} required />
+            </Field>
+            <Field id="schedule" label="Horario">
+              <Input id="schedule" name="schedule" defaultValue={business.schedule} />
+            </Field>
+            <Field id="phones" label="Celulares">
+              <Input id="phones" name="phones" defaultValue={business.phones.join(", ")} />
+            </Field>
+            <Field id="whatsappPhoneE164" label="WhatsApp E.164">
+              <Input
+                id="whatsappPhoneE164"
+                name="whatsappPhoneE164"
+                defaultValue={business.whatsappPhoneE164}
+                required
+              />
+            </Field>
+            <Field id="shippingService" label="Servicio de envío">
+              <Input
+                id="shippingService"
+                name="shippingService"
+                defaultValue={business.shippingService}
+                required
+              />
+            </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Retiro y envío</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Field id="shippingBase" label="Base otros productos">
+              <Input
+                id="shippingBase"
+                name="shippingBase"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={business.shippingBase}
+                required
+              />
+            </Field>
+            <div className="flex items-center gap-3 rounded-md border border-border p-3">
+              <input
+                id="localPickupEnabled"
+                name="localPickupEnabled"
+                type="checkbox"
+                defaultChecked={business.localPickupEnabled}
+                className="size-4 rounded border-border"
+              />
+              <Label htmlFor="localPickupEnabled">Retiro local habilitado</Label>
+            </div>
+            <Field id="localPickupInstructions" label="Instrucciones de retiro">
+              <Textarea
+                id="localPickupInstructions"
+                name="localPickupInstructions"
+                defaultValue={business.localPickupInstructions}
+                className="min-h-28"
+              />
+            </Field>
+            <Field id="maps" label="Google Maps iframe URL">
+              <Textarea
+                id="maps"
+                name="maps"
+                defaultValue={business.mapsEmbedUrl}
+                className="min-h-28"
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Redes sociales</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <Field id="facebook" label="Facebook">
+              <Input id="facebook" name="facebook" defaultValue={business.social.facebook} />
+            </Field>
+            <Field id="instagram" label="Instagram">
+              <Input id="instagram" name="instagram" defaultValue={business.social.instagram} />
+            </Field>
+            <Field id="tiktok" label="TikTok">
+              <Input id="tiktok" name="tiktok" defaultValue={business.social.tiktok} />
+            </Field>
+            <Field id="youtube" label="YouTube">
+              <Input id="youtube" name="youtube" defaultValue={business.social.youtube} />
+            </Field>
+            <Field id="whatsapp" label="Link de WhatsApp">
+              <Input id="whatsapp" name="whatsapp" defaultValue={business.social.whatsapp} />
+            </Field>
           </CardContent>
         </Card>
 
@@ -117,45 +140,83 @@ export function AdminSettingsForm() {
             <CardTitle>Cuentas bancarias</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {banks.map((account, index) => (
-              <div key={account.id} className="rounded-lg border border-border p-3">
-                <Label htmlFor={`bank-${account.id}`}>Banco</Label>
-                <Input
-                  id={`bank-${account.id}`}
-                  className="mt-2"
-                  value={account.bank}
-                  onChange={(event) =>
-                    setBanks((current) =>
-                      current.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, bank: event.target.value } : item,
-                      ),
-                    )
-                  }
-                />
-                <Label htmlFor={`owner-${account.id}`} className="mt-3 block">
-                  Titular
-                </Label>
-                <Input
-                  id={`owner-${account.id}`}
-                  className="mt-2"
-                  value={account.owner}
-                  onChange={(event) =>
-                    setBanks((current) =>
-                      current.map((item, itemIndex) =>
-                        itemIndex === index ? { ...item, owner: event.target.value } : item,
-                      ),
-                    )
-                  }
-                />
-              </div>
-            ))}
-            <Button type="button" onClick={save} className="w-full">
+            <div className="grid gap-4 lg:grid-cols-2">
+              {bankAccounts.map((account) => (
+                <div key={account.id} className="rounded-lg border border-border p-3">
+                  <input type="hidden" name="bankId" value={account.id} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field id={`bank-${account.id}`} label="Banco">
+                      <Input
+                        id={`bank-${account.id}`}
+                        name="bank"
+                        defaultValue={account.bank}
+                        required
+                      />
+                    </Field>
+                    <Field id={`account-type-${account.id}`} label="Tipo">
+                      <select
+                        id={`account-type-${account.id}`}
+                        name="accountType"
+                        defaultValue={account.accountType}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="Ahorro">Ahorro</option>
+                        <option value="Corriente">Corriente</option>
+                      </select>
+                    </Field>
+                    <Field id={`owner-${account.id}`} label="Titular" className="sm:col-span-2">
+                      <Input
+                        id={`owner-${account.id}`}
+                        name="owner"
+                        defaultValue={account.owner}
+                        required
+                      />
+                    </Field>
+                    <Field id={`cedula-${account.id}`} label="Cédula">
+                      <Input
+                        id={`cedula-${account.id}`}
+                        name="cedula"
+                        defaultValue={account.cedula ?? ""}
+                      />
+                    </Field>
+                    <Field id={`account-number-${account.id}`} label="Número de cuenta">
+                      <Input
+                        id={`account-number-${account.id}`}
+                        name="accountNumber"
+                        defaultValue={account.accountNumber}
+                        required
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button type="submit" className="w-full">
               <Save aria-hidden="true" />
               Guardar configuración
             </Button>
           </CardContent>
         </Card>
       </div>
+    </form>
+  );
+}
+
+function Field({
+  id,
+  label,
+  children,
+  className,
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <Label htmlFor={id}>{label}</Label>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }

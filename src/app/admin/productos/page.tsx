@@ -1,16 +1,18 @@
 import { AdminProductTable } from "@/components/admin/admin-product-table";
-import { mockProducts } from "@/data/mock-products";
+import { getAdminProducts } from "@/lib/supabase/data";
 
-export default function AdminProductsPage() {
+export default async function AdminProductsPage() {
+  const products = await getAdminProducts();
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-black text-dark-blue">Productos</h1>
+        <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Productos</h1>
         <p className="mt-1 text-muted-foreground">
-          Busca, filtra, edita, desactiva o elimina productos en modo demo.
+          Busca, filtra, edita, desactiva u oculta productos.
         </p>
       </div>
-      <AdminProductTable products={mockProducts} />
+      <AdminProductTable products={products} />
     </div>
   );
 }

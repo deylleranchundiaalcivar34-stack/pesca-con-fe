@@ -1,14 +1,6 @@
-export type CategorySlug = "carrete" | "canas" | "indumentaria" | "senuelos";
+export type CategorySlug = string;
 
-export type BrandName =
-  | "Bass Pro Shops"
-  | "Daiwa"
-  | "PENN"
-  | "Rapala"
-  | "Shimano"
-  | "Ugly Stik"
-  | "Okuma inspired Fishing"
-  | "Marine High Performance";
+export type BrandName = string;
 
 export type ProductAvailability = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
@@ -30,6 +22,7 @@ export interface ProductImage {
   url: string;
   alt: string;
   isMain?: boolean;
+  publicId?: string;
 }
 
 export interface Product {

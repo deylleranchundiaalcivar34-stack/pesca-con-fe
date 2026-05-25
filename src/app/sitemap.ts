@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { mockProducts } from "@/data/mock-products";
 import { SITE_URL } from "@/lib/constants";
+import { getProducts } from "@/lib/supabase/data";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
     "",
     "/productos",
@@ -18,7 +18,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: route === "" ? 1 : 0.75,
   }));
 
-  const productRoutes = mockProducts
+  const products = await getProducts();
+  const productRoutes = products
     .filter((product) => product.isActive)
     .map((product) => ({
       url: `${SITE_URL}/productos/${product.slug}`,

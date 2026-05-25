@@ -11,11 +11,11 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { BackToTopButton } from "@/components/shared/back-to-top-button";
 import { ProductGrid } from "@/components/products/product-grid";
 import { Button } from "@/components/ui/button";
-import { categories } from "@/data/mock-business";
-import { mockProducts } from "@/data/mock-products";
+import { getCategories, getProducts } from "@/lib/supabase/data";
 
-export default function HomePage() {
-  const featuredProducts = mockProducts
+export default async function HomePage() {
+  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+  const featuredProducts = products
     .filter((product) => product.isFeatured && product.isActive)
     .slice(0, 6);
 
@@ -53,7 +53,7 @@ export default function HomePage() {
             />
             <Button asChild variant="outline">
               <Link href="/productos">
-                Ver cat&aacute;logo
+                Ver catálogo
                 <ArrowRight aria-hidden="true" />
               </Link>
             </Button>

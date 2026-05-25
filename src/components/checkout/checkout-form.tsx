@@ -7,7 +7,7 @@ import { CheckCircle2, MapPin, MessageCircle, Store, Truck } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { bankAccounts, businessConfig } from "@/data/mock-business";
+import { createCheckoutOrder } from "@/app/checkout/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,20 +17,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCartStore } from "@/store/cart-store";
 import { useIsClient } from "@/hooks/use-is-client";
 import { DELIVERY_TYPE_LABELS } from "@/lib/constants";
+import { isValidEcuadorianCedula } from "@/lib/ecuador";
 import { formatCurrency } from "@/lib/utils";
 import {
   buildCheckoutWhatsAppMessage,
   getWhatsAppPrefilledUrl,
 } from "@/lib/whatsapp";
 import type { DeliveryType } from "@/types/order";
+import type { CheckoutCustomerDefaults } from "@/types/customer";
+import type { BankAccount, BusinessConfig } from "@/types/business";
 import { BankAccountCard } from "./bank-account-card";
 
 const checkoutSchema = z
   .object({
     fullName: z.string().min(3, "Escribe tu nombre completo."),
-    cedula: z.string().optional(),
-    phone: z.string().min(9, "Escribe un celular valido."),
-    email: z.string().email("Correo invalido.").optional().or(z.literal("")),
+    cedula: z
+      .string()
+      .min(10, "Escribe tu cédula ecuatoriana.")
+      .refine(isValidEcuadorianCedula, "Ingresa una cédula ecuatoriana válida."),
+    phone: z.string().min(9, "Escribe un celular válido."),
+    email: z.string().email("Correo inválido.").optional().or(z.literal("")),
     deliveryType: z.enum(["envio_servientrega", "retiro_local"]),
     province: z.string().optional(),
     city: z.string().optional(),
@@ -60,7 +66,7 @@ const checkoutSchema = z
       context.addIssue({
         code: "custom",
         path: ["address"],
-        message: "Escribe una direccion de entrega.",
+        message: "Escribe una dirección de entrega.",
       });
     }
   });
@@ -75,31 +81,39 @@ const deliveryOptions: Array<{
 }> = [
   {
     value: "envio_servientrega",
-    title: "Envio por Servientrega",
+    title: "Envío por Servientrega",
     description: "Recibe tu pedido en cualquier ciudad de Ecuador.",
     icon: Truck,
   },
   {
     value: "retiro_local",
     title: "Retiro en local",
-    description: "Sin costo de envio. Te avisamos cuando este listo.",
+    description: "Sin costo de envío. Te avisamos cuando esté listo.",
     icon: Store,
   },
 ];
 
-export function CheckoutForm() {
+export function CheckoutForm({
+  customerDefaults = {},
+  bankAccounts,
+  businessConfig,
+}: {
+  customerDefaults?: CheckoutCustomerDefaults;
+  bankAccounts: BankAccount[];
+  businessConfig: BusinessConfig;
+}) {
   const items = useCartStore((state) => state.items);
   const isClient = useIsClient();
   const subtotal = useCartStore((state) => state.subtotal());
   const shipping = useCartStore((state) => state.shipping());
   const clearCart = useCartStore((state) => state.clearCart);
-  const [selectedBankId, setSelectedBankId] = useState(bankAccounts[0].id);
+  const [selectedBankId, setSelectedBankId] = useState(bankAccounts[0]?.id ?? "");
   const [successOrder, setSuccessOrder] = useState<string | null>(null);
   const displaySubtotal = isClient ? subtotal : 0;
 
   const selectedBank = useMemo(
-    () => bankAccounts.find((account) => account.id === selectedBankId)!,
-    [selectedBankId],
+    () => bankAccounts.find((account) => account.id === selectedBankId) ?? bankAccounts[0],
+    [bankAccounts, selectedBankId],
   );
 
   const {
@@ -111,8 +125,12 @@ export function CheckoutForm() {
   } = useForm<CheckoutValues>({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
+      fullName: customerDefaults.fullName ?? "",
+      cedula: customerDefaults.cedula ?? "",
+      phone: customerDefaults.phone ?? "",
+      email: customerDefaults.email ?? "",
       deliveryType: "envio_servientrega",
-      province: "Sucumbios",
+      province: "Sucumbíos",
       city: "Shushufindi",
     },
   });
@@ -131,15 +149,33 @@ export function CheckoutForm() {
     categorySlug: item.product.categorySlug,
   }));
 
-  const onSubmit = (values: CheckoutValues) => {
+  const onSubmit = async (values: CheckoutValues) => {
     if (!visibleItems.length) {
       toast.error("Agrega productos al carrito antes de generar el pedido.");
       return;
     }
 
-    const orderCode = `PCF-${values.phone.replace(/\D/g, "").slice(-4)}-${Math.round(
-      displayTotal * 100,
-    )}`;
+    if (!selectedBank) {
+      toast.error("Configura una cuenta bancaria antes de generar pedidos.");
+      return;
+    }
+
+    const createdOrder = await createCheckoutOrder({
+      customer: values,
+      items: orderItems,
+      subtotal: displaySubtotal,
+      shipping: displayShipping,
+      total: displayTotal,
+      bankAccount: selectedBank,
+      business: businessConfig,
+      deliveryType: values.deliveryType,
+    });
+
+    if (!createdOrder.ok || !createdOrder.code) {
+      toast.error(createdOrder.message);
+      return;
+    }
+
     const message = buildCheckoutWhatsAppMessage({
       customer: values,
       items: orderItems,
@@ -148,11 +184,12 @@ export function CheckoutForm() {
       total: displayTotal,
       bankAccount: selectedBank,
       deliveryType: values.deliveryType,
-      orderCode,
+      orderCode: createdOrder.code,
+      business: businessConfig,
     });
 
-    setSuccessOrder(orderCode);
-    window.open(getWhatsAppPrefilledUrl(message), "_blank", "noopener,noreferrer");
+    setSuccessOrder(createdOrder.code);
+    window.open(getWhatsAppPrefilledUrl(message, businessConfig), "_blank", "noopener,noreferrer");
     clearCart();
   };
 
@@ -165,7 +202,7 @@ export function CheckoutForm() {
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-muted-foreground">
-            Se abrio WhatsApp con el mensaje del pedido. Envia el comprobante de
+            Se abrió WhatsApp con el mensaje del pedido. Envía el comprobante de
             transferencia para que Pesca Con Fe confirme el pago y coordine la entrega.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
@@ -192,8 +229,14 @@ export function CheckoutForm() {
             <Field id="fullName" label="Nombre completo" error={errors.fullName?.message}>
               <Input id="fullName" {...register("fullName")} autoComplete="name" />
             </Field>
-            <Field id="cedula" label="Cedula (opcional)" error={errors.cedula?.message}>
-              <Input id="cedula" {...register("cedula")} inputMode="numeric" />
+            <Field id="cedula" label="Cédula ecuatoriana" error={errors.cedula?.message}>
+              <Input
+                id="cedula"
+                {...register("cedula")}
+                autoComplete="off"
+                inputMode="numeric"
+                maxLength={10}
+              />
             </Field>
             <Field id="phone" label="Celular" error={errors.phone?.message}>
               <Input id="phone" {...register("phone")} inputMode="tel" autoComplete="tel" />
@@ -260,11 +303,11 @@ export function CheckoutForm() {
                 <div className="mt-4 rounded-lg border border-primary/20 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
                   <p className="flex gap-2 font-semibold text-dark-blue">
                     <Truck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                    Tarifa de envio por Servientrega
+                    Tarifa de envío por Servientrega
                   </p>
                   <p className="mt-2">
-                    Canas: $8.50. Carretes y otros productos: minimo $6.50. Si
-                    hay varios productos, se aplica el valor mas alto.
+                    Cañas: $8.50. Carretes y otros productos: mínimo $6.50. Si
+                    hay varios productos, se aplica el valor más alto.
                   </p>
                 </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -277,7 +320,7 @@ export function CheckoutForm() {
                   <Field
                     id="address"
                     className="sm:col-span-2"
-                    label="Direccion"
+                    label="Dirección"
                     error={errors.address?.message}
                   >
                     <Input id="address" {...register("address")} autoComplete="street-address" />
@@ -302,11 +345,11 @@ export function CheckoutForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Metodo de pago</CardTitle>
+            <CardTitle>Método de pago</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-4 text-sm text-muted-foreground">
-              Transferencias nacionales Ecuador. Elige una cuenta y envia el
+              Transferencias nacionales Ecuador. Elige una cuenta y envía el
               comprobante por WhatsApp.
             </p>
             <div className="grid gap-3">
@@ -367,7 +410,7 @@ export function CheckoutForm() {
             </Button>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
               El pedido queda pendiente de pago. Pesca Con Fe confirma tu transferencia
-              y coordina el envio o retiro en local por WhatsApp.
+              y coordina el envío o retiro en local por WhatsApp.
             </p>
           </CardContent>
         </Card>

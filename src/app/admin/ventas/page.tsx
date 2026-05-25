@@ -1,27 +1,18 @@
-import Link from "next/link";
-import { PlusCircle } from "lucide-react";
 import { AdminOrderTable } from "@/components/admin/admin-order-table";
-import { Button } from "@/components/ui/button";
-import { mockOrders } from "@/data/mock-orders";
+import { getAdminOrders } from "@/lib/supabase/data";
 
-export default function AdminSalesPage() {
+export default async function AdminSalesPage() {
+  const orders = await getAdminOrders();
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-dark-blue">Ventas y pedidos</h1>
-          <p className="mt-1 text-muted-foreground">
-            Confirma pagos, marca envíos y cancela pedidos con simulación de stock.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/admin/ventas/nueva">
-            <PlusCircle aria-hidden="true" />
-            Nueva venta manual
-          </Link>
-        </Button>
+      <div>
+        <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Ventas y pedidos</h1>
+        <p className="mt-1 text-muted-foreground">
+          Confirma pagos y gestiona las ventas generadas por la web.
+        </p>
       </div>
-      <AdminOrderTable orders={mockOrders} />
+      <AdminOrderTable orders={orders} />
     </div>
   );
 }

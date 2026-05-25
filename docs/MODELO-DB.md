@@ -1,23 +1,32 @@
-# Modelo de Base de Datos - Supabase
+# Modelo de Base de Datos - Supabase + Cloudinary
 
-Este documento propone el modelo relacional para llevar Pesca Con Fe desde datos mock a un MVP operativo en Supabase. Todo el modelo usa nombres en espanol para tablas, columnas, vistas, funciones, enums e indices.
+Este documento define el modelo relacional recomendado para convertir Pesca Con Fe en un ecommerce operativo con Supabase, Supabase Auth, panel administrador, perfiles de cliente, checkout persistente y productos administrables con multiples imagenes en Cloudinary.
+
+Todo el modelo usa nombres en espanol para tablas, columnas, vistas, funciones, enums e indices.
 
 ## Principios del Modelo
 
-- La tienda publica solo lee productos, categorias, subcategorias, marcas, imagenes, cuentas bancarias y configuracion activa.
-- El checkout crea pedidos en estado `pendiente_pago`.
-- El cliente puede elegir `envio_servientrega` o `retiro_local`.
-- Si elige `retiro_local`, el costo de envio debe ser `0.00`.
-- El stock no baja al crear un pedido web.
-- El stock baja solo cuando un administrador confirma el pago o registra una venta manual.
-- El panel administrador requiere Supabase Auth y politicas RLS.
-- Los totales del pedido se guardan como snapshot historico.
-- Los datos importantes del producto tambien se copian en `pedido_items`, para que un pedido antiguo no cambie si luego se edita el producto.
+- Supabase Auth guarda la identidad del usuario.
+- `perfiles_admin` decide quien puede entrar al panel administrador.
+- `perfiles_cliente` guarda datos de cliente para autocompletar checkout.
+- `direcciones_cliente` permite que la pestaña de direcciones exista sin redisenar la base despues.
+- La tienda publica solo lee catalogo, imagenes, marcas, categorias, bancos y configuracion activos.
+- El admin crea y edita productos desde el panel.
+- Las imagenes de productos viven en Cloudinary; la base solo guarda metadatos, URLs y `public_id`.
+- Un producto puede tener multiples imagenes y solo una imagen principal activa.
+- El checkout puede crear pedidos anonimos o vinculados a un usuario autenticado.
+- Los pedidos y sus items guardan snapshots historicos para que no cambien si luego se edita el catalogo.
+- El stock no baja al crear un pedido web; baja cuando un administrador confirma pago o registra una venta manual.
+- Las politicas RLS protegen escritura admin, datos de clientes y pedidos.
 
-## Entidades Principales
+## Relacion General
 
 ```mermaid
 erDiagram
+  auth_users ||--|| perfiles_cliente : extiende
+  auth_users ||--|| perfiles_admin : autoriza
+  perfiles_cliente ||--o{ direcciones_cliente : guarda
+  perfiles_cliente ||--o{ pedidos : realiza
   perfiles_admin ||--o{ pedidos : gestiona
   categorias ||--o{ subcategorias : contiene
   categorias ||--o{ productos : agrupa
@@ -32,16 +41,16 @@ erDiagram
   configuracion_negocio ||--o{ cuentas_bancarias : muestra
 ```
 
-## Extensiones Recomendadas
+`auth_users` representa `auth.users`; no se crea manualmente en `public`.
+
+## 1. Extensiones
 
 ```sql
 create extension if not exists "pgcrypto";
 create extension if not exists "citext";
 ```
 
-`pgcrypto` permite usar `gen_random_uuid()`. `citext` permite guardar correos sin sensibilidad a mayusculas/minusculas.
-
-## Tipos Enum
+## 2. Enums
 
 ```sql
 create type estado_pedido as enum (
@@ -54,9 +63,9 @@ create type estado_pedido as enum (
 );
 
 create type canal_venta as enum (
-  'presencial',
+  'web',
   'whatsapp',
-  'web'
+  'presencial'
 );
 
 create type tipo_entrega as enum (
@@ -78,28 +87,190 @@ create type tipo_movimiento_inventario as enum (
 );
 ```
 
-## Tablas
+## 3. Funciones Base
+
+### Actualizar `actualizado_en`
+
+```sql
+create or replace function public.set_actualizado_en()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.actualizado_en = now();
+  return new;
+end;
+$$;
+```
+
+### Validar cedula ecuatoriana
+
+La aplicacion ya valida cedula en frontend, pero la base tambien puede proteger los datos.
+
+```sql
+create or replace function public.es_cedula_ecuatoriana(valor text)
+returns boolean
+language plpgsql
+immutable
+as $$
+declare
+  cedula text;
+  provincia int;
+  suma int := 0;
+  digito int;
+  coef int;
+  i int;
+begin
+  cedula := regexp_replace(coalesce(valor, ''), '\D', '', 'g');
+
+  if length(cedula) <> 10 then
+    return false;
+  end if;
+
+  provincia := substring(cedula from 1 for 2)::int;
+  if provincia < 1 or provincia > 24 then
+    return false;
+  end if;
+
+  if substring(cedula from 3 for 1)::int > 6 then
+    return false;
+  end if;
+
+  for i in 1..9 loop
+    coef := case when i % 2 = 1 then 2 else 1 end;
+    digito := substring(cedula from i for 1)::int * coef;
+    if digito >= 10 then
+      digito := digito - 9;
+    end if;
+    suma := suma + digito;
+  end loop;
+
+  return ((10 - (suma % 10)) % 10) = substring(cedula from 10 for 1)::int;
+end;
+$$;
+```
+
+### Codigo de pedido
+
+Crear esta secuencia y funcion antes de crear `pedidos`, porque `pedidos.codigo` la usa como default.
+
+```sql
+create sequence if not exists public.pedido_codigo_seq start 1001;
+
+create or replace function public.siguiente_codigo_pedido()
+returns text
+language sql
+as $$
+  select 'PCF-' || nextval('public.pedido_codigo_seq')::text;
+$$;
+```
+
+## 4. Usuarios Y Permisos
 
 ### `perfiles_admin`
 
-Extiende `auth.users` para saber que usuarios pueden entrar al panel administrador.
+Autoriza el acceso al panel. Registrarse como cliente no concede acceso admin.
 
 ```sql
 create table public.perfiles_admin (
   id uuid primary key references auth.users(id) on delete cascade,
   nombre_completo text not null,
-  rol text not null default 'admin',
+  rol text not null default 'admin' check (rol in ('dueno', 'admin', 'vendedor')),
   activo boolean not null default true,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+create trigger perfiles_admin_actualizado_en
+before update on public.perfiles_admin
+for each row execute function public.set_actualizado_en();
 ```
 
-Para el MVP puede existir solo el rol `admin`. Si luego se necesita mas control, usar roles como `dueno`, `admin` y `vendedor`.
+### Helper admin
+
+```sql
+create or replace function public.es_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.perfiles_admin
+    where id = auth.uid()
+      and activo = true
+      and rol in ('dueno', 'admin', 'vendedor')
+  );
+$$;
+```
+
+### `perfiles_cliente`
+
+Datos del usuario normal para autocompletar checkout y mostrar "Mi Cuenta".
+
+```sql
+create table public.perfiles_cliente (
+  id uuid primary key references auth.users(id) on delete cascade,
+  nombres text not null,
+  apellidos text not null,
+  nombre_completo text generated always as (trim(nombres || ' ' || apellidos)) stored,
+  cedula text not null check (public.es_cedula_ecuatoriana(cedula)),
+  celular text not null,
+  correo citext not null,
+  creado_en timestamptz not null default now(),
+  actualizado_en timestamptz not null default now()
+);
+
+create unique index perfiles_cliente_cedula_unique
+  on public.perfiles_cliente(cedula);
+
+create unique index perfiles_cliente_correo_unique
+  on public.perfiles_cliente(correo);
+
+create trigger perfiles_cliente_actualizado_en
+before update on public.perfiles_cliente
+for each row execute function public.set_actualizado_en();
+```
+
+### `direcciones_cliente`
+
+Direcciones guardadas por usuario para checkout. No reemplazan el snapshot del pedido.
+
+```sql
+create table public.direcciones_cliente (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references auth.users(id) on delete cascade,
+  alias text not null default 'Principal',
+  provincia text not null,
+  ciudad text not null,
+  direccion text not null,
+  referencia text,
+  celular_contacto text,
+  principal boolean not null default false,
+  activa boolean not null default true,
+  creado_en timestamptz not null default now(),
+  actualizado_en timestamptz not null default now()
+);
+
+create unique index direcciones_cliente_una_principal_activa
+  on public.direcciones_cliente(cliente_id)
+  where principal = true and activa = true;
+
+create index direcciones_cliente_cliente_idx
+  on public.direcciones_cliente(cliente_id, activa, principal desc, creado_en desc);
+
+create trigger direcciones_cliente_actualizado_en
+before update on public.direcciones_cliente
+for each row execute function public.set_actualizado_en();
+```
+
+## 5. Configuracion Del Negocio
 
 ### `configuracion_negocio`
 
-Configuracion general de Pesca Con Fe. Normalmente habra una sola fila activa.
+Normalmente existira una sola fila activa.
 
 ```sql
 create table public.configuracion_negocio (
@@ -121,18 +292,22 @@ create table public.configuracion_negocio (
   url_whatsapp_perfil text,
   url_mapa_embed text,
   servicio_envio text not null default 'Servientrega Ecuador',
-  costo_envio_base numeric(10,2) not null default 6.50,
+  costo_envio_base numeric(10,2) not null default 6.50 check (costo_envio_base >= 0),
   retiro_local_habilitado boolean not null default true,
   instrucciones_retiro text,
   activo boolean not null default true,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+create trigger configuracion_negocio_actualizado_en
+before update on public.configuracion_negocio
+for each row execute function public.set_actualizado_en();
 ```
 
 ### `cuentas_bancarias`
 
-Cuentas que se muestran en el checkout.
+Cuentas visibles en checkout.
 
 ```sql
 create table public.cuentas_bancarias (
@@ -148,11 +323,15 @@ create table public.cuentas_bancarias (
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+create trigger cuentas_bancarias_actualizado_en
+before update on public.cuentas_bancarias
+for each row execute function public.set_actualizado_en();
 ```
 
-### `categorias`
+## 6. Catalogo
 
-Categorias publicas del catalogo: carrete, canas, indumentaria, senuelos.
+### `categorias`
 
 ```sql
 create table public.categorias (
@@ -166,11 +345,13 @@ create table public.categorias (
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+create trigger categorias_actualizado_en
+before update on public.categorias
+for each row execute function public.set_actualizado_en();
 ```
 
 ### `subcategorias`
-
-Subcategorias dependientes de una categoria.
 
 ```sql
 create table public.subcategorias (
@@ -184,11 +365,13 @@ create table public.subcategorias (
   actualizado_en timestamptz not null default now(),
   unique (categoria_id, slug)
 );
+
+create trigger subcategorias_actualizado_en
+before update on public.subcategorias
+for each row execute function public.set_actualizado_en();
 ```
 
 ### `marcas`
-
-Marcas del catalogo.
 
 ```sql
 create table public.marcas (
@@ -203,11 +386,15 @@ create table public.marcas (
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+create trigger marcas_actualizado_en
+before update on public.marcas
+for each row execute function public.set_actualizado_en();
 ```
 
 ### `productos`
 
-Producto principal del catalogo.
+Cada fila representa un SKU vendible. Las variantes se pueden agregar despues si el negocio las necesita.
 
 ```sql
 create table public.productos (
@@ -225,48 +412,77 @@ create table public.productos (
   youtube_video_id text,
   destacado boolean not null default false,
   activo boolean not null default true,
+  creado_por uuid references auth.users(id) on delete set null,
+  actualizado_por uuid references auth.users(id) on delete set null,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
-```
 
-Campos como `imagen_principal`, `alt_imagen`, `categoria`, `marca` y `subcategoria` se derivan con joins desde `producto_imagenes`, `categorias`, `marcas` y `subcategorias`.
+create trigger productos_actualizado_en
+before update on public.productos
+for each row execute function public.set_actualizado_en();
+```
 
 ### `producto_imagenes`
 
-Imagenes de productos. Puede usarse con Supabase Storage, Cloudinary o URLs externas.
+Metadatos de imagenes subidas a Cloudinary. La base no guarda `api_secret`, upload presets privados ni credenciales.
 
 ```sql
 create table public.producto_imagenes (
   id uuid primary key default gen_random_uuid(),
   producto_id uuid not null references public.productos(id) on delete cascade,
-  url text not null,
-  ruta_storage text,
-  public_id text,
+  cloudinary_public_id text not null,
+  cloudinary_secure_url text not null,
+  cloudinary_url text,
+  cloudinary_version bigint,
+  cloudinary_signature text,
+  cloudinary_format text,
+  cloudinary_resource_type text not null default 'image',
+  cloudinary_width integer,
+  cloudinary_height integer,
+  cloudinary_bytes integer,
   alt text not null,
   orden integer not null default 0,
   principal boolean not null default false,
+  activo boolean not null default true,
+  creado_por uuid references auth.users(id) on delete set null,
+  actualizado_por uuid references auth.users(id) on delete set null,
   creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  actualizado_en timestamptz not null default now(),
+  unique (cloudinary_public_id)
 );
-```
 
-Para asegurar solo una imagen principal por producto:
-
-```sql
-create unique index producto_imagenes_una_principal_por_producto
+create unique index producto_imagenes_una_principal_activa
   on public.producto_imagenes(producto_id)
-  where principal = true;
+  where principal = true and activo = true;
+
+create index producto_imagenes_producto_orden_idx
+  on public.producto_imagenes(producto_id, principal desc, orden, creado_en);
+
+create trigger producto_imagenes_actualizado_en
+before update on public.producto_imagenes
+for each row execute function public.set_actualizado_en();
 ```
+
+Recomendacion para subida desde el panel:
+
+- El cliente selecciona multiples archivos.
+- Un Server Action o Route Handler firma/sube a Cloudinary con variables privadas.
+- Por cada resultado exitoso se inserta una fila en `producto_imagenes`.
+- Si una imagen se marca como principal, primero se desmarca la anterior del mismo producto.
+- Al borrar una imagen, conviene eliminarla en Cloudinary y luego desactivarla o borrarla en Supabase.
+
+## 7. Pedidos
 
 ### `pedidos`
 
-Pedido web, pedido por WhatsApp o venta presencial. Guarda datos del cliente, modalidad de entrega y totales como snapshot.
+Soporta pedidos anonimos, pedidos de usuarios logueados, ventas manuales y pedidos por WhatsApp.
 
 ```sql
 create table public.pedidos (
   id uuid primary key default gen_random_uuid(),
-  codigo text not null unique,
+  codigo text not null unique default public.siguiente_codigo_pedido(),
+  cliente_id uuid references auth.users(id) on delete set null,
   cliente_nombre_completo text not null,
   cliente_cedula text,
   cliente_celular text not null,
@@ -275,6 +491,7 @@ create table public.pedidos (
   cliente_ciudad text,
   cliente_direccion text,
   cliente_referencia_entrega text,
+  direccion_cliente_id uuid references public.direcciones_cliente(id) on delete set null,
   tipo_entrega tipo_entrega not null default 'envio_servientrega',
   direccion_retiro_snapshot jsonb,
   cuenta_bancaria_id uuid references public.cuentas_bancarias(id) on delete set null,
@@ -314,17 +531,19 @@ create table public.pedidos (
     total = subtotal + envio
   )
 );
+
+create trigger pedidos_actualizado_en
+before update on public.pedidos
+for each row execute function public.set_actualizado_en();
 ```
 
 `cuenta_bancaria_snapshot` debe guardar banco, titular, tipo de cuenta y numero usado al crear el pedido.
 
-`direccion_retiro_snapshot` debe guardar la direccion del local, horario, telefonos e instrucciones vigentes al momento de crear el pedido. Asi el pedido conserva la informacion aunque luego cambie la configuracion del negocio.
-
-Para `retiro_local`, los campos de direccion del cliente pueden quedar vacios. Para `envio_servientrega`, provincia, ciudad y direccion son obligatorios.
+`direccion_retiro_snapshot` debe guardar direccion del local, horario, telefonos e instrucciones vigentes.
 
 ### `pedido_items`
 
-Lineas del pedido. Copian informacion basica del producto al momento de la compra.
+Guarda snapshot de producto, precio e imagen principal al momento de compra.
 
 ```sql
 create table public.pedido_items (
@@ -345,7 +564,7 @@ create table public.pedido_items (
 
 ### `movimientos_inventario`
 
-Bitacora de cambios de stock. Sirve para auditar ventas manuales, confirmaciones de pago, reposiciones y ajustes.
+Bitacora auditable de cambios de stock.
 
 ```sql
 create table public.movimientos_inventario (
@@ -362,176 +581,20 @@ create table public.movimientos_inventario (
 );
 ```
 
-Para ventas o pagos confirmados, `cantidad_delta` debe ser negativo. Para reposicion, positivo.
+## 8. Funciones De Pedido
 
-## Indices Recomendados
+### Crear pedido web
 
-```sql
-create index categorias_activas_orden_idx
-  on public.categorias(activa, orden);
-
-create index subcategorias_categoria_idx
-  on public.subcategorias(categoria_id, activa, orden);
-
-create index marcas_activas_orden_idx
-  on public.marcas(activa, orden);
-
-create index productos_catalogo_publico_idx
-  on public.productos(activo, destacado, creado_en desc);
-
-create index productos_categoria_idx
-  on public.productos(categoria_id, subcategoria_id);
-
-create index productos_marca_idx
-  on public.productos(marca_id);
-
-create index productos_stock_idx
-  on public.productos(stock);
-
-create index producto_imagenes_producto_orden_idx
-  on public.producto_imagenes(producto_id, principal desc, orden);
-
-create index pedidos_estado_creado_idx
-  on public.pedidos(estado, creado_en desc);
-
-create index pedidos_canal_creado_idx
-  on public.pedidos(canal, creado_en desc);
-
-create index pedidos_tipo_entrega_creado_idx
-  on public.pedidos(tipo_entrega, creado_en desc);
-
-create index pedidos_cliente_celular_idx
-  on public.pedidos(cliente_celular);
-
-create index pedido_items_pedido_idx
-  on public.pedido_items(pedido_id);
-
-create index movimientos_inventario_producto_creado_idx
-  on public.movimientos_inventario(producto_id, creado_en desc);
-```
-
-## Vistas Utiles
-
-### `productos_publicos`
-
-Vista para reemplazar `mockProducts` en catalogo, home y detalle.
-
-```sql
-create view public.productos_publicos as
-select
-  p.id,
-  p.slug,
-  p.nombre,
-  p.sku,
-  m.nombre as marca,
-  c.nombre as categoria,
-  c.slug as categoria_slug,
-  s.nombre as subcategoria,
-  s.slug as subcategoria_slug,
-  p.precio,
-  p.stock,
-  p.descripcion,
-  p.caracteristicas,
-  p.youtube_video_id,
-  p.destacado,
-  p.activo,
-  p.creado_en,
-  imagen_principal.url as imagen_principal,
-  imagen_principal.alt as imagen_alt
-from public.productos p
-join public.categorias c on c.id = p.categoria_id
-left join public.subcategorias s on s.id = p.subcategoria_id
-left join public.marcas m on m.id = p.marca_id
-left join lateral (
-  select url, alt
-  from public.producto_imagenes pi
-  where pi.producto_id = p.id
-  order by pi.principal desc, pi.orden asc, pi.creado_en asc
-  limit 1
-) imagen_principal on true
-where p.activo = true;
-```
-
-### `pedidos_admin`
-
-Vista practica para la tabla de ventas del panel administrador.
-
-```sql
-create view public.pedidos_admin as
-select
-  p.id,
-  p.codigo,
-  p.cliente_nombre_completo,
-  p.cliente_celular,
-  p.cliente_ciudad,
-  p.estado,
-  p.canal,
-  p.tipo_entrega,
-  p.subtotal,
-  p.envio,
-  p.total,
-  p.creado_en,
-  count(pi.id) as cantidad_lineas,
-  coalesce(sum(pi.cantidad), 0) as cantidad_productos
-from public.pedidos p
-left join public.pedido_items pi on pi.pedido_id = p.id
-group by p.id;
-```
-
-## Funciones Para Flujo Critico
-
-### Calcular envio segun modalidad
-
-La aplicacion puede calcular el envio, pero la base debe validar la regla principal:
-
-- `envio_servientrega`: cobra segun categorias del carrito.
-- `retiro_local`: siempre cobra `0.00`.
-
-Para mayor seguridad, se puede crear una funcion auxiliar:
-
-```sql
-create or replace function public.calcular_envio_pedido(
-  tipo_entrega_input tipo_entrega,
-  costo_envio_calculado numeric
-)
-returns numeric
-language sql
-immutable
-as $$
-  select case
-    when tipo_entrega_input = 'retiro_local' then 0
-    else coalesce(costo_envio_calculado, 0)
-  end;
-$$;
-```
-
-En el frontend, el resumen del checkout debe mostrar dos opciones:
-
-- `Envio por Servientrega`: pide provincia, ciudad, direccion y referencia; suma envio al total.
-- `Retiro en local`: muestra direccion, horario, telefonos e instrucciones; no pide direccion de entrega; envio = `$0.00`.
-
-### Generar codigo de pedido
-
-```sql
-create sequence if not exists public.pedido_codigo_seq start 1001;
-
-create or replace function public.siguiente_codigo_pedido()
-returns text
-language sql
-as $$
-  select 'PCF-' || nextval('public.pedido_codigo_seq')::text;
-$$;
-```
+El checkout usa una RPC `security definer` para crear el pedido y sus items en una sola transaccion, incluso cuando el cliente no ha iniciado sesion. La definicion completa vive en `docs/supabase_pesca_con_fe_base.sql` y el parche aplicable en proyectos existentes vive en `docs/supabase_allow_anonymous_checkout_orders.sql`.
 
 ### Confirmar pago y descontar stock
-
-Esta funcion debe ejecutarse solo por administradores. Cambia el pedido a `pagado_confirmado`, descuenta stock y registra movimientos. Luego, segun el tipo de entrega, el administrador puede marcarlo como `enviado` o `listo_retiro`.
 
 ```sql
 create or replace function public.confirmar_pago_pedido(pedido_id_input uuid)
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   pedido_record public.pedidos%rowtype;
@@ -539,6 +602,10 @@ declare
   stock_actual integer;
   stock_nuevo integer;
 begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
   select * into pedido_record
   from public.pedidos
   where id = pedido_id_input
@@ -565,13 +632,14 @@ begin
     end if;
 
     if stock_actual < item_record.cantidad then
-      raise exception 'Stock insuficiente para el producto %', item_record.producto_nombre;
+      raise exception 'Stock insuficiente para %', item_record.producto_nombre;
     end if;
 
     stock_nuevo := stock_actual - item_record.cantidad;
 
     update public.productos
     set stock = stock_nuevo,
+        actualizado_por = auth.uid(),
         actualizado_en = now()
     where id = item_record.producto_id;
 
@@ -607,19 +675,20 @@ end;
 $$;
 ```
 
-Nota: al usar `security definer`, hay que controlar permisos de ejecucion y validar que el usuario sea administrador.
-
-### Marcar pedido listo para retiro
-
-Solo aplica para pedidos pagados con `tipo_entrega = 'retiro_local'`.
+### Cambios de estado
 
 ```sql
 create or replace function public.marcar_pedido_listo_retiro(pedido_id_input uuid)
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
   update public.pedidos
   set estado = 'listo_retiro',
       listo_retiro_en = now(),
@@ -629,23 +698,22 @@ begin
     and estado = 'pagado_confirmado';
 
   if not found then
-    raise exception 'El pedido no esta pagado o no es de retiro en local';
+    raise exception 'El pedido no esta pagado o no es de retiro local';
   end if;
 end;
 $$;
-```
 
-### Marcar pedido retirado
-
-Solo aplica para pedidos en estado `listo_retiro`.
-
-```sql
 create or replace function public.marcar_pedido_retirado(pedido_id_input uuid)
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
   update public.pedidos
   set estado = 'retirado',
       retirado_en = now(),
@@ -659,19 +727,18 @@ begin
   end if;
 end;
 $$;
-```
 
-### Marcar pedido enviado
-
-Solo aplica para pedidos pagados con `tipo_entrega = 'envio_servientrega'`.
-
-```sql
 create or replace function public.marcar_pedido_enviado(pedido_id_input uuid)
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
   update public.pedidos
   set estado = 'enviado',
       enviado_en = now(),
@@ -681,18 +748,190 @@ begin
     and estado = 'pagado_confirmado';
 
   if not found then
-    raise exception 'El pedido no esta pagado o no es de envio por Servientrega';
+    raise exception 'El pedido no esta pagado o no es de envio';
   end if;
 end;
 $$;
 ```
 
-## RLS Sugerido
+## 9. Indices
 
-Activar RLS en todas las tablas del negocio:
+```sql
+create index categorias_activas_orden_idx
+  on public.categorias(activa, orden);
+
+create index subcategorias_categoria_idx
+  on public.subcategorias(categoria_id, activa, orden);
+
+create index marcas_activas_orden_idx
+  on public.marcas(activa, orden);
+
+create index productos_catalogo_publico_idx
+  on public.productos(activo, destacado, creado_en desc);
+
+create index productos_categoria_idx
+  on public.productos(categoria_id, subcategoria_id);
+
+create index productos_marca_idx
+  on public.productos(marca_id);
+
+create index productos_stock_idx
+  on public.productos(stock);
+
+create index pedidos_cliente_creado_idx
+  on public.pedidos(cliente_id, creado_en desc);
+
+create index pedidos_estado_creado_idx
+  on public.pedidos(estado, creado_en desc);
+
+create index pedidos_canal_creado_idx
+  on public.pedidos(canal, creado_en desc);
+
+create index pedidos_tipo_entrega_creado_idx
+  on public.pedidos(tipo_entrega, creado_en desc);
+
+create index pedidos_cliente_celular_idx
+  on public.pedidos(cliente_celular);
+
+create index pedido_items_pedido_idx
+  on public.pedido_items(pedido_id);
+
+create index movimientos_inventario_producto_creado_idx
+  on public.movimientos_inventario(producto_id, creado_en desc);
+```
+
+## 10. Vistas
+
+### `productos_publicos`
+
+Vista para home, catalogo y detalle.
+
+```sql
+create or replace view public.productos_publicos
+with (security_invoker = true) as
+select
+  p.id,
+  p.slug,
+  p.nombre,
+  p.sku,
+  m.nombre as marca,
+  c.nombre as categoria,
+  c.slug as categoria_slug,
+  s.nombre as subcategoria,
+  s.slug as subcategoria_slug,
+  p.precio,
+  p.stock,
+  p.descripcion,
+  p.caracteristicas,
+  p.youtube_video_id,
+  p.destacado,
+  p.activo,
+  p.creado_en,
+  imagen_principal.cloudinary_secure_url as imagen_principal,
+  imagen_principal.alt as imagen_alt
+from public.productos p
+join public.categorias c on c.id = p.categoria_id
+left join public.subcategorias s on s.id = p.subcategoria_id
+left join public.marcas m on m.id = p.marca_id
+left join lateral (
+  select cloudinary_secure_url, alt
+  from public.producto_imagenes pi
+  where pi.producto_id = p.id
+    and pi.activo = true
+  order by pi.principal desc, pi.orden asc, pi.creado_en asc
+  limit 1
+) imagen_principal on true
+where p.activo = true;
+```
+
+### `productos_admin`
+
+```sql
+create or replace view public.productos_admin
+with (security_invoker = true) as
+select
+  p.id,
+  p.slug,
+  p.nombre,
+  p.sku,
+  p.precio,
+  p.stock,
+  p.destacado,
+  p.activo,
+  c.nombre as categoria,
+  s.nombre as subcategoria,
+  m.nombre as marca,
+  count(pi.id) filter (where pi.activo = true) as cantidad_imagenes,
+  bool_or(pi.principal and pi.activo) as tiene_imagen_principal,
+  p.creado_en,
+  p.actualizado_en
+from public.productos p
+join public.categorias c on c.id = p.categoria_id
+left join public.subcategorias s on s.id = p.subcategoria_id
+left join public.marcas m on m.id = p.marca_id
+left join public.producto_imagenes pi on pi.producto_id = p.id
+group by p.id, c.nombre, s.nombre, m.nombre;
+```
+
+### `pedidos_admin`
+
+```sql
+create or replace view public.pedidos_admin
+with (security_invoker = true) as
+select
+  p.id,
+  p.codigo,
+  p.cliente_id,
+  p.cliente_nombre_completo,
+  p.cliente_celular,
+  p.cliente_ciudad,
+  p.estado,
+  p.canal,
+  p.tipo_entrega,
+  p.subtotal,
+  p.envio,
+  p.total,
+  p.creado_en,
+  count(pi.id) as cantidad_lineas,
+  coalesce(sum(pi.cantidad), 0) as cantidad_productos
+from public.pedidos p
+left join public.pedido_items pi on pi.pedido_id = p.id
+group by p.id;
+```
+
+### `mis_pedidos`
+
+```sql
+create or replace view public.mis_pedidos
+with (security_invoker = true) as
+select
+  p.id,
+  p.codigo,
+  p.estado,
+  p.tipo_entrega,
+  p.subtotal,
+  p.envio,
+  p.total,
+  p.creado_en,
+  p.cliente_id,
+  count(pi.id) as cantidad_lineas,
+  coalesce(sum(pi.cantidad), 0) as cantidad_productos
+from public.pedidos p
+left join public.pedido_items pi on pi.pedido_id = p.id
+where p.cliente_id = auth.uid()
+group by p.id;
+```
+
+## 11. RLS
+
+La funcion `public.es_admin()` ya fue creada en la seccion de usuarios y permisos, antes de las funciones de pedido y antes de activar RLS.
+
+### Activar RLS
 
 ```sql
 alter table public.perfiles_admin enable row level security;
+alter table public.perfiles_cliente enable row level security;
+alter table public.direcciones_cliente enable row level security;
 alter table public.configuracion_negocio enable row level security;
 alter table public.cuentas_bancarias enable row level security;
 alter table public.categorias enable row level security;
@@ -703,28 +942,12 @@ alter table public.producto_imagenes enable row level security;
 alter table public.pedidos enable row level security;
 alter table public.pedido_items enable row level security;
 alter table public.movimientos_inventario enable row level security;
+
+revoke all on function public.crear_pedido_web(jsonb) from public;
+grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
 ```
 
-Funcion helper para saber si el usuario actual es admin:
-
-```sql
-create or replace function public.es_admin()
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1
-    from public.perfiles_admin
-    where id = auth.uid()
-      and activo = true
-      and rol in ('dueno', 'admin', 'vendedor')
-  );
-$$;
-```
-
-Lectura publica para tienda:
+### Lectura publica
 
 ```sql
 create policy "Publico puede leer configuracion activa"
@@ -751,10 +974,11 @@ create policy "Publico puede leer productos activos"
 on public.productos for select
 using (activo = true);
 
-create policy "Publico puede leer imagenes de productos activos"
+create policy "Publico puede leer imagenes activas de productos activos"
 on public.producto_imagenes for select
 using (
-  exists (
+  activo = true
+  and exists (
     select 1
     from public.productos p
     where p.id = producto_imagenes.producto_id
@@ -763,36 +987,66 @@ using (
 );
 ```
 
-Pedidos desde checkout anonimo:
+### Cliente autenticado
 
 ```sql
-create policy "Cualquiera puede crear pedidos web"
-on public.pedidos for insert
-with check (
-  canal = 'web'
-  and estado = 'pendiente_pago'
-  and (
-    (tipo_entrega = 'retiro_local' and envio = 0)
-    or tipo_entrega = 'envio_servientrega'
-  )
-);
+create policy "Clientes leen su perfil"
+on public.perfiles_cliente for select
+using (id = auth.uid());
 
-create policy "Cualquiera puede crear items de pedidos web"
-on public.pedido_items for insert
-with check (
+create policy "Clientes crean su perfil"
+on public.perfiles_cliente for insert
+with check (id = auth.uid());
+
+create policy "Clientes actualizan su perfil"
+on public.perfiles_cliente for update
+using (id = auth.uid())
+with check (id = auth.uid());
+
+create policy "Clientes gestionan sus direcciones"
+on public.direcciones_cliente for all
+using (cliente_id = auth.uid())
+with check (cliente_id = auth.uid());
+
+create policy "Clientes leen sus pedidos"
+on public.pedidos for select
+using (cliente_id = auth.uid());
+
+create policy "Clientes leen items de sus pedidos"
+on public.pedido_items for select
+using (
   exists (
     select 1
     from public.pedidos p
     where p.id = pedido_items.pedido_id
-      and p.canal = 'web'
-      and p.estado = 'pendiente_pago'
+      and p.cliente_id = auth.uid()
   )
 );
 ```
 
-Administracion:
+### Checkout web
 
 ```sql
+grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
+```
+
+### Administracion
+
+```sql
+create policy "Admins leen perfiles admin"
+on public.perfiles_admin for select
+using (public.es_admin());
+
+create policy "Admins gestionan perfiles cliente"
+on public.perfiles_cliente for all
+using (public.es_admin())
+with check (public.es_admin());
+
+create policy "Admins gestionan direcciones cliente"
+on public.direcciones_cliente for all
+using (public.es_admin())
+with check (public.es_admin());
+
 create policy "Admins gestionan configuracion"
 on public.configuracion_negocio for all
 using (public.es_admin())
@@ -847,64 +1101,68 @@ on public.movimientos_inventario for insert
 with check (public.es_admin());
 ```
 
-Recomendacion: no permitir cambios directos de `productos.stock` desde el cliente. Los cambios de stock deberian pasar por funciones controladas.
+## 12. Sincronizacion Opcional Desde Auth Metadata
 
-## Storage
+Si se quiere crear `perfiles_cliente` automaticamente al registrarse, se puede usar un trigger sobre `auth.users`. En muchos proyectos es mas simple hacerlo desde la aplicacion con una Server Action despues del registro/login.
 
-Si se usa Supabase Storage:
+```sql
+create or replace function public.crear_perfil_cliente_desde_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.perfiles_cliente (
+    id,
+    nombres,
+    apellidos,
+    cedula,
+    celular,
+    correo
+  )
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'first_name', ''),
+    coalesce(new.raw_user_meta_data->>'last_name', ''),
+    coalesce(new.raw_user_meta_data->>'cedula', ''),
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    new.email
+  )
+  on conflict (id) do nothing;
 
-- Bucket recomendado: `imagenes-productos`.
-- Ruta sugerida: `productos/{producto_id}/{imagen_id}.webp`.
-- Guardar la ruta en `producto_imagenes.ruta_storage`.
-- Publico puede leer imagenes.
-- Solo administradores pueden subir, actualizar o borrar.
+  return new;
+end;
+$$;
 
-Si se usa Cloudinary:
+create trigger crear_perfil_cliente_al_registrarse
+after insert on auth.users
+for each row execute function public.crear_perfil_cliente_desde_auth();
+```
 
-- Guardar URL final en `producto_imagenes.url`.
-- Guardar `public_id` en `producto_imagenes.public_id`.
-- No exponer secrets de Cloudinary en cliente.
+Usar este trigger solo si el registro siempre exige nombre, apellido, cedula ecuatoriana y celular. Si Supabase permite registros externos sin esos datos, preferir crear el perfil desde la aplicacion con validacion previa.
+
+## 13. Cloudinary
+
+Variables privadas esperadas en servidor:
+
+```txt
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+Reglas de integracion:
+
+- No guardar `CLOUDINARY_API_SECRET` en Supabase.
+- No exponer secretos en componentes cliente.
 - Subir imagenes desde Server Action o Route Handler.
+- Guardar en `producto_imagenes` cada respuesta exitosa de Cloudinary.
+- Usar `cloudinary_secure_url` para renderizar imagenes.
+- Usar `cloudinary_public_id` para reemplazar o eliminar imagenes.
+- Para multiples imagenes, mantener `orden` y `principal`.
 
-## Implicaciones En Checkout Y WhatsApp
-
-El checkout debe agregar un selector de modalidad de entrega:
-
-- `Envio por Servientrega`
-- `Retiro en local`
-
-Cuando el cliente elige `envio_servientrega`:
-
-- Se mantienen obligatorios provincia, ciudad y direccion.
-- Se calcula envio segun categorias del carrito.
-- El mensaje de WhatsApp debe incluir direccion de entrega, ciudad, provincia, referencia y costo de envio.
-
-Cuando el cliente elige `retiro_local`:
-
-- El envio debe ser `0.00`.
-- No se debe exigir direccion de entrega.
-- Se debe mostrar direccion del local, horario, telefonos e instrucciones de retiro.
-- El mensaje de WhatsApp debe indicar que el pedido sera retirado en el local fisico.
-- El pedido debe guardar `direccion_retiro_snapshot` con la informacion vigente del negocio.
-
-Flujo recomendado para retiro local:
-
-1. Cliente genera pedido con `tipo_entrega = 'retiro_local'` y `envio = 0`.
-2. Cliente paga por transferencia o coordina por WhatsApp.
-3. Admin confirma pago con `confirmar_pago_pedido()`.
-4. Admin prepara el pedido y ejecuta `marcar_pedido_listo_retiro()`.
-5. Cliente retira en el local.
-6. Admin ejecuta `marcar_pedido_retirado()`.
-
-Flujo recomendado para envio:
-
-1. Cliente genera pedido con `tipo_entrega = 'envio_servientrega'`.
-2. Cliente paga por transferencia.
-3. Admin confirma pago con `confirmar_pago_pedido()`.
-4. Admin despacha por Servientrega.
-5. Admin ejecuta `marcar_pedido_enviado()`.
-
-## Mapeo Desde El Codigo Actual
+## 14. Mapeo Desde El Codigo Actual
 
 | Codigo actual | Tabla destino |
 | --- | --- |
@@ -913,36 +1171,41 @@ Flujo recomendado para envio:
 | `categories` | `categorias`, `subcategorias` |
 | `brands`, `brandLogos` | `marcas` |
 | `mockProducts` | `productos`, `producto_imagenes` |
+| `ImageUploaderMock` | Cloudinary + `producto_imagenes` |
 | `mockOrders` | `pedidos`, `pedido_items` |
 | `reduceStockForPaidOrder` | `confirmar_pago_pedido()` + `movimientos_inventario` |
-| `calculateShipping` | `tipo_entrega`, `envio`, `calcular_envio_pedido()` |
-| `ImageUploaderMock` | `producto_imagenes` + Storage/Cloudinary |
-| `cart-store.ts` | Puede seguir en cliente; no requiere tabla para MVP |
+| `calculateShipping` | `tipo_entrega`, `envio` |
+| Supabase Auth metadata | `perfiles_cliente` |
+| `/mi-cuenta?seccion=direcciones` | `direcciones_cliente` |
 
-## Orden Recomendado De Implementacion
+## 15. Orden Recomendado De Implementacion
 
-1. Crear extensiones, enums, tablas e indices.
-2. Crear funcion `es_admin()`.
-3. Activar RLS y politicas iniciales.
-4. Insertar configuracion del negocio y cuentas bancarias.
-5. Insertar categorias, subcategorias y marcas.
-6. Migrar productos e imagenes desde `mockProducts`.
-7. Crear vistas `productos_publicos` y `pedidos_admin`.
-8. Reemplazar catalogo y detalle para leer desde Supabase.
-9. Implementar checkout real: permitir `envio_servientrega` o `retiro_local`, insertar `pedidos` y `pedido_items`, luego abrir WhatsApp.
-10. Integrar Supabase Auth para `/admin`.
-11. Crear perfiles en `perfiles_admin`.
-12. Reemplazar tablas admin por CRUD real.
-13. Implementar `confirmar_pago_pedido()` para descontar stock con auditoria.
-14. Implementar acciones admin para `marcar_pedido_enviado()`, `marcar_pedido_listo_retiro()` y `marcar_pedido_retirado()`.
-15. Reemplazar `ImageUploaderMock` por Supabase Storage o Cloudinary.
-16. Agregar pruebas E2E del flujo de compra con envio, flujo de compra con retiro local y flujo admin.
+1. Crear extensiones.
+2. Crear enums.
+3. Crear `set_actualizado_en()`, `es_cedula_ecuatoriana()` y `siguiente_codigo_pedido()`.
+4. Crear `perfiles_admin` y luego `es_admin()`.
+5. Crear el resto de tablas en este orden: perfiles de cliente, direcciones, configuracion, catalogo, imagenes, pedidos, items, inventario.
+6. Crear triggers de `actualizado_en`.
+7. Crear indices.
+8. Activar RLS y politicas.
+9. Crear vistas con `security_invoker = true`.
+10. Insertar configuracion del negocio y cuentas bancarias.
+11. Insertar categorias, subcategorias y marcas.
+12. Migrar productos mock e imagenes a Cloudinary.
+13. Conectar catalogo publico a `productos_publicos`.
+14. Conectar checkout a `pedidos` y `pedido_items`.
+15. Conectar `/mi-cuenta` a `perfiles_cliente`, `direcciones_cliente` y `mis_pedidos`.
+16. Reemplazar CRUD mock del admin por operaciones reales.
+17. Implementar subida multiple a Cloudinary desde el panel admin.
+18. Implementar confirmacion de pago y cambios de estado.
 
-## MVP Minimo De Base De Datos
+## 16. MVP Minimo
 
-Para lanzar rapido, estas tablas son suficientes:
+Para operar el ecommerce real sin extras, estas tablas son suficientes:
 
 - `perfiles_admin`
+- `perfiles_cliente`
+- `direcciones_cliente`
 - `configuracion_negocio`
 - `cuentas_bancarias`
 - `categorias`
@@ -954,16 +1217,14 @@ Para lanzar rapido, estas tablas son suficientes:
 - `pedido_items`
 - `movimientos_inventario`
 
-Con eso el proyecto puede operar ventas web por transferencia/WhatsApp, admin protegido, catalogo editable y control basico de stock.
+## 17. Pendientes Para Versiones Futuras
 
-## Pendientes Para Una Segunda Version
-
-- Clientes con cuenta propia.
-- Historial publico de pedidos por cliente.
-- Cupones o descuentos.
-- Promociones y banners editables.
+- Variantes de producto por talla, color o modelo.
+- Cupones y promociones.
+- Favoritos.
 - Multiples sucursales.
-- Reportes diarios/mensuales.
-- Facturacion electronica si el negocio la requiere.
-- Integracion con pasarela de pago.
+- Reportes avanzados.
+- Facturacion electronica.
+- Pasarela de pago.
 - Notificaciones automaticas por correo o WhatsApp Business API.
+- Auditoria detallada de cambios admin.

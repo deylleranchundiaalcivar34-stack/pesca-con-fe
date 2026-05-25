@@ -79,7 +79,7 @@ export default function ContactPage() {
                   <MapPin className="size-5 text-primary" aria-hidden="true" />
                   <span className="text-sm leading-6 text-muted-foreground">
                     <span className="block">Mega Mercado Municipal</span>
-                    <span className="block">Local N&deg; 145 - Planta Alta</span>
+                    <span className="block">Local N° 145 - Planta Alta</span>
                     <span className="block">Shushufindi, Ecuador</span>
                   </span>
                 </p>
@@ -88,7 +88,7 @@ export default function ContactPage() {
                     Horario del negocio
                   </p>
                   <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                    <span className="block">Lunes a S&aacute;bado</span>
+                    <span className="block">Lunes a Sábado</span>
                     <span className="block">08:30 AM - 06:00 PM</span>
                   </p>
                 </div>

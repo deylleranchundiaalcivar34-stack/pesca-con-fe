@@ -13,7 +13,7 @@ export function BrandStrip() {
           Equipos y accesorios de fabricantes reconocidos
         </h2>
         <p className="mt-3 text-muted-foreground">
-          Seleccionamos marcas confiables para pesca deportiva, r&iacute;o, mar e indumentaria.
+          Seleccionamos marcas confiables para pesca deportiva, río, mar e indumentaria.
         </p>
       </div>
 

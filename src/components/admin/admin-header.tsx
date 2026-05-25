@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Store, UserRound } from "lucide-react";
+import { LogOut, Menu, Store } from "lucide-react";
+import { logout } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -42,13 +43,19 @@ export function AdminHeader() {
                 <Button asChild variant="outline" className="mt-4 justify-start">
                   <Link href="/">Ver tienda</Link>
                 </Button>
+                <form action={logout}>
+                  <Button type="submit" variant="secondary" className="w-full justify-start">
+                    <LogOut aria-hidden="true" />
+                    Cerrar sesión
+                  </Button>
+                </form>
               </nav>
             </SheetContent>
           </Sheet>
           <div>
             <p className="text-sm font-semibold text-dark-blue">Panel administrador</p>
             <p className="text-xs text-muted-foreground">
-              Interfaz protegida visualmente, lista para Auth real.
+              Acceso administrativo.
             </p>
           </div>
         </div>
@@ -60,10 +67,12 @@ export function AdminHeader() {
               Tienda
             </Link>
           </Button>
-          <Button variant="secondary" size="sm">
-            <UserRound aria-hidden="true" />
-            Admin demo
-          </Button>
+          <form action={logout}>
+            <Button variant="secondary" size="sm" type="submit">
+              <LogOut aria-hidden="true" />
+              Cerrar sesión
+            </Button>
+          </form>
         </div>
       </div>
     </header>
