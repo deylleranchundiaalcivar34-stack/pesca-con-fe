@@ -15,7 +15,8 @@ import {
 const links = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/productos", label: "Productos" },
-  { href: "/admin/ventas", label: "Ventas" },
+  { href: "/admin/marcas", label: "Marcas" },
+  { href: "/admin/pedidos", label: "Pedidos" },
   { href: "/admin/configuracion", label: "Configuración" },
 ];
 

@@ -51,6 +51,9 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     input.deliveryType === "envio_servientrega" && input.customer.deliveryReference
         ? `Referencia: ${input.customer.deliveryReference}`
         : undefined,
+    input.deliveryType === "envio_servientrega" && input.customer.contactPhone
+      ? `Celular de contacto: ${input.customer.contactPhone}`
+      : undefined,
     "",
     "Adjunto comprobante de transferencia.",
   ]

@@ -93,6 +93,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
   return (
     <form action={saveProduct} className="grid gap-6 xl:grid-cols-[1fr_420px]">
       <input type="hidden" name="productId" value={product?.id ?? ""} />
+      <input type="hidden" name="slug" value={product?.slug ?? slugify(name)} />
       <input type="hidden" name="brand" value={brand} />
       <input type="hidden" name="categorySlug" value={categorySlug} />
       <input type="hidden" name="subcategorySlug" value={subcategorySlug} />
@@ -109,7 +110,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
               <Input id="name" {...register("name")} name="name" required />
             </Field>
             <Field id="slug" label="Slug automático" error={errors.slug?.message}>
-              <Input id="slug" {...register("slug")} name="slug" required />
+              <Input id="slug" value={product?.slug ?? slugify(name)} readOnly disabled />
             </Field>
             <Field id="sku" label="SKU" error={errors.sku?.message}>
               <Input id="sku" {...register("sku")} name="sku" required />

@@ -5,6 +5,11 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getBankAccounts, getBusinessConfig } from "@/lib/supabase/data";
+import {
+  getCustomerAddresses,
+  getCustomerProfile,
+  getPublicUserSummary,
+} from "@/lib/user";
 import type { CheckoutCustomerDefaults } from "@/types/customer";
 
 export const metadata: Metadata = {
@@ -27,19 +32,40 @@ async function getCheckoutCustomerDefaults(): Promise<CheckoutCustomerDefaults> 
     return {};
   }
 
-  const metadata = user.user_metadata;
+  const [profile, addresses] = await Promise.all([
+    getCustomerProfile(supabase, user.id),
+    getCustomerAddresses(supabase, user.id),
+  ]);
+  const summary = getPublicUserSummary(user, profile);
+  const primaryAddress = addresses.find((address) => address.isPrimary) ?? addresses[0];
 
   return {
-    fullName: typeof metadata.full_name === "string" ? metadata.full_name : undefined,
-    cedula: typeof metadata.cedula === "string" ? metadata.cedula : undefined,
-    phone: typeof metadata.phone === "string" ? metadata.phone : undefined,
-    email: user.email,
+    isAuthenticated: true,
+    addressId: primaryAddress?.id,
+    fullName: summary.fullName,
+    cedula: summary.cedula,
+    phone: summary.phone,
+    email: summary.email,
+    province: primaryAddress?.province,
+    city: primaryAddress?.city,
+    address: primaryAddress?.address,
+    deliveryReference: primaryAddress?.deliveryReference,
+    contactPhone: primaryAddress?.contactPhone ?? summary.phone,
   };
 }
 
 export default async function CheckoutPage() {
-  const [customerDefaults, bankAccounts, businessConfig] = await Promise.all([
+  const [customerDefaults, checkoutAddresses, bankAccounts, businessConfig] = await Promise.all([
     getCheckoutCustomerDefaults(),
+    hasSupabaseEnv()
+      ? createClient().then(async (supabase) => {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+
+          return user ? getCustomerAddresses(supabase, user.id) : [];
+        })
+      : Promise.resolve([]),
     getBankAccounts(),
     getBusinessConfig(),
   ]);
@@ -59,6 +85,7 @@ export default async function CheckoutPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <CheckoutForm
             customerDefaults={customerDefaults}
+            checkoutAddresses={checkoutAddresses}
             bankAccounts={bankAccounts}
             businessConfig={businessConfig}
           />

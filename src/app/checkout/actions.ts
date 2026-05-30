@@ -10,6 +10,10 @@ type CreateCheckoutOrderInput = {
     cedula: string;
     phone: string;
     email?: string;
+    addressId?: string;
+    addressAlias?: string;
+    contactPhone?: string;
+    saveAddress?: boolean;
     province?: string;
     city?: string;
     address?: string;
@@ -37,6 +41,50 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  let addressId = input.customer.addressId || null;
+
+  if (
+    user &&
+    input.deliveryType === "envio_servientrega" &&
+    input.customer.saveAddress &&
+    !addressId &&
+    input.customer.province &&
+    input.customer.city &&
+    input.customer.address
+  ) {
+    const { count } = await supabase
+      .from("direcciones_cliente")
+      .select("id", { count: "exact", head: true })
+      .eq("cliente_id", user.id)
+      .eq("activa", true);
+
+    const { data: savedAddress, error: savedAddressError } = await supabase
+      .from("direcciones_cliente")
+      .insert({
+        cliente_id: user.id,
+        alias: input.customer.addressAlias || "Principal",
+        provincia: input.customer.province,
+        ciudad: input.customer.city,
+        direccion: input.customer.address,
+        referencia: input.customer.deliveryReference || null,
+        celular_contacto: input.customer.contactPhone || null,
+        principal: !count,
+        activa: true,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (savedAddressError || !savedAddress) {
+      console.error("Checkout address save failed", savedAddressError);
+      return {
+        ok: false,
+        message: "No pudimos guardar la direccion. Intenta nuevamente.",
+        code: null,
+      };
+    }
+
+    addressId = savedAddress.id;
+  }
 
   const payload = {
     cliente_id: user?.id ?? null,
@@ -48,6 +96,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     cliente_ciudad: input.customer.city || null,
     cliente_direccion: input.customer.address || null,
     cliente_referencia_entrega: input.customer.deliveryReference || null,
+    direccion_cliente_id: addressId,
     tipo_entrega: input.deliveryType,
     direccion_retiro_snapshot:
       input.deliveryType === "retiro_local"

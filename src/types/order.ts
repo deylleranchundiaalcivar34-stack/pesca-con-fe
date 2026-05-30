@@ -20,6 +20,7 @@ export interface CustomerInfo {
   city?: string;
   address?: string;
   deliveryReference?: string;
+  contactPhone?: string;
 }
 
 export interface OrderItem {

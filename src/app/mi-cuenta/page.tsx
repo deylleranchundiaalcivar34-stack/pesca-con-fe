@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  LogOut,
-  PackageSearch,
-  UserRound,
-  MapPin,
-} from "lucide-react";
+import { LogOut, MapPin, PackageSearch, UserRound } from "lucide-react";
 import { logout } from "@/app/auth/actions";
 import { PublicShell } from "@/components/layout/public-shell";
+import { AddressBook } from "@/components/profile/address-book";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DELIVERY_TYPE_LABELS } from "@/lib/constants";
+import { getCustomerOrders } from "@/lib/supabase/data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCustomerOrders } from "@/lib/supabase/data";
-import { getPublicUserSummary } from "@/lib/user";
+import {
+  getCustomerAddresses,
+  getCustomerProfile,
+  getPublicUserSummary,
+} from "@/lib/user";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { DELIVERY_TYPE_LABELS } from "@/lib/constants";
 import type { PublicUserSummary } from "@/types/user";
 
 export const metadata: Metadata = {
@@ -38,7 +38,12 @@ const accountLinks = [
     icon: PackageSearch,
     key: "pedidos",
   },
-  { href: "/mi-cuenta?seccion=direcciones", label: "Direcciones", icon: MapPin, key: "direcciones" },
+  {
+    href: "/mi-cuenta?seccion=direcciones",
+    label: "Direcciones",
+    icon: MapPin,
+    key: "direcciones",
+  },
 ];
 
 function getInitials(user: PublicUserSummary) {
@@ -57,10 +62,7 @@ function getSection(searchParams: AccountSearchParams) {
     ? searchParams.seccion[0]
     : searchParams.seccion;
 
-  if (
-    value === "perfil" ||
-    value === "direcciones"
-  ) {
+  if (value === "perfil" || value === "direcciones") {
     return value;
   }
 
@@ -81,7 +83,9 @@ async function getAccountUser() {
     redirect("/login");
   }
 
-  return getPublicUserSummary(user);
+  const profile = await getCustomerProfile(supabase, user.id);
+
+  return getPublicUserSummary(user, profile);
 }
 
 function Sidebar({
@@ -139,7 +143,7 @@ function Sidebar({
           className="w-full justify-start text-muted-foreground"
         >
           <LogOut aria-hidden="true" />
-          Cerrar sesión
+          Cerrar sesion
         </Button>
       </form>
     </aside>
@@ -153,7 +157,7 @@ function EmptyOrders() {
         <PackageSearch className="mx-auto size-12 text-primary" aria-hidden="true" />
         <h2 className="mt-4 text-2xl font-black text-dark-blue">No tienes pedidos</h2>
         <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-          Cuando hagas una compra, podrás revisar aquí el estado de tu pedido.
+          Cuando hagas una compra, podras revisar aqui el estado de tu pedido.
         </p>
         <Button asChild className="mt-6">
           <Link href="/productos">Ver productos</Link>
@@ -186,11 +190,16 @@ function OrdersList({
             </div>
             <div className="mt-4 grid gap-2">
               {order.items.map((item) => (
-                <div key={`${order.id}-${item.productId}`} className="flex justify-between gap-4 text-sm">
+                <div
+                  key={`${order.id}-${item.productId}`}
+                  className="flex justify-between gap-4 text-sm"
+                >
                   <span className="text-muted-foreground">
                     {item.productName} x{item.quantity}
                   </span>
-                  <span className="font-semibold">{formatCurrency(item.price * item.quantity)}</span>
+                  <span className="font-semibold">
+                    {formatCurrency(item.price * item.quantity)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -209,19 +218,6 @@ function OrdersList({
   );
 }
 
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <Card>
-      <CardContent className="py-10">
-        <h2 className="text-2xl font-black text-dark-blue">{title}</h2>
-        <p className="mt-3 text-muted-foreground">
-          Esta sección estará disponible próximamente.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default async function AccountPage({
   searchParams,
 }: {
@@ -229,7 +225,12 @@ export default async function AccountPage({
 }) {
   const [user, params] = await Promise.all([getAccountUser(), searchParams]);
   const activeSection = getSection(params);
-  const orders = activeSection === "pedidos" ? await getCustomerOrders(user.id) : [];
+  const [orders, addresses] = await Promise.all([
+    activeSection === "pedidos" ? getCustomerOrders(user.id) : Promise.resolve([]),
+    activeSection === "direcciones"
+      ? createClient().then((supabase) => getCustomerAddresses(supabase, user.id))
+      : Promise.resolve([]),
+  ]);
 
   return (
     <PublicShell>
@@ -263,7 +264,17 @@ export default async function AccountPage({
                 </>
               ) : null}
 
-              {activeSection === "direcciones" ? <ComingSoon title="Direcciones" /> : null}
+              {activeSection === "direcciones" ? (
+                <>
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-black text-dark-blue">Direcciones</h2>
+                    <p className="text-muted-foreground">
+                      Guarda tus direcciones para agilizar el checkout.
+                    </p>
+                  </div>
+                  <AddressBook addresses={addresses} />
+                </>
+              ) : null}
             </section>
           </div>
         </div>

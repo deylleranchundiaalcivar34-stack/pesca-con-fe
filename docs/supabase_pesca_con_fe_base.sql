@@ -151,6 +151,44 @@ create trigger perfiles_cliente_actualizado_en
 before update on public.perfiles_cliente
 for each row execute function public.set_actualizado_en();
 
+create or replace function public.crear_perfil_cliente_desde_auth()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.perfiles_cliente (
+    id,
+    nombres,
+    apellidos,
+    cedula,
+    celular,
+    correo
+  )
+  values (
+    new.id,
+    new.raw_user_meta_data->>'first_name',
+    new.raw_user_meta_data->>'last_name',
+    new.raw_user_meta_data->>'cedula',
+    new.raw_user_meta_data->>'phone',
+    new.email
+  )
+  on conflict (id) do update
+  set nombres = excluded.nombres,
+      apellidos = excluded.apellidos,
+      cedula = excluded.cedula,
+      celular = excluded.celular,
+      correo = excluded.correo;
+
+  return new;
+end;
+$$;
+
+create trigger crear_perfil_cliente_al_registrarse
+after insert on auth.users
+for each row execute function public.crear_perfil_cliente_desde_auth();
+
 create table public.direcciones_cliente (
   id uuid primary key default gen_random_uuid(),
   cliente_id uuid not null references auth.users(id) on delete cascade,
@@ -464,6 +502,7 @@ begin
     cliente_ciudad,
     cliente_direccion,
     cliente_referencia_entrega,
+    direccion_cliente_id,
     tipo_entrega,
     direccion_retiro_snapshot,
     cuenta_bancaria_id,
@@ -485,6 +524,7 @@ begin
     nullif(payload->>'cliente_ciudad', ''),
     nullif(payload->>'cliente_direccion', ''),
     nullif(payload->>'cliente_referencia_entrega', ''),
+    nullif(payload->>'direccion_cliente_id', '')::uuid,
     tipo_entrega_input,
     payload->'direccion_retiro_snapshot',
     nullif(payload->>'cuenta_bancaria_id', '')::uuid,
@@ -698,6 +738,85 @@ begin
   if not found then
     raise exception 'El pedido no esta pagado o no es de envio';
   end if;
+end;
+$$;
+
+create or replace function public.cancelar_pedido(pedido_id_input uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  pedido_record public.pedidos%rowtype;
+  item_record record;
+  stock_actual integer;
+  stock_nuevo integer;
+begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
+  select * into pedido_record
+  from public.pedidos
+  where id = pedido_id_input
+  for update;
+
+  if not found then
+    raise exception 'Pedido no encontrado';
+  end if;
+
+  if pedido_record.estado in ('enviado', 'retirado', 'cancelado') then
+    raise exception 'Este pedido no se puede cancelar';
+  end if;
+
+  if pedido_record.estado in ('pagado_confirmado', 'listo_retiro') then
+    for item_record in
+      select * from public.pedido_items where pedido_id = pedido_id_input
+    loop
+      select stock into stock_actual
+      from public.productos
+      where id = item_record.producto_id
+      for update;
+
+      if stock_actual is not null then
+        stock_nuevo := stock_actual + item_record.cantidad;
+
+        update public.productos
+        set stock = stock_nuevo,
+            actualizado_por = auth.uid(),
+            actualizado_en = now()
+        where id = item_record.producto_id;
+
+        insert into public.movimientos_inventario (
+          producto_id,
+          pedido_id,
+          tipo,
+          cantidad_delta,
+          stock_antes,
+          stock_despues,
+          motivo,
+          creado_por
+        )
+        values (
+          item_record.producto_id,
+          pedido_id_input,
+          'reversion_cancelacion',
+          item_record.cantidad,
+          stock_actual,
+          stock_nuevo,
+          'Pedido cancelado',
+          auth.uid()
+        );
+      end if;
+    end loop;
+  end if;
+
+  update public.pedidos
+  set estado = 'cancelado',
+      cancelado_en = now(),
+      actualizado_en = now()
+  where id = pedido_id_input;
 end;
 $$;
 

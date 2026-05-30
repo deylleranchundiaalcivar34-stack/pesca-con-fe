@@ -10,6 +10,7 @@ import { z } from "zod";
 import { createCheckoutOrder } from "@/app/checkout/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +25,7 @@ import {
   getWhatsAppPrefilledUrl,
 } from "@/lib/whatsapp";
 import type { DeliveryType } from "@/types/order";
-import type { CheckoutCustomerDefaults } from "@/types/customer";
+import type { CheckoutCustomerDefaults, CustomerAddress } from "@/types/customer";
 import type { BankAccount, BusinessConfig } from "@/types/business";
 import { BankAccountCard } from "./bank-account-card";
 
@@ -37,6 +38,10 @@ const checkoutSchema = z
       .refine(isValidEcuadorianCedula, "Ingresa una cédula ecuatoriana válida."),
     phone: z.string().min(9, "Escribe un celular válido."),
     email: z.string().email("Correo inválido.").optional().or(z.literal("")),
+    addressId: z.string().optional(),
+    addressAlias: z.string().optional(),
+    contactPhone: z.string().optional(),
+    saveAddress: z.boolean().optional(),
     deliveryType: z.enum(["envio_servientrega", "retiro_local"]),
     province: z.string().optional(),
     city: z.string().optional(),
@@ -69,6 +74,14 @@ const checkoutSchema = z
         message: "Escribe una dirección de entrega.",
       });
     }
+
+    if (!values.contactPhone || values.contactPhone.trim().length < 9) {
+      context.addIssue({
+        code: "custom",
+        path: ["contactPhone"],
+        message: "Escribe un celular de contacto válido.",
+      });
+    }
   });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
@@ -95,10 +108,12 @@ const deliveryOptions: Array<{
 
 export function CheckoutForm({
   customerDefaults = {},
+  checkoutAddresses,
   bankAccounts,
   businessConfig,
 }: {
   customerDefaults?: CheckoutCustomerDefaults;
+  checkoutAddresses: CustomerAddress[];
   bankAccounts: BankAccount[];
   businessConfig: BusinessConfig;
 }) {
@@ -129,13 +144,21 @@ export function CheckoutForm({
       cedula: customerDefaults.cedula ?? "",
       phone: customerDefaults.phone ?? "",
       email: customerDefaults.email ?? "",
+      addressId: customerDefaults.addressId ?? "",
+      addressAlias: "Principal",
+      contactPhone: customerDefaults.contactPhone ?? customerDefaults.phone ?? "",
+      saveAddress: false,
       deliveryType: "envio_servientrega",
-      province: "Sucumbíos",
-      city: "Shushufindi",
+      province: customerDefaults.province ?? "Sucumbíos",
+      city: customerDefaults.city ?? "Shushufindi",
+      address: customerDefaults.address ?? "",
+      deliveryReference: customerDefaults.deliveryReference ?? "",
     },
   });
 
   const deliveryType = useWatch({ control, name: "deliveryType" });
+  const selectedAddressId = useWatch({ control, name: "addressId" });
+  const saveAddress = useWatch({ control, name: "saveAddress" });
   const displayShipping = isClient && deliveryType === "envio_servientrega" ? shipping : 0;
   const displayTotal = displaySubtotal + displayShipping;
   const visibleItems = isClient ? items : [];
@@ -148,6 +171,42 @@ export function CheckoutForm({
     quantity: item.quantity,
     categorySlug: item.product.categorySlug,
   }));
+  const canSaveAddresses = Boolean(customerDefaults.isAuthenticated);
+  const hasSavedAddresses = checkoutAddresses.length > 0;
+  const isManualAddress = !selectedAddressId;
+  const clearSelectedAddress = () => {
+    if (selectedAddressId) {
+      setValue("addressId", "", { shouldDirty: true });
+    }
+  };
+  const provinceField = register("province", { onChange: clearSelectedAddress });
+  const cityField = register("city", { onChange: clearSelectedAddress });
+  const addressField = register("address", { onChange: clearSelectedAddress });
+  const deliveryReferenceField = register("deliveryReference", {
+    onChange: clearSelectedAddress,
+  });
+  const contactPhoneField = register("contactPhone", { onChange: clearSelectedAddress });
+
+  const selectAddress = (address: CustomerAddress) => {
+    setValue("addressId", address.id, { shouldDirty: true, shouldValidate: true });
+    setValue("province", address.province, { shouldDirty: true, shouldValidate: true });
+    setValue("city", address.city, { shouldDirty: true, shouldValidate: true });
+    setValue("address", address.address, { shouldDirty: true, shouldValidate: true });
+    setValue("deliveryReference", address.deliveryReference ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("contactPhone", address.contactPhone ?? customerDefaults.phone ?? "", {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue("saveAddress", false, { shouldDirty: true });
+  };
+
+  const useManualAddress = () => {
+    setValue("addressId", "", { shouldDirty: true, shouldValidate: true });
+    setValue("saveAddress", false, { shouldDirty: true });
+  };
 
   const onSubmit = async (values: CheckoutValues) => {
     if (!visibleItems.length) {
@@ -226,6 +285,7 @@ export function CheckoutForm({
             <CardTitle>Datos del cliente</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <input type="hidden" {...register("addressId")} />
             <Field id="fullName" label="Nombre completo" error={errors.fullName?.message}>
               <Input id="fullName" {...register("fullName")} autoComplete="name" />
             </Field>
@@ -310,12 +370,58 @@ export function CheckoutForm({
                     hay varios productos, se aplica el valor más alto.
                   </p>
                 </div>
+                {hasSavedAddresses ? (
+                  <div className="mt-5">
+                    <Label>Direcciones guardadas</Label>
+                    <div className="mt-2 grid gap-3">
+                      {checkoutAddresses.map((address) => {
+                        const selected = selectedAddressId === address.id;
+
+                        return (
+                          <button
+                            key={address.id}
+                            type="button"
+                            onClick={() => selectAddress(address)}
+                            className={`rounded-lg border p-4 text-left transition hover:border-primary hover:bg-secondary ${
+                              selected
+                                ? "border-primary bg-secondary ring-2 ring-primary/20"
+                                : "border-border bg-white"
+                            }`}
+                            aria-pressed={selected}
+                          >
+                            <span className="flex flex-wrap items-center gap-2 font-semibold text-dark-blue">
+                              {address.alias}
+                              {address.isPrimary ? <Badge>Principal</Badge> : null}
+                            </span>
+                            <span className="mt-2 block text-sm leading-6 text-muted-foreground">
+                              {address.address}, {address.city}, {address.province}
+                            </span>
+                            {address.contactPhone ? (
+                              <span className="mt-1 block text-sm text-muted-foreground">
+                                Contacto: {address.contactPhone}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                      <Button
+                        type="button"
+                        variant={isManualAddress ? "default" : "outline"}
+                        onClick={useManualAddress}
+                        className="justify-start"
+                      >
+                        <MapPin aria-hidden="true" />
+                        Usar otra dirección
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field id="province" label="Provincia" error={errors.province?.message}>
-                    <Input id="province" {...register("province")} />
+                    <Input id="province" {...provinceField} />
                   </Field>
                   <Field id="city" label="Ciudad" error={errors.city?.message}>
-                    <Input id="city" {...register("city")} />
+                    <Input id="city" {...cityField} />
                   </Field>
                   <Field
                     id="address"
@@ -323,7 +429,7 @@ export function CheckoutForm({
                     label="Dirección"
                     error={errors.address?.message}
                   >
-                    <Input id="address" {...register("address")} autoComplete="street-address" />
+                    <Input id="address" {...addressField} autoComplete="street-address" />
                   </Field>
                   <Field
                     id="deliveryReference"
@@ -333,10 +439,48 @@ export function CheckoutForm({
                   >
                     <Textarea
                       id="deliveryReference"
-                      {...register("deliveryReference")}
+                      {...deliveryReferenceField}
                       placeholder="Ejemplo: casa esquinera, local comercial o punto cercano."
                     />
                   </Field>
+                  <Field
+                    id="contactPhone"
+                    className="sm:col-span-2"
+                    label="Celular de contacto"
+                    error={errors.contactPhone?.message}
+                  >
+                    <Input
+                      id="contactPhone"
+                      {...contactPhoneField}
+                      inputMode="tel"
+                      autoComplete="tel"
+                    />
+                  </Field>
+                  {canSaveAddresses && isManualAddress ? (
+                    <div className="space-y-4 rounded-lg border border-border p-4 sm:col-span-2">
+                      <label className="flex items-start gap-3 text-sm font-semibold text-dark-blue">
+                        <input
+                          type="checkbox"
+                          {...register("saveAddress")}
+                          className="mt-0.5 size-4 rounded border-border"
+                        />
+                        Guardar esta dirección para próximas compras
+                      </label>
+                      {saveAddress ? (
+                        <Field
+                          id="addressAlias"
+                          label="Alias de la dirección"
+                          error={errors.addressAlias?.message}
+                        >
+                          <Input
+                            id="addressAlias"
+                            {...register("addressAlias")}
+                            placeholder="Casa, trabajo, oficina"
+                          />
+                        </Field>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </>
             )}

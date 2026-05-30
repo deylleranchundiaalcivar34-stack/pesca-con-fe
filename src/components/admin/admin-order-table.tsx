@@ -1,13 +1,14 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { CheckCircle2, Eye, PackageCheck, Store } from "lucide-react";
+import { CheckCircle2, Eye, PackageCheck, Store, XCircle } from "lucide-react";
 import {
+  cancelOrder,
   confirmOrderPayment,
   markOrderPickedUp,
   markOrderReadyForPickup,
   markOrderShipped,
-} from "@/app/admin/ventas/actions";
+} from "@/app/admin/pedidos/actions";
 import type { Order, OrderStatus } from "@/types/order";
 import { businessConfig } from "@/data/mock-business";
 import { Badge } from "@/components/ui/badge";
@@ -56,9 +57,9 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-semibold text-dark-blue">Pedidos y ventas</p>
+          <p className="font-semibold text-dark-blue">Pedidos</p>
           <p className="text-sm text-muted-foreground">
-            Revisa y actualiza el estado de las ventas.
+            Revisa y actualiza el estado de los pedidos.
           </p>
         </div>
         <Select
@@ -202,6 +203,11 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
 }
 
 function OrderActionButtons({ order }: { order: Order }) {
+  const canCancel =
+    order.status === "pendiente_pago" ||
+    order.status === "pagado_confirmado" ||
+    order.status === "listo_retiro";
+
   return (
     <>
       <form action={confirmOrderPayment}>
@@ -253,6 +259,18 @@ function OrderActionButtons({ order }: { order: Order }) {
           title={`Marcar retirado ${order.code}`}
         >
           <PackageCheck aria-hidden="true" />
+        </Button>
+      </form>
+      <form action={cancelOrder}>
+        <input type="hidden" name="id" value={order.id} />
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={!canCancel}
+          aria-label={`Cancelar pedido ${order.code}`}
+          title={`Cancelar pedido ${order.code}`}
+        >
+          <XCircle aria-hidden="true" />
         </Button>
       </form>
     </>

@@ -203,6 +203,16 @@ export async function getBrands() {
   return data ?? [];
 }
 
+export async function getAdminBrands() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("marcas")
+    .select("id, nombre, slug, activa, creado_en")
+    .order("nombre", { ascending: true });
+
+  return data ?? [];
+}
+
 export async function getBusinessConfig(): Promise<BusinessConfig> {
   const supabase = await createClient();
   const { data } = await supabase

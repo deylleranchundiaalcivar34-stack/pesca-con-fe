@@ -754,6 +754,89 @@ end;
 $$;
 ```
 
+### Cancelar pedido
+
+```sql
+create or replace function public.cancelar_pedido(pedido_id_input uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  pedido_record public.pedidos%rowtype;
+  item_record record;
+  stock_actual integer;
+  stock_nuevo integer;
+begin
+  if not public.es_admin() then
+    raise exception 'No autorizado';
+  end if;
+
+  select * into pedido_record
+  from public.pedidos
+  where id = pedido_id_input
+  for update;
+
+  if not found then
+    raise exception 'Pedido no encontrado';
+  end if;
+
+  if pedido_record.estado in ('enviado', 'retirado', 'cancelado') then
+    raise exception 'Este pedido no se puede cancelar';
+  end if;
+
+  if pedido_record.estado in ('pagado_confirmado', 'listo_retiro') then
+    for item_record in
+      select * from public.pedido_items where pedido_id = pedido_id_input
+    loop
+      select stock into stock_actual
+      from public.productos
+      where id = item_record.producto_id
+      for update;
+
+      if stock_actual is not null then
+        stock_nuevo := stock_actual + item_record.cantidad;
+
+        update public.productos
+        set stock = stock_nuevo,
+            actualizado_por = auth.uid(),
+            actualizado_en = now()
+        where id = item_record.producto_id;
+
+        insert into public.movimientos_inventario (
+          producto_id,
+          pedido_id,
+          tipo,
+          cantidad_delta,
+          stock_antes,
+          stock_despues,
+          motivo,
+          creado_por
+        )
+        values (
+          item_record.producto_id,
+          pedido_id_input,
+          'reversion_cancelacion',
+          item_record.cantidad,
+          stock_actual,
+          stock_nuevo,
+          'Pedido cancelado',
+          auth.uid()
+        );
+      end if;
+    end loop;
+  end if;
+
+  update public.pedidos
+  set estado = 'cancelado',
+      cancelado_en = now(),
+      actualizado_en = now()
+  where id = pedido_id_input;
+end;
+$$;
+```
+
 ## 9. Indices
 
 ```sql
@@ -1101,9 +1184,9 @@ on public.movimientos_inventario for insert
 with check (public.es_admin());
 ```
 
-## 12. Sincronizacion Opcional Desde Auth Metadata
+## 12. Sincronizacion Desde Auth Metadata
 
-Si se quiere crear `perfiles_cliente` automaticamente al registrarse, se puede usar un trigger sobre `auth.users`. En muchos proyectos es mas simple hacerlo desde la aplicacion con una Server Action despues del registro/login.
+`perfiles_cliente` debe crearse automaticamente al registrar un usuario. Esto evita depender de una sesion activa en el navegador, porque Supabase puede crear el usuario en `auth.users` y exigir confirmacion por correo sin entregar `data.session`.
 
 ```sql
 create or replace function public.crear_perfil_cliente_desde_auth()
@@ -1123,24 +1206,31 @@ begin
   )
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'first_name', ''),
-    coalesce(new.raw_user_meta_data->>'last_name', ''),
-    coalesce(new.raw_user_meta_data->>'cedula', ''),
-    coalesce(new.raw_user_meta_data->>'phone', ''),
+    new.raw_user_meta_data->>'first_name',
+    new.raw_user_meta_data->>'last_name',
+    new.raw_user_meta_data->>'cedula',
+    new.raw_user_meta_data->>'phone',
     new.email
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+  set nombres = excluded.nombres,
+      apellidos = excluded.apellidos,
+      cedula = excluded.cedula,
+      celular = excluded.celular,
+      correo = excluded.correo;
 
   return new;
 end;
 $$;
+
+drop trigger if exists crear_perfil_cliente_al_registrarse on auth.users;
 
 create trigger crear_perfil_cliente_al_registrarse
 after insert on auth.users
 for each row execute function public.crear_perfil_cliente_desde_auth();
 ```
 
-Usar este trigger solo si el registro siempre exige nombre, apellido, cedula ecuatoriana y celular. Si Supabase permite registros externos sin esos datos, preferir crear el perfil desde la aplicacion con validacion previa.
+En proyectos existentes, aplicar `docs/supabase_create_customer_profile_on_signup.sql`.
 
 ## 13. Cloudinary
 

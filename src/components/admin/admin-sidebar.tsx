@@ -12,6 +12,7 @@ import {
   PackagePlus,
   Settings,
   ShoppingBag,
+  Tags,
 } from "lucide-react";
 import { logout } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,8 @@ const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
   { href: "/admin/productos", label: "Productos", icon: Boxes },
   { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus },
-  { href: "/admin/ventas", label: "Ventas", icon: ShoppingBag },
+  { href: "/admin/marcas", label: "Marcas", icon: Tags },
+  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/admin/configuracion", label: "Configuración", icon: Settings },
 ];
 

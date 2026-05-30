@@ -155,14 +155,26 @@ export function LoginPanel({
     }
 
     if (data.session) {
-      await supabase.from("perfiles_cliente").upsert({
-        id: data.session.user.id,
-        nombres: firstName,
-        apellidos: lastName,
-        cedula,
-        celular: phone,
-        correo: email,
-      });
+      const { error: profileError } = await supabase
+        .from("perfiles_cliente")
+        .upsert(
+          {
+            id: data.session.user.id,
+            nombres: firstName,
+            apellidos: lastName,
+            cedula,
+            celular: phone,
+            correo: email,
+          },
+          { onConflict: "id" },
+        );
+
+      if (profileError) {
+        setIsPending(false);
+        setStatusMessage(profileError.message);
+        return;
+      }
+
       toast.success("Cuenta creada");
       router.push(redirectTo);
       router.refresh();
