@@ -45,9 +45,7 @@ export async function saveBrand(formData: FormData) {
   const { error } = await supabase.from("marcas").insert({
     nombre: name,
     slug,
-    orden: 0,
     activa: true,
-    url_logo: null,
   });
 
   if (error) {

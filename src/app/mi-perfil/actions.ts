@@ -112,7 +112,7 @@ export async function saveCustomerAddress(
   formData: FormData,
 ): Promise<AddressFormState> {
   const id = getText(formData, "id");
-  const alias = getText(formData, "alias") || "Principal";
+  const alias = getText(formData, "alias") || "Dirección Principal";
   const province = getText(formData, "province");
   const city = getText(formData, "city");
   const address = getText(formData, "address");
@@ -307,7 +307,7 @@ export async function deactivateCustomerAddress(addressId: string): Promise<Addr
       .select("id")
       .eq("cliente_id", user.id)
       .eq("activa", true)
-      .order("creado_en", { ascending: false })
+      .order("alias", { ascending: true })
       .limit(1)
       .maybeSingle();
 

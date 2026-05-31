@@ -120,7 +120,23 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
     .eq("activo", true);
 
   const hasImages = Boolean(count && count > 0);
+  const selectedMainImageIndex = Number(getText(formData, "mainImageIndex"));
+  const mainImageIndex =
+    Number.isInteger(selectedMainImageIndex) &&
+    selectedMainImageIndex >= 0 &&
+    selectedMainImageIndex < files.length
+      ? selectedMainImageIndex
+      : hasImages
+        ? -1
+        : 0;
   const rows = [];
+
+  if (hasImages && mainImageIndex >= 0) {
+    await supabase
+      .from("producto_imagenes")
+      .update({ principal: false, actualizado_por: userId })
+      .eq("producto_id", productId);
+  }
 
   for (const [index, file] of files.entries()) {
     const result = await uploadProductImage(file);
@@ -138,7 +154,7 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
       cloudinary_bytes: result.bytes,
       alt: getText(formData, "imageAlt") || getText(formData, "name") || file.name,
       orden: (count ?? 0) + index,
-      principal: !hasImages && index === 0,
+      principal: index === mainImageIndex,
       activo: true,
       creado_por: userId,
       actualizado_por: userId,
@@ -146,7 +162,10 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
   }
 
   if (rows.length) {
-    await supabase.from("producto_imagenes").insert(rows);
+    const { error } = await supabase.from("producto_imagenes").insert(rows);
+    if (error) {
+      throw new Error(error.message);
+    }
   }
 }
 
@@ -245,5 +264,57 @@ export async function setMainImage(formData: FormData) {
     .update({ principal: true, actualizado_por: userId })
     .eq("id", imageId);
 
+  revalidatePath("/admin/productos");
+}
+
+export async function deleteProductImage(formData: FormData) {
+  const { supabase, userId } = await requireAdmin();
+  const productId = getText(formData, "productId");
+  const imageId = getText(formData, "imageId");
+
+  const { data: image, error: imageError } = await supabase
+    .from("producto_imagenes")
+    .select("id, principal")
+    .eq("id", imageId)
+    .eq("producto_id", productId)
+    .maybeSingle();
+
+  if (imageError) {
+    throw new Error(imageError.message);
+  }
+
+  if (!image) {
+    throw new Error("Imagen no encontrada.");
+  }
+
+  const { error } = await supabase
+    .from("producto_imagenes")
+    .update({ activo: false, principal: false, actualizado_por: userId })
+    .eq("id", imageId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (image.principal) {
+    const { data: nextImage } = await supabase
+      .from("producto_imagenes")
+      .select("id")
+      .eq("producto_id", productId)
+      .eq("activo", true)
+      .order("orden", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (nextImage) {
+      await supabase
+        .from("producto_imagenes")
+        .update({ principal: true, actualizado_por: userId })
+        .eq("id", nextImage.id);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/productos");
   revalidatePath("/admin/productos");
 }

@@ -57,7 +57,7 @@ function UserMenu({ user }: { user: PublicUserSummary }) {
   const triggerName = getTriggerName(user);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -71,7 +71,11 @@ function UserMenu({ user }: { user: PublicUserSummary }) {
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56 p-0">
+      <DropdownMenuContent
+        align="end"
+        collisionPadding={12}
+        className="z-[60] max-h-[min(28rem,calc(100vh-5rem))] min-w-56 overflow-y-auto p-0"
+      >
         <DropdownMenuLabel className="px-4 py-3">
           <span className="block max-w-48 truncate font-bold text-dark-blue">
             {displayName}

@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .filter((product) => product.isActive)
     .map((product) => ({
       url: `${SITE_URL}/productos/${product.slug}`,
-      lastModified: new Date(product.createdAt),
+      lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: product.isFeatured ? 0.9 : 0.7,
     }));

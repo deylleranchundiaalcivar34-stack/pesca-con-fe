@@ -8,7 +8,6 @@ export type OrderStatus =
   | "enviado"
   | "cancelado";
 
-export type SalesChannel = "presencial" | "whatsapp" | "web";
 export type DeliveryType = "envio_servientrega" | "retiro_local";
 
 export interface CustomerInfo {
@@ -41,9 +40,7 @@ export interface Order {
   subtotal: number;
   shipping: number;
   total: number;
-  bankAccountId: string;
   status: OrderStatus;
-  channel: SalesChannel;
   deliveryType: DeliveryType;
   createdAt: string;
 }

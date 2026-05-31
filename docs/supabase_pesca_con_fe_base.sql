@@ -1,6 +1,5 @@
 -- Base de datos Supabase para Pesca Con Fe
--- Generado desde el markdown proporcionado por el usuario.
--- Fecha de generación: 2026-05-24
+-- Modelo simplificado para instalaciones nuevas.
 -- Ejecutar en Supabase SQL Editor.
 -- Nota: auth.users pertenece a Supabase Auth y no debe crearse manualmente.
 
@@ -16,20 +15,9 @@ create type estado_pedido as enum (
   'cancelado'
 );
 
-create type canal_venta as enum (
-  'web',
-  'whatsapp',
-  'presencial'
-);
-
 create type tipo_entrega as enum (
   'envio_servientrega',
   'retiro_local'
-);
-
-create type tipo_cuenta_bancaria as enum (
-  'Ahorro',
-  'Corriente'
 );
 
 create type tipo_movimiento_inventario as enum (
@@ -39,16 +27,6 @@ create type tipo_movimiento_inventario as enum (
   'reposicion',
   'reversion_cancelacion'
 );
-
-create or replace function public.set_actualizado_en()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.actualizado_en = now();
-  return new;
-end;
-$$;
 
 create or replace function public.es_cedula_ecuatoriana(valor text)
 returns boolean
@@ -104,14 +82,8 @@ create table public.perfiles_admin (
   id uuid primary key references auth.users(id) on delete cascade,
   nombre_completo text not null,
   rol text not null default 'admin' check (rol in ('dueno', 'admin', 'vendedor')),
-  activo boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  activo boolean not null default true
 );
-
-create trigger perfiles_admin_actualizado_en
-before update on public.perfiles_admin
-for each row execute function public.set_actualizado_en();
 
 create or replace function public.es_admin()
 returns boolean
@@ -136,9 +108,7 @@ create table public.perfiles_cliente (
   nombre_completo text generated always as (trim(nombres || ' ' || apellidos)) stored,
   cedula text not null check (public.es_cedula_ecuatoriana(cedula)),
   celular text not null,
-  correo citext not null,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  correo citext not null
 );
 
 create unique index perfiles_cliente_cedula_unique
@@ -146,10 +116,6 @@ create unique index perfiles_cliente_cedula_unique
 
 create unique index perfiles_cliente_correo_unique
   on public.perfiles_cliente(correo);
-
-create trigger perfiles_cliente_actualizado_en
-before update on public.perfiles_cliente
-for each row execute function public.set_actualizado_en();
 
 create or replace function public.crear_perfil_cliente_desde_auth()
 returns trigger
@@ -192,16 +158,14 @@ for each row execute function public.crear_perfil_cliente_desde_auth();
 create table public.direcciones_cliente (
   id uuid primary key default gen_random_uuid(),
   cliente_id uuid not null references auth.users(id) on delete cascade,
-  alias text not null default 'Principal',
+  alias text not null default 'Dirección Principal',
   provincia text not null,
   ciudad text not null,
   direccion text not null,
   referencia text,
   celular_contacto text,
   principal boolean not null default false,
-  activa boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  activa boolean not null default true
 );
 
 create unique index direcciones_cliente_una_principal_activa
@@ -209,109 +173,30 @@ create unique index direcciones_cliente_una_principal_activa
   where principal = true and activa = true;
 
 create index direcciones_cliente_cliente_idx
-  on public.direcciones_cliente(cliente_id, activa, principal desc, creado_en desc);
-
-create trigger direcciones_cliente_actualizado_en
-before update on public.direcciones_cliente
-for each row execute function public.set_actualizado_en();
-
-create table public.configuracion_negocio (
-  id uuid primary key default gen_random_uuid(),
-  nombre text not null,
-  eslogan text,
-  tipo_negocio text,
-  direccion text not null,
-  ciudad text not null,
-  pais text not null default 'Ecuador',
-  horario text,
-  telefonos text[] not null default '{}',
-  whatsapp_e164 text not null,
-  correo citext,
-  url_facebook text,
-  url_instagram text,
-  url_tiktok text,
-  url_youtube text,
-  url_whatsapp_perfil text,
-  url_mapa_embed text,
-  servicio_envio text not null default 'Servientrega Ecuador',
-  costo_envio_base numeric(10,2) not null default 6.50 check (costo_envio_base >= 0),
-  retiro_local_habilitado boolean not null default true,
-  instrucciones_retiro text,
-  activo boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
-);
-
-create trigger configuracion_negocio_actualizado_en
-before update on public.configuracion_negocio
-for each row execute function public.set_actualizado_en();
-
-create table public.cuentas_bancarias (
-  id uuid primary key default gen_random_uuid(),
-  configuracion_negocio_id uuid references public.configuracion_negocio(id) on delete set null,
-  banco text not null,
-  titular text not null,
-  cedula text,
-  tipo_cuenta tipo_cuenta_bancaria not null,
-  numero_cuenta text not null,
-  orden integer not null default 0,
-  activa boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
-);
-
-create trigger cuentas_bancarias_actualizado_en
-before update on public.cuentas_bancarias
-for each row execute function public.set_actualizado_en();
+  on public.direcciones_cliente(cliente_id, activa, principal desc);
 
 create table public.categorias (
   id uuid primary key default gen_random_uuid(),
   nombre text not null,
   slug text not null unique,
-  descripcion text,
-  url_imagen text,
-  orden integer not null default 0,
-  activa boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  activa boolean not null default true
 );
-
-create trigger categorias_actualizado_en
-before update on public.categorias
-for each row execute function public.set_actualizado_en();
 
 create table public.subcategorias (
   id uuid primary key default gen_random_uuid(),
   categoria_id uuid not null references public.categorias(id) on delete cascade,
   nombre text not null,
   slug text not null,
-  orden integer not null default 0,
   activa boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now(),
   unique (categoria_id, slug)
 );
-
-create trigger subcategorias_actualizado_en
-before update on public.subcategorias
-for each row execute function public.set_actualizado_en();
 
 create table public.marcas (
   id uuid primary key default gen_random_uuid(),
   nombre text not null unique,
   slug text not null unique,
-  url_logo text,
-  ancho_logo integer,
-  alto_logo integer,
-  orden integer not null default 0,
-  activa boolean not null default true,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  activa boolean not null default true
 );
-
-create trigger marcas_actualizado_en
-before update on public.marcas
-for each row execute function public.set_actualizado_en();
 
 create table public.productos (
   id uuid primary key default gen_random_uuid(),
@@ -329,14 +214,8 @@ create table public.productos (
   destacado boolean not null default false,
   activo boolean not null default true,
   creado_por uuid references auth.users(id) on delete set null,
-  actualizado_por uuid references auth.users(id) on delete set null,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now()
+  actualizado_por uuid references auth.users(id) on delete set null
 );
-
-create trigger productos_actualizado_en
-before update on public.productos
-for each row execute function public.set_actualizado_en();
 
 create table public.producto_imagenes (
   id uuid primary key default gen_random_uuid(),
@@ -357,8 +236,6 @@ create table public.producto_imagenes (
   activo boolean not null default true,
   creado_por uuid references auth.users(id) on delete set null,
   actualizado_por uuid references auth.users(id) on delete set null,
-  creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now(),
   unique (cloudinary_public_id)
 );
 
@@ -367,11 +244,7 @@ create unique index producto_imagenes_una_principal_activa
   where principal = true and activo = true;
 
 create index producto_imagenes_producto_orden_idx
-  on public.producto_imagenes(producto_id, principal desc, orden, creado_en);
-
-create trigger producto_imagenes_actualizado_en
-before update on public.producto_imagenes
-for each row execute function public.set_actualizado_en();
+  on public.producto_imagenes(producto_id, principal desc, orden);
 
 create table public.pedidos (
   id uuid primary key default gen_random_uuid(),
@@ -387,24 +260,13 @@ create table public.pedidos (
   cliente_referencia_entrega text,
   direccion_cliente_id uuid references public.direcciones_cliente(id) on delete set null,
   tipo_entrega tipo_entrega not null default 'envio_servientrega',
-  direccion_retiro_snapshot jsonb,
-  cuenta_bancaria_id uuid references public.cuentas_bancarias(id) on delete set null,
-  cuenta_bancaria_snapshot jsonb,
   subtotal numeric(10,2) not null check (subtotal >= 0),
   envio numeric(10,2) not null default 0 check (envio >= 0),
   total numeric(10,2) not null check (total >= 0),
   estado estado_pedido not null default 'pendiente_pago',
-  canal canal_venta not null default 'web',
-  pago_confirmado_en timestamptz,
-  listo_retiro_en timestamptz,
-  retirado_en timestamptz,
-  enviado_en timestamptz,
-  cancelado_en timestamptz,
-  notas text,
   creado_por uuid references auth.users(id) on delete set null,
   confirmado_por uuid references auth.users(id) on delete set null,
   creado_en timestamptz not null default now(),
-  actualizado_en timestamptz not null default now(),
   constraint pedidos_envio_requiere_direccion check (
     tipo_entrega <> 'envio_servientrega'
     or (
@@ -417,18 +279,10 @@ create table public.pedidos (
     tipo_entrega <> 'retiro_local'
     or envio = 0
   ),
-  constraint pedidos_retiro_requiere_snapshot check (
-    tipo_entrega <> 'retiro_local'
-    or direccion_retiro_snapshot is not null
-  ),
   constraint pedidos_total_consistente check (
     total = subtotal + envio
   )
 );
-
-create trigger pedidos_actualizado_en
-before update on public.pedidos
-for each row execute function public.set_actualizado_en();
 
 create table public.pedido_items (
   id uuid primary key default gen_random_uuid(),
@@ -442,6 +296,19 @@ create table public.pedido_items (
   precio numeric(10,2) not null check (precio >= 0),
   cantidad integer not null check (cantidad > 0),
   total_linea numeric(10,2) generated always as (precio * cantidad) stored,
+  creado_en timestamptz not null default now()
+);
+
+create table public.movimientos_inventario (
+  id uuid primary key default gen_random_uuid(),
+  producto_id uuid not null references public.productos(id) on delete restrict,
+  pedido_id uuid references public.pedidos(id) on delete set null,
+  tipo tipo_movimiento_inventario not null,
+  cantidad_delta integer not null,
+  stock_antes integer not null check (stock_antes >= 0),
+  stock_despues integer not null check (stock_despues >= 0),
+  motivo text,
+  creado_por uuid references auth.users(id) on delete set null,
   creado_en timestamptz not null default now()
 );
 
@@ -466,9 +333,8 @@ begin
     raise exception 'Datos de pedido invalidos';
   end if;
 
-  if coalesce(payload->>'canal', 'web') <> 'web'
-    or coalesce(payload->>'estado', 'pendiente_pago') <> 'pendiente_pago' then
-    raise exception 'Solo se pueden crear pedidos web pendientes de pago';
+  if coalesce(payload->>'estado', 'pendiente_pago') <> 'pendiente_pago' then
+    raise exception 'Solo se pueden crear pedidos pendientes de pago';
   end if;
 
   tipo_entrega_input := coalesce(payload->>'tipo_entrega', 'envio_servientrega')::public.tipo_entrega;
@@ -487,8 +353,7 @@ begin
     raise exception 'El pedido no tiene items';
   end if;
 
-  if tipo_entrega_input = 'retiro_local'
-    and (envio_input <> 0 or payload->'direccion_retiro_snapshot' is null) then
+  if tipo_entrega_input = 'retiro_local' and envio_input <> 0 then
     raise exception 'Datos de retiro invalidos';
   end if;
 
@@ -504,14 +369,10 @@ begin
     cliente_referencia_entrega,
     direccion_cliente_id,
     tipo_entrega,
-    direccion_retiro_snapshot,
-    cuenta_bancaria_id,
-    cuenta_bancaria_snapshot,
     subtotal,
     envio,
     total,
     estado,
-    canal,
     creado_por
   )
   values (
@@ -526,14 +387,10 @@ begin
     nullif(payload->>'cliente_referencia_entrega', ''),
     nullif(payload->>'direccion_cliente_id', '')::uuid,
     tipo_entrega_input,
-    payload->'direccion_retiro_snapshot',
-    nullif(payload->>'cuenta_bancaria_id', '')::uuid,
-    payload->'cuenta_bancaria_snapshot',
     subtotal_input,
     envio_input,
     total_input,
     'pendiente_pago',
-    'web',
     cliente_actual
   )
   returning pedidos.id, pedidos.codigo
@@ -568,19 +425,6 @@ begin
   return query select pedido_id_creado, pedido_codigo_creado;
 end;
 $$;
-
-create table public.movimientos_inventario (
-  id uuid primary key default gen_random_uuid(),
-  producto_id uuid not null references public.productos(id) on delete restrict,
-  pedido_id uuid references public.pedidos(id) on delete set null,
-  tipo tipo_movimiento_inventario not null,
-  cantidad_delta integer not null,
-  stock_antes integer not null check (stock_antes >= 0),
-  stock_despues integer not null check (stock_despues >= 0),
-  motivo text,
-  creado_por uuid references auth.users(id) on delete set null,
-  creado_en timestamptz not null default now()
-);
 
 create or replace function public.confirmar_pago_pedido(pedido_id_input uuid)
 returns void
@@ -631,8 +475,7 @@ begin
 
     update public.productos
     set stock = stock_nuevo,
-        actualizado_por = auth.uid(),
-        actualizado_en = now()
+        actualizado_por = auth.uid()
     where id = item_record.producto_id;
 
     insert into public.movimientos_inventario (
@@ -659,9 +502,7 @@ begin
 
   update public.pedidos
   set estado = 'pagado_confirmado',
-      pago_confirmado_en = now(),
-      confirmado_por = auth.uid(),
-      actualizado_en = now()
+      confirmado_por = auth.uid()
   where id = pedido_id_input;
 end;
 $$;
@@ -678,9 +519,7 @@ begin
   end if;
 
   update public.pedidos
-  set estado = 'listo_retiro',
-      listo_retiro_en = now(),
-      actualizado_en = now()
+  set estado = 'listo_retiro'
   where id = pedido_id_input
     and tipo_entrega = 'retiro_local'
     and estado = 'pagado_confirmado';
@@ -703,9 +542,7 @@ begin
   end if;
 
   update public.pedidos
-  set estado = 'retirado',
-      retirado_en = now(),
-      actualizado_en = now()
+  set estado = 'retirado'
   where id = pedido_id_input
     and tipo_entrega = 'retiro_local'
     and estado = 'listo_retiro';
@@ -728,9 +565,7 @@ begin
   end if;
 
   update public.pedidos
-  set estado = 'enviado',
-      enviado_en = now(),
-      actualizado_en = now()
+  set estado = 'enviado'
   where id = pedido_id_input
     and tipo_entrega = 'envio_servientrega'
     and estado = 'pagado_confirmado';
@@ -784,8 +619,7 @@ begin
 
         update public.productos
         set stock = stock_nuevo,
-            actualizado_por = auth.uid(),
-            actualizado_en = now()
+            actualizado_por = auth.uid()
         where id = item_record.producto_id;
 
         insert into public.movimientos_inventario (
@@ -813,24 +647,22 @@ begin
   end if;
 
   update public.pedidos
-  set estado = 'cancelado',
-      cancelado_en = now(),
-      actualizado_en = now()
+  set estado = 'cancelado'
   where id = pedido_id_input;
 end;
 $$;
 
-create index categorias_activas_orden_idx
-  on public.categorias(activa, orden);
+create index categorias_activas_nombre_idx
+  on public.categorias(activa, nombre);
 
-create index subcategorias_categoria_idx
-  on public.subcategorias(categoria_id, activa, orden);
+create index subcategorias_categoria_nombre_idx
+  on public.subcategorias(categoria_id, activa, nombre);
 
-create index marcas_activas_orden_idx
-  on public.marcas(activa, orden);
+create index marcas_activas_nombre_idx
+  on public.marcas(activa, nombre);
 
 create index productos_catalogo_publico_idx
-  on public.productos(activo, destacado, creado_en desc);
+  on public.productos(activo, destacado, nombre);
 
 create index productos_categoria_idx
   on public.productos(categoria_id, subcategoria_id);
@@ -846,9 +678,6 @@ create index pedidos_cliente_creado_idx
 
 create index pedidos_estado_creado_idx
   on public.pedidos(estado, creado_en desc);
-
-create index pedidos_canal_creado_idx
-  on public.pedidos(canal, creado_en desc);
 
 create index pedidos_tipo_entrega_creado_idx
   on public.pedidos(tipo_entrega, creado_en desc);
@@ -881,7 +710,6 @@ select
   p.youtube_video_id,
   p.destacado,
   p.activo,
-  p.creado_en,
   imagen_principal.cloudinary_secure_url as imagen_principal,
   imagen_principal.alt as imagen_alt
 from public.productos p
@@ -893,7 +721,7 @@ left join lateral (
   from public.producto_imagenes pi
   where pi.producto_id = p.id
     and pi.activo = true
-  order by pi.principal desc, pi.orden asc, pi.creado_en asc
+  order by pi.principal desc, pi.orden asc
   limit 1
 ) imagen_principal on true
 where p.activo = true;
@@ -913,9 +741,7 @@ select
   s.nombre as subcategoria,
   m.nombre as marca,
   count(pi.id) filter (where pi.activo = true) as cantidad_imagenes,
-  bool_or(pi.principal and pi.activo) as tiene_imagen_principal,
-  p.creado_en,
-  p.actualizado_en
+  bool_or(pi.principal and pi.activo) as tiene_imagen_principal
 from public.productos p
 join public.categorias c on c.id = p.categoria_id
 left join public.subcategorias s on s.id = p.subcategoria_id
@@ -933,7 +759,6 @@ select
   p.cliente_celular,
   p.cliente_ciudad,
   p.estado,
-  p.canal,
   p.tipo_entrega,
   p.subtotal,
   p.envio,
@@ -967,8 +792,6 @@ group by p.id;
 alter table public.perfiles_admin enable row level security;
 alter table public.perfiles_cliente enable row level security;
 alter table public.direcciones_cliente enable row level security;
-alter table public.configuracion_negocio enable row level security;
-alter table public.cuentas_bancarias enable row level security;
 alter table public.categorias enable row level security;
 alter table public.subcategorias enable row level security;
 alter table public.marcas enable row level security;
@@ -980,14 +803,6 @@ alter table public.movimientos_inventario enable row level security;
 
 revoke all on function public.crear_pedido_web(jsonb) from public;
 grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
-
-create policy "Publico puede leer configuracion activa"
-on public.configuracion_negocio for select
-using (activo = true);
-
-create policy "Publico puede leer cuentas bancarias activas"
-on public.cuentas_bancarias for select
-using (activa = true);
 
 create policy "Publico puede leer categorias activas"
 on public.categorias for select
@@ -1061,16 +876,6 @@ with check (public.es_admin());
 
 create policy "Admins gestionan direcciones cliente"
 on public.direcciones_cliente for all
-using (public.es_admin())
-with check (public.es_admin());
-
-create policy "Admins gestionan configuracion"
-on public.configuracion_negocio for all
-using (public.es_admin())
-with check (public.es_admin());
-
-create policy "Admins gestionan cuentas bancarias"
-on public.cuentas_bancarias for all
 using (public.es_admin())
 with check (public.es_admin());
 

@@ -17,7 +17,6 @@ const links = [
   { href: "/admin/productos", label: "Productos" },
   { href: "/admin/marcas", label: "Marcas" },
   { href: "/admin/pedidos", label: "Pedidos" },
-  { href: "/admin/configuracion", label: "Configuración" },
 ];
 
 export function AdminHeader() {

@@ -32,7 +32,6 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import {
   DELIVERY_TYPE_LABELS,
   ORDER_STATUS_LABELS,
-  SALES_CHANNEL_LABELS,
 } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -107,7 +106,6 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <Info label="Origen" value={SALES_CHANNEL_LABELS[order.channel]} />
                 <Info label="Fecha" value={formatDate(order.createdAt)} />
                 <Info label="Entrega" value={DELIVERY_TYPE_LABELS[order.deliveryType]} />
                 <Info label="Total" value={formatCurrency(order.total)} strong />
@@ -135,13 +133,12 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
       <div className="hidden rounded-lg border border-border bg-white shadow-sm md:block">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Pedido</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Origen</TableHead>
-              <TableHead>Entrega</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableRow>
+                <TableHead>Pedido</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Entrega</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Estado</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -161,7 +158,6 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
                       <p className="font-medium">{order.customer.fullName}</p>
                       <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
                     </TableCell>
-                    <TableCell>{SALES_CHANNEL_LABELS[order.channel]}</TableCell>
                     <TableCell>{DELIVERY_TYPE_LABELS[order.deliveryType]}</TableCell>
                     <TableCell>{formatCurrency(order.total)}</TableCell>
                     <TableCell>
@@ -185,7 +181,7 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
                   </TableRow>
                   {isExpanded ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={8} className="bg-secondary/45 p-0">
+                      <TableCell colSpan={7} className="bg-secondary/45 p-0">
                         <div className="border-t border-primary/20 p-4">
                           <OrderDetail order={order} />
                         </div>

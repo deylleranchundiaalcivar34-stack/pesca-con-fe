@@ -45,5 +45,5 @@ export interface Product {
   youtubeVideoId?: string;
   isFeatured: boolean;
   isActive: boolean;
-  createdAt: string;
+  createdAt?: string;
 }

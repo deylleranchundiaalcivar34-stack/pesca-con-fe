@@ -98,29 +98,10 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     cliente_referencia_entrega: input.customer.deliveryReference || null,
     direccion_cliente_id: addressId,
     tipo_entrega: input.deliveryType,
-    direccion_retiro_snapshot:
-      input.deliveryType === "retiro_local"
-        ? {
-            direccion: input.business.location,
-            ciudad: input.business.city,
-            horario: input.business.schedule,
-            telefonos: input.business.phones,
-            instrucciones: input.business.localPickupInstructions,
-          }
-        : null,
-    cuenta_bancaria_id: input.bankAccount.id,
-    cuenta_bancaria_snapshot: {
-      banco: input.bankAccount.bank,
-      titular: input.bankAccount.owner,
-      tipo_cuenta: input.bankAccount.accountType,
-      numero_cuenta: input.bankAccount.accountNumber,
-      cedula: input.bankAccount.cedula ?? null,
-    },
     subtotal: input.subtotal,
     envio: input.shipping,
     total: input.total,
     estado: "pendiente_pago",
-    canal: "web",
     creado_por: user?.id ?? null,
     items: input.items.map((item) => ({
       producto_id: item.productId,

@@ -33,6 +33,4 @@ export type CustomerAddress = {
   contactPhone?: string;
   isPrimary: boolean;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 };

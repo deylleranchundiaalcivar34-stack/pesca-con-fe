@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Save } from "lucide-react";
+import { ImagePlus, Save, Star, Trash2 } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
-import { saveProduct } from "@/app/admin/productos/actions";
+import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/actions";
 import type { Product, ProductCategory } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,13 @@ type ProductFormValues = {
   isFeatured: boolean;
 };
 
+type SelectedImagePreview = {
+  id: string;
+  file: File;
+  url: string;
+  alt: string;
+};
+
 interface ProductFormProps {
   mode: "create" | "edit";
   product?: Product;
@@ -46,8 +53,10 @@ interface ProductFormProps {
 
 export function ProductForm({ mode, product, categories, brands }: ProductFormProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
-  const [selectedImageCount, setSelectedImageCount] = useState(0);
+  const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
+  const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const {
     register,
     control,
@@ -86,12 +95,74 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
     }
   }, [mode, name, setValue]);
 
-  const updateSelectedImages = (files: FileList | null) => {
-    setSelectedImageCount(files?.length ?? 0);
+  useEffect(() => {
+    selectedImagePreviewsRef.current = selectedImagePreviews;
+  }, [selectedImagePreviews]);
+
+  useEffect(() => {
+    return () => {
+      selectedImagePreviewsRef.current.forEach((image) => URL.revokeObjectURL(image.url));
+    };
+  }, []);
+
+  const syncImageInputFiles = (images: SelectedImagePreview[]) => {
+    if (!imageInputRef.current) {
+      return;
+    }
+
+    const dataTransfer = new DataTransfer();
+    images.forEach((image) => dataTransfer.items.add(image.file));
+    imageInputRef.current.files = dataTransfer.files;
   };
 
+  const updateSelectedImages = (files: FileList | null) => {
+    const imageFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+    const previews = imageFiles.map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${Date.now()}-${index}`,
+      file,
+      url: URL.createObjectURL(file),
+      alt: file.name.replace(/\.[^/.]+$/, ""),
+    }));
+
+    setSelectedImagePreviews((current) => {
+      const nextImages = [...current, ...previews];
+      syncImageInputFiles(nextImages);
+
+      if (!mainSelectedImageId && !product?.images.length && nextImages.length) {
+        setMainSelectedImageId(nextImages[0].id);
+      }
+
+      return nextImages;
+    });
+  };
+
+  const removeSelectedImage = (id: string) => {
+    setSelectedImagePreviews((current) => {
+      const imageToRemove = current.find((image) => image.id === id);
+      const nextImages = current.filter((image) => image.id !== id);
+
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.url);
+      }
+
+      if (mainSelectedImageId === id) {
+        setMainSelectedImageId(product?.images.length ? null : (nextImages[0]?.id ?? null));
+      }
+
+      syncImageInputFiles(nextImages);
+      return nextImages;
+    });
+  };
+
+  const mainSelectedImageIndex = selectedImagePreviews.findIndex(
+    (image) => image.id === mainSelectedImageId,
+  );
+
   return (
-    <form action={saveProduct} className="grid gap-6 xl:grid-cols-[1fr_420px]">
+    <form
+      action={saveProduct}
+      className="grid w-full max-w-full min-w-0 grid-cols-1 gap-6 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]"
+    >
       <input type="hidden" name="productId" value={product?.id ?? ""} />
       <input type="hidden" name="slug" value={product?.slug ?? slugify(name)} />
       <input type="hidden" name="brand" value={brand} />
@@ -99,8 +170,13 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
       <input type="hidden" name="subcategorySlug" value={subcategorySlug} />
       <input type="hidden" name="isActive" value={isActive ? "on" : ""} />
       <input type="hidden" name="isFeatured" value={isFeatured ? "on" : ""} />
+      <input
+        type="hidden"
+        name="mainImageIndex"
+        value={mainSelectedImageIndex >= 0 ? String(mainSelectedImageIndex) : ""}
+      />
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Información del producto</CardTitle>
@@ -210,7 +286,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
         </Card>
       </div>
 
-      <aside className="space-y-6">
+      <aside className="min-w-0 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Estado</CardTitle>
@@ -289,10 +365,11 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 <span className="mt-1 text-sm text-muted-foreground">
                   Selecciona o arrastra varias imágenes del producto.
                 </span>
-                {selectedImageCount > 0 ? (
+                {selectedImagePreviews.length > 0 ? (
                   <span className="mt-3 rounded-md bg-white px-3 py-1 text-xs font-semibold text-primary">
-                    {selectedImageCount} imagen{selectedImageCount === 1 ? "" : "es"} seleccionada
-                    {selectedImageCount === 1 ? "" : "s"}
+                    {selectedImagePreviews.length} imagen
+                    {selectedImagePreviews.length === 1 ? "" : "es"} seleccionada
+                    {selectedImagePreviews.length === 1 ? "" : "s"}
                   </span>
                 ) : null}
               </label>
@@ -309,6 +386,58 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
               <Field id="imageAlt" label="Texto alternativo para imágenes nuevas">
                 <Input id="imageAlt" name="imageAlt" defaultValue={product?.name ?? ""} />
               </Field>
+              {selectedImagePreviews.length ? (
+                <div className="grid gap-3">
+                  {selectedImagePreviews.map((image, index) => (
+                    <div
+                      key={image.id}
+                      className={cn(
+                        "rounded-lg border bg-white p-3",
+                        image.id === mainSelectedImageId ? "border-primary" : "border-border",
+                      )}
+                    >
+                      <div className="relative aspect-video overflow-hidden rounded-md bg-secondary">
+                        <Image
+                          src={image.url}
+                          alt={image.alt}
+                          fill
+                          sizes="(min-width: 1280px) 372px, 100vw"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={image.id === mainSelectedImageId ? "premium" : "outline"}
+                          onClick={() => setMainSelectedImageId(image.id)}
+                        >
+                          <Star aria-hidden="true" />
+                          {image.id === mainSelectedImageId ? "Principal" : "Hacer principal"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          aria-label={`Quitar ${image.alt}`}
+                          onClick={() => removeSelectedImage(image.id)}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                      <p className="mt-2 truncate text-xs text-muted-foreground">
+                        {index + 1}. {image.alt}
+                      </p>
+                      {image.id === mainSelectedImageId && product?.images.length ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Al guardar, esta imagen reemplazará la principal actual.
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {product?.images.length ? (
                 <div className="grid gap-3">
                   {product.images.map((image) => (
@@ -324,11 +453,31 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                         <span className="text-sm text-muted-foreground">
                           {image.isMain ? "Principal" : image.alt}
                         </span>
-                        {!image.isMain ? (
-                          <span className="text-xs text-muted-foreground">
-                            La primera imagen subida queda como principal.
-                          </span>
-                        ) : null}
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant={image.isMain ? "premium" : "outline"}
+                            name="imageId"
+                            value={image.id}
+                            formAction={setMainImage}
+                            disabled={image.isMain}
+                          >
+                            <Star aria-hidden="true" />
+                            {image.isMain ? "Principal" : "Hacer principal"}
+                          </Button>
+                          <Button
+                            type="submit"
+                            size="icon"
+                            variant="outline"
+                            name="imageId"
+                            value={image.id}
+                            formAction={deleteProductImage}
+                            aria-label={`Quitar ${image.alt}`}
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}

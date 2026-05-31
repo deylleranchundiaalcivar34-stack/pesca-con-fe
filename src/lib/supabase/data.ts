@@ -24,7 +24,6 @@ type DbProduct = {
   youtube_video_id: string | null;
   destacado: boolean;
   activo: boolean;
-  creado_en: string;
   imagen_principal: string | null;
   imagen_alt: string | null;
 };
@@ -79,7 +78,6 @@ function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
     youtubeVideoId: row.youtube_video_id ?? undefined,
     isFeatured: row.destacado,
     isActive: row.activo,
-    createdAt: row.creado_en,
   };
 }
 
@@ -128,7 +126,7 @@ export async function getProducts() {
     .from("productos_publicos")
     .select("*")
     .order("destacado", { ascending: false })
-    .order("creado_en", { ascending: false });
+    .order("nombre", { ascending: true });
 
   if (error || !data) {
     return [];
@@ -164,9 +162,9 @@ export async function getCategories(): Promise<ProductCategory[]> {
   const supabase = await createClient();
   const { data: categories } = await supabase
     .from("categorias")
-    .select("id, nombre, slug, descripcion, url_imagen, orden, activa")
+    .select("id, nombre, slug, activa")
     .eq("activa", true)
-    .order("orden", { ascending: true });
+    .order("nombre", { ascending: true });
 
   if (!categories?.length) {
     return fallbackCategories;
@@ -174,15 +172,18 @@ export async function getCategories(): Promise<ProductCategory[]> {
 
   const { data: subcategories } = await supabase
     .from("subcategorias")
-    .select("categoria_id, nombre, slug, orden, activa")
+    .select("categoria_id, nombre, slug, activa")
     .eq("activa", true)
-    .order("orden", { ascending: true });
+    .order("nombre", { ascending: true });
 
   return categories.map((category) => ({
     name: category.nombre,
     slug: category.slug,
-    description: category.descripcion ?? "",
-    image: category.url_imagen ?? "/images/categorias/carretes.webp",
+    description:
+      fallbackCategories.find((fallback) => fallback.slug === category.slug)?.description ?? "",
+    image:
+      fallbackCategories.find((fallback) => fallback.slug === category.slug)?.image ??
+      "/images/categorias/carretes.webp",
     subcategories: (subcategories ?? [])
       .filter((subcategory) => subcategory.categoria_id === category.id)
       .map((subcategory) => ({
@@ -198,7 +199,7 @@ export async function getBrands() {
     .from("marcas")
     .select("id, nombre, slug")
     .eq("activa", true)
-    .order("orden", { ascending: true });
+    .order("nombre", { ascending: true });
 
   return data ?? [];
 }
@@ -207,72 +208,18 @@ export async function getAdminBrands() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("marcas")
-    .select("id, nombre, slug, activa, creado_en")
+    .select("id, nombre, slug, activa")
     .order("nombre", { ascending: true });
 
   return data ?? [];
 }
 
 export async function getBusinessConfig(): Promise<BusinessConfig> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("configuracion_negocio")
-    .select("*")
-    .eq("activo", true)
-    .order("creado_en", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!data) {
-    return fallbackBusinessConfig;
-  }
-
-  return {
-    name: data.nombre,
-    tagline: data.eslogan ?? fallbackBusinessConfig.tagline,
-    type: data.tipo_negocio ?? fallbackBusinessConfig.type,
-    location: data.direccion,
-    city: data.ciudad,
-    country: data.pais,
-    schedule: data.horario ?? fallbackBusinessConfig.schedule,
-    phones: data.telefonos ?? [],
-    whatsappPhoneE164: data.whatsapp_e164,
-    email: data.correo ?? "",
-    social: {
-      facebook: data.url_facebook ?? "",
-      instagram: data.url_instagram ?? "",
-      tiktok: data.url_tiktok ?? "",
-      youtube: data.url_youtube ?? "",
-      whatsapp: data.url_whatsapp_perfil ?? `https://wa.me/${data.whatsapp_e164}`,
-    },
-    mapsEmbedUrl: data.url_mapa_embed ?? "",
-    shippingService: data.servicio_envio,
-    shippingBase: toNumber(data.costo_envio_base),
-    localPickupEnabled: data.retiro_local_habilitado,
-    localPickupInstructions: data.instrucciones_retiro ?? "",
-  };
+  return fallbackBusinessConfig;
 }
 
 export async function getBankAccounts(): Promise<BankAccount[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("cuentas_bancarias")
-    .select("*")
-    .eq("activa", true)
-    .order("orden", { ascending: true });
-
-  if (!data?.length) {
-    return fallbackBankAccounts;
-  }
-
-  return data.map((account) => ({
-    id: account.id,
-    bank: account.banco,
-    owner: account.titular,
-    cedula: account.cedula ?? undefined,
-    accountType: account.tipo_cuenta,
-    accountNumber: account.numero_cuenta,
-  }));
+  return fallbackBankAccounts;
 }
 
 export async function getAdminProducts() {
@@ -280,7 +227,7 @@ export async function getAdminProducts() {
   const { data: products } = await supabase
     .from("productos")
     .select("*")
-    .order("creado_en", { ascending: false });
+    .order("nombre", { ascending: true });
 
   if (!products?.length) {
     return [];
@@ -324,7 +271,6 @@ export async function getAdminProducts() {
         youtube_video_id: row.youtube_video_id,
         destacado: row.destacado,
         activo: row.activo,
-        creado_en: row.creado_en,
         imagen_principal: null,
         imagen_alt: null,
       },
@@ -384,9 +330,7 @@ export async function getAdminOrders(): Promise<Order[]> {
     subtotal: toNumber(order.subtotal),
     shipping: toNumber(order.envio),
     total: toNumber(order.total),
-    bankAccountId: order.cuenta_bancaria_id ?? "",
     status: order.estado,
-    channel: order.canal,
     deliveryType: order.tipo_entrega,
     createdAt: order.creado_en,
   }));
@@ -439,9 +383,7 @@ export async function getCustomerOrders(userId: string): Promise<Order[]> {
     subtotal: toNumber(order.subtotal),
     shipping: toNumber(order.envio),
     total: toNumber(order.total),
-    bankAccountId: order.cuenta_bancaria_id ?? "",
     status: order.estado,
-    channel: order.canal,
     deliveryType: order.tipo_entrega,
     createdAt: order.creado_en,
   }));

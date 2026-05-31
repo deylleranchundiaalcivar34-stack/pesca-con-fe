@@ -12,12 +12,6 @@ export const ORDER_STATUS_LABELS = {
   cancelado: "Cancelado",
 } as const;
 
-export const SALES_CHANNEL_LABELS = {
-  presencial: "Presencial",
-  whatsapp: "WhatsApp",
-  web: "Web",
-} as const;
-
 export const DELIVERY_TYPE_LABELS = {
   envio_servientrega: "Envío por Servientrega",
   retiro_local: "Retiro en local",

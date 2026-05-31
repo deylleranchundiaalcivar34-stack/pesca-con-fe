@@ -29,8 +29,6 @@ type DbCustomerAddress = {
   celular_contacto: string | null;
   principal: boolean;
   activa: boolean;
-  creado_en: string;
-  actualizado_en: string;
 };
 
 function mapCustomerProfile(row: DbCustomerProfile): CustomerProfile {
@@ -59,8 +57,6 @@ function mapCustomerAddress(row: DbCustomerAddress): CustomerAddress {
     contactPhone: row.celular_contacto ?? undefined,
     isPrimary: row.principal,
     isActive: row.activa,
-    createdAt: row.creado_en,
-    updatedAt: row.actualizado_en,
   };
 }
 
@@ -87,11 +83,11 @@ export async function getCustomerAddresses(
 ): Promise<CustomerAddress[]> {
   const { data, error } = await supabase
     .from("direcciones_cliente")
-    .select("id, cliente_id, alias, provincia, ciudad, direccion, referencia, celular_contacto, principal, activa, creado_en, actualizado_en")
+    .select("id, cliente_id, alias, provincia, ciudad, direccion, referencia, celular_contacto, principal, activa")
     .eq("cliente_id", userId)
     .eq("activa", true)
     .order("principal", { ascending: false })
-    .order("creado_en", { ascending: false });
+    .order("alias", { ascending: true });
 
   if (error || !data) {
     return [];

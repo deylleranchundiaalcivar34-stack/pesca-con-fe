@@ -33,11 +33,19 @@ function getAuthErrorMessage(message?: string) {
     return "Confirma tu correo antes de iniciar sesión.";
   }
 
-  if (normalized.includes("user already registered")) {
+  if (
+    normalized.includes("user already registered") ||
+    normalized.includes("already exists") ||
+    normalized.includes("already registered")
+  ) {
     return "Este correo ya está registrado. Intenta iniciar sesión.";
   }
 
   return message;
+}
+
+function isExistingEmailSignUp(dataUser?: { identities?: unknown[] } | null) {
+  return Boolean(dataUser && Array.isArray(dataUser.identities) && dataUser.identities.length === 0);
 }
 
 function getRouteErrorMessage(error?: string) {
@@ -78,7 +86,7 @@ export function LoginPanel({
     setStatusMessage(null);
 
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "");
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
     const { supabase, error: configError } = getSupabaseClientOrMessage();
 
@@ -115,7 +123,7 @@ export function LoginPanel({
     const lastName = String(formData.get("lastName") ?? "").trim();
     const phone = String(formData.get("phone") ?? "").trim();
     const cedula = String(formData.get("cedula") ?? "").trim();
-    const email = String(formData.get("email") ?? "");
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
 
     if (!isValidEcuadorianCedula(cedula)) {
@@ -151,6 +159,11 @@ export function LoginPanel({
 
     if (signUpError) {
       setStatusMessage(getAuthErrorMessage(signUpError.message));
+      return;
+    }
+
+    if (isExistingEmailSignUp(data.user)) {
+      setStatusMessage("Este correo ya está registrado. Intenta iniciar sesión.");
       return;
     }
 

@@ -88,9 +88,6 @@ export function ProductCatalog({
         if (filters.sort === "price-asc") return a.price - b.price;
         if (filters.sort === "price-desc") return b.price - a.price;
         if (filters.sort === "name") return a.name.localeCompare(b.name);
-        if (filters.sort === "newest") {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        }
         return Number(b.isFeatured) - Number(a.isFeatured);
       });
   }, [filters, products]);
@@ -151,7 +148,6 @@ export function ProductCatalog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="featured">Destacados</SelectItem>
-                <SelectItem value="newest">Más recientes</SelectItem>
                 <SelectItem value="price-asc">Precio menor</SelectItem>
                 <SelectItem value="price-desc">Precio mayor</SelectItem>
                 <SelectItem value="name">Nombre A-Z</SelectItem>

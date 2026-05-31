@@ -68,7 +68,7 @@ function AddressForm({
           id={address ? `alias-${address.id}` : "alias-new"}
           name="alias"
           className="mt-2"
-          defaultValue={address?.alias ?? "Principal"}
+          defaultValue={address?.alias ?? "Dirección Principal"}
           placeholder="Casa, trabajo, oficina"
           required
         />

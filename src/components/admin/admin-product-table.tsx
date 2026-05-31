@@ -11,6 +11,7 @@ import { brands, categories } from "@/data/mock-business";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -126,54 +127,70 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por nombre, SKU o marca"
-            className="pl-9"
-          />
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <Label htmlFor="product-search">Buscar</Label>
+          <div className="relative mt-2">
+            <Search
+              className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              id="product-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por nombre, SKU o marca"
+              className="pl-9"
+            />
+          </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:w-[560px]">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {categories.map((item) => (
-                <SelectItem key={item.slug} value={item.slug}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={brand} onValueChange={setBrand}>
-            <SelectTrigger>
-              <SelectValue placeholder="Marca" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {brands.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={stock} onValueChange={setStock}>
-            <SelectTrigger>
-              <SelectValue placeholder="Stock" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo</SelectItem>
-              <SelectItem value="active">Activos</SelectItem>
-              <SelectItem value="low">Bajo stock</SelectItem>
-              <SelectItem value="out">Agotado</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <Label>Categoria</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {categories.map((item) => (
+                  <SelectItem key={item.slug} value={item.slug}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Marca</Label>
+            <Select value={brand} onValueChange={setBrand}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Marca" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {brands.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Estado</Label>
+            <Select value={stock} onValueChange={setStock}>
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="low">Bajo stock</SelectItem>
+                <SelectItem value="out">Agotado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <Button asChild className="w-full lg:w-auto">
           <Link href="/admin/productos/nuevo">
