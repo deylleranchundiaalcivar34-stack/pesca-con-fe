@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import type { ProductCategory } from "@/types/product";
 
 interface CategoryCardProps {
@@ -11,35 +10,17 @@ export function CategoryCard({ category }: CategoryCardProps) {
   return (
     <Link
       href={`/productos?categoria=${category.slug}`}
-      className="group relative block min-h-[21rem] overflow-hidden rounded-lg border border-border bg-dark-blue shadow-sm transition-all hover:-translate-y-1 hover:border-gold hover:shadow-[var(--shadow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`Ver productos de ${category.name}`}
+      className="group relative block aspect-[1.7/1] min-h-[15.5rem] overflow-hidden rounded-lg bg-dark-blue shadow-[0_18px_38px_rgb(5_44_101_/_0.16)] ring-1 ring-dark-blue/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_54px_rgb(5_44_101_/_0.24)] hover:ring-gold/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:aspect-[1.95/1]"
     >
-      <div className="absolute inset-0">
-        <Image
-          src={category.image}
-          alt={`Categor\u00eda ${category.name}`}
-          fill
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          className="object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-dark-blue via-dark-blue/55 to-dark-blue/10 transition-opacity group-hover:opacity-90" />
-      </div>
-
-      <div className="relative flex min-h-[21rem] flex-col justify-end p-6 sm:p-8">
-        <span className="w-fit rounded-full border border-gold/50 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gold-light backdrop-blur">
-          Categoría
-        </span>
-        <div className="mt-4 flex items-end justify-between gap-6">
-          <div>
-            <h3 className="text-3xl font-bold text-white sm:text-4xl">{category.name}</h3>
-            <p className="mt-3 max-w-md text-sm leading-6 text-white/80 sm:text-base">
-              {category.description}
-            </p>
-          </div>
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gold text-dark-blue transition-transform group-hover:translate-x-1">
-            <ArrowRight className="size-5" aria-hidden="true" />
-          </span>
-        </div>
-      </div>
+      <Image
+        src={category.image}
+        alt={`Categoría ${category.name}`}
+        fill
+        sizes="(min-width: 1024px) 50vw, 100vw"
+        className="object-cover transition-transform duration-700 group-hover:scale-105"
+      />
+      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.08),transparent_38%,rgb(5_44_101_/_0.12)),radial-gradient(circle_at_18%_15%,rgb(246_227_161_/_0.22),transparent_32%)] opacity-90 transition-opacity duration-300 group-hover:opacity-60" />
     </Link>
   );
 }

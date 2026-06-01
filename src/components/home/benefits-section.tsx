@@ -29,7 +29,6 @@ export function BenefitsSection() {
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Beneficios"
           title="Calidad, confianza y pasión por la pesca"
           description="Una experiencia simple para comprar artículos de pesca con soporte humano y pago por transferencia."
           align="center"

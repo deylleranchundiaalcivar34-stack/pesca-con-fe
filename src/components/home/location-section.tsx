@@ -11,7 +11,6 @@ export function LocationSection() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
         <div>
           <SectionHeading
-            eyebrow="Ubicación"
             title="Visítanos en Shushufindi"
             description="Estamos en el Mega Mercado Municipal, Local N° 145 - Planta Alta."
           />

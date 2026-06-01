@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Building2, CheckCircle2 } from "lucide-react";
 import type { BankAccount } from "@/types/business";
 import { cn } from "@/lib/utils";
@@ -28,8 +29,18 @@ export function BankAccountCard({
       aria-pressed={selected}
     >
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-primary">
-          <Building2 className="size-5" aria-hidden="true" />
+        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-primary/10 bg-white p-1 shadow-sm">
+          {account.logo ? (
+            <Image
+              src={account.logo.src}
+              alt={account.logo.alt}
+              width={account.logo.width}
+              height={account.logo.height}
+              className="h-full w-full rounded-md object-contain"
+            />
+          ) : (
+            <Building2 className="size-5 text-primary" aria-hidden="true" />
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center justify-between gap-3">

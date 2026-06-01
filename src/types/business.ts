@@ -3,6 +3,12 @@ export interface BankAccount {
   bank: string;
   owner: string;
   cedula?: string;
+  logo?: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+  };
   accountType: "Ahorro" | "Corriente";
   accountNumber: string;
 }
