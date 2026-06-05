@@ -6,14 +6,12 @@ export function BrandStrip() {
   return (
     <div>
       <div className="mx-auto max-w-3xl text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-          Marcas disponibles en tienda
-        </p>
-        <h2 className="mt-3 text-3xl font-bold text-dark-blue sm:text-4xl">
-          Equipos y accesorios de fabricantes reconocidos
+        <h2 className="text-3xl font-bold text-dark-blue sm:text-4xl">
+          Marcas líderes para pescadores exigentes
         </h2>
         <p className="mt-3 text-muted-foreground">
-          Seleccionamos marcas confiables para pesca deportiva, río, mar e indumentaria.
+          Equipos y accesorios de fabricantes confiables para quienes buscan
+          rendimiento en cada salida.
         </p>
       </div>
 

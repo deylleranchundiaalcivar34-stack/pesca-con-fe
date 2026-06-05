@@ -5,22 +5,22 @@ const benefits = [
   {
     icon: ShieldCheck,
     title: "Equipos de calidad",
-    text: "Cañas, carretes y accesorios pensados para uso real en río, costa y viajes largos.",
+    text: "Cañas, carretes y accesorios elegidos por su resistencia, desempeño y utilidad en jornadas de pesca.",
   },
   {
     icon: Sparkles,
-    title: "Señuelos seleccionados",
-    text: "Opciones para río, mar y jigs con colores y acciones que ayudan a provocar ataques.",
+    title: "Señuelos bien elegidos",
+    text: "Modelos, colores y acciones pensados para distintas técnicas, especies y condiciones de pesca.",
   },
   {
     icon: Fish,
-    title: "Pasión por la pesca",
-    text: "Atención cercana para ayudarte a elegir según especie, técnica y presupuesto.",
+    title: "Asesoría cercana",
+    text: "Te orientamos con criterio para elegir según tu experiencia, presupuesto y tipo de salida.",
   },
   {
     icon: Compass,
-    title: "Aventura sin fronteras",
-    text: "Envíos a todo Ecuador mediante Servientrega y coordinación directa por WhatsApp.",
+    title: "Listos para la aventura",
+    text: "Artículos prácticos para pescar con más comodidad, preparación y confianza en cada jornada.",
   },
 ];
 
@@ -29,8 +29,8 @@ export function BenefitsSection() {
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          title="Calidad, confianza y pasión por la pesca"
-          description="Una experiencia simple para comprar artículos de pesca con soporte humano y pago por transferencia."
+          title="Pesca con confianza y preparación"
+          description="Productos confiables, atención cercana y opciones pensadas para quienes disfrutan cada salida con pasión."
           align="center"
         />
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

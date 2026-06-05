@@ -47,8 +47,8 @@ export function Footer() {
             <span className="text-2xl font-bold text-white">Pesca Con Fe</span>
           </Link>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/75">
-            Equipos de pesca seleccionados para cada aventura. Compra fácil,
-            paga por transferencia y confirma por WhatsApp.
+            Equipos, accesorios y pasión por la pesca para acompañarte en cada
+            salida, desde la Amazonía hasta tu próxima aventura.
           </p>
         </div>
 

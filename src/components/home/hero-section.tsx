@@ -23,8 +23,8 @@ export function HeroSection() {
             Pesca Con Fe
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-white/85 sm:text-xl">
-            Confianza, pasión y aventura con equipos de pesca seleccionados
-            para cada salida al río, al mar o a tu próxima ruta.
+            Equipos confiables para cada jornada de pesca, en el río, el mar o
+            tu próxima aventura.
           </p>
           <div className="mt-8 flex">
             <Button
@@ -42,7 +42,7 @@ export function HeroSection() {
           <div className="mt-8 grid gap-3 text-sm text-white/82 sm:grid-cols-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="size-5 text-gold-light" aria-hidden="true" />
-              Calidad, confianza y pasión por la pesca
+              Calidad para pescar con confianza
             </div>
             <div className="flex items-center gap-2">
               <Truck className="size-5 text-gold-light" aria-hidden="true" />

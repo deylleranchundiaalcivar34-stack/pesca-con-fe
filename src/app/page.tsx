@@ -5,7 +5,7 @@ import { HeroSection } from "@/components/home/hero-section";
 import { CategoryCard } from "@/components/home/category-card";
 import { BrandStrip } from "@/components/home/brand-strip";
 import { BenefitsSection } from "@/components/home/benefits-section";
-import { LocationSection } from "@/components/home/location-section";
+import { InstagramNewsSection } from "@/components/home/instagram-news-section";
 import { MotionReveal } from "@/components/shared/motion-reveal";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { BackToTopButton } from "@/components/shared/back-to-top-button";
@@ -33,16 +33,16 @@ export default async function HomePage() {
     <PublicShell>
       <HeroSection />
 
-      <section className="bg-white py-16 sm:py-20">
+      <section className="bg-white py-10 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <MotionReveal>
             <SectionHeading
-              title={"Compra seg\u00fan tu estilo de pesca"}
-              description={"Encuentra carretes, ca\u00f1as, indumentaria y se\u00f1uelos para r\u00edo, mar y aventura."}
+              title="Equípate para cada jornada"
+              description="Todo lo que necesitas para pescar con más confianza, comodidad y preparación."
               align="center"
             />
           </MotionReveal>
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
             {homeCategories.map((category) => (
               <MotionReveal key={category.slug}>
                 <CategoryCard category={category} />
@@ -52,18 +52,18 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white py-16 sm:py-20">
+      <section className="bg-secondary py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <BrandStrip />
         </div>
       </section>
 
-      <section className="bg-secondary py-16 sm:py-20">
+      <section className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeading
-              title={"Equipos listos para tu pr\u00f3xima salida"}
-              description="Productos seleccionados por disponibilidad, calidad y utilidad para pescadores de Ecuador."
+              title="Recomendados para pescadores"
+              description="Una selección de productos confiables para quienes buscan buen desempeño en cada salida."
             />
             <Button asChild variant="outline">
               <Link href="/productos">
@@ -76,8 +76,8 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <InstagramNewsSection />
       <BenefitsSection />
-      <LocationSection />
       <BackToTopButton />
     </PublicShell>
   );

@@ -24,12 +24,12 @@ export default async function ProductsPage({
 
   return (
     <PublicShell>
-      <section className="bg-secondary py-12 sm:py-16">
+      <section className="relative overflow-hidden bg-dark-blue bg-[linear-gradient(90deg,rgb(5_44_101_/_0.86),rgb(5_44_101_/_0.62),rgb(5_44_101_/_0.28)),url('/images/banners/banner-inicio-1.webp')] bg-cover bg-center py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
-            eyebrow="Catálogo"
             title="Productos de pesca para cada aventura"
-            description="Busca, filtra y agrega al carrito. Compra fácil, paga por transferencia y confirma por WhatsApp."
+            description="Productos elegidos por su calidad, utilidad y desempeño para quienes viven la pesca con pasión."
+            className="[&_h2]:text-white [&_p]:text-white/82"
           />
         </div>
       </section>
