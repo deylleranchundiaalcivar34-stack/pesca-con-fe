@@ -72,12 +72,12 @@ export default async function CheckoutPage() {
 
   return (
     <PublicShell>
-      <section className="bg-secondary py-12">
+      <section className="relative overflow-hidden bg-dark-blue bg-[linear-gradient(90deg,rgb(5_44_101_/_0.86),rgb(5_44_101_/_0.62),rgb(5_44_101_/_0.28)),url('/images/banners/banner-2.webp')] bg-cover bg-center py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
-            eyebrow="Checkout"
             title="Genera tu pedido"
-            description="Elige envío por Servientrega o retiro en local sin costo de envío. Método de pago: transferencia bancaria."
+            description="Completa tus datos, elige cómo recibir tu compra y envía el comprobante por WhatsApp para confirmar tu pedido."
+            className="max-w-5xl [&_h2]:text-white [&_p]:text-white/82"
           />
         </div>
       </section>

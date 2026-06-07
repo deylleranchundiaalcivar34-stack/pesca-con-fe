@@ -7,7 +7,7 @@ export function HeroSection() {
   return (
     <section className="relative isolate overflow-hidden bg-dark-blue text-white">
       <Image
-        src="/images/banners/banner-productos.webp"
+        src="/images/banners/banner-inicio.webp"
         alt="Banner promocional de Pesca Con Fe para articulos de pesca"
         fill
         priority

@@ -355,7 +355,7 @@ export function CheckoutForm({
                 </p>
                 <p className="mt-2 text-muted-foreground">{businessConfig.schedule}</p>
                 <p className="mt-2 text-muted-foreground">
-                  {businessConfig.localPickupInstructions}
+                  Espera la confirmación por WhatsApp antes de acercarte.
                 </p>
               </div>
             ) : (
@@ -365,10 +365,20 @@ export function CheckoutForm({
                     <Truck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
                     Tarifa de envío por Servientrega
                   </p>
-                  <p className="mt-2">
-                    Cañas: $8.50. Carretes y otros productos: mínimo $6.50. Si
-                    hay varios productos, se aplica el valor más alto.
-                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    <p>
+                      <span className="font-medium text-dark-blue">Cañas:</span> $8.50
+                    </p>
+                    <p>
+                      <span className="font-medium text-dark-blue">
+                        Carretes y otros productos:
+                      </span>{" "}
+                      mínimo $6.50
+                    </p>
+                    <p className="pt-1">
+                      Si hay varios productos, se aplica el valor de envío más alto.
+                    </p>
+                  </div>
                 </div>
                 {hasSavedAddresses ? (
                   <div className="mt-5">
@@ -553,8 +563,8 @@ export function CheckoutForm({
               Generar pedido y enviar comprobante por WhatsApp
             </Button>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              El pedido queda pendiente de pago. Pesca Con Fe confirma tu transferencia
-              y coordina el envío o retiro en local por WhatsApp.
+              Te contactaremos por WhatsApp para confirmar tu pedido y coordinar la
+              entrega.
             </p>
           </CardContent>
         </Card>
