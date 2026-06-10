@@ -16,7 +16,7 @@ interface CartSummaryProps {
 export function CartSummary({
   showCheckoutButton = true,
   checkoutHref = "/checkout",
-  checkoutLabel = "Continuar al checkout",
+  checkoutLabel = "Continuar para generar pedido",
 }: CartSummaryProps) {
   const isClient = useIsClient();
   const items = useCartStore((state) => state.items);
@@ -57,7 +57,7 @@ export function CartSummary({
 
       <p className="mt-3 flex gap-2 text-xs leading-5 text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        Elige envío por Servientrega o retiro gratis en local durante el checkout.
+        Elige envío por Servientrega o retiro gratis en local al generar tu pedido.
       </p>
     </div>
   );

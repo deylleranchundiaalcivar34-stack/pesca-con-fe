@@ -44,7 +44,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               {product.category} · {product.subcategory}
             </p>
@@ -54,7 +54,10 @@ export function ProductCard({ product }: ProductCardProps) {
               </h3>
             </Link>
           </div>
-          <Badge variant={outOfStock ? "destructive" : product.stock <= 3 ? "warning" : "success"}>
+          <Badge
+            variant={outOfStock ? "destructive" : product.stock <= 3 ? "warning" : "success"}
+            className="shrink-0 whitespace-nowrap"
+          >
             {outOfStock ? "Agotado" : `${product.stock} disp.`}
           </Badge>
         </div>

@@ -13,7 +13,7 @@ import {
 import type { CheckoutCustomerDefaults } from "@/types/customer";
 
 export const metadata: Metadata = {
-  title: "Checkout",
+  title: "Generar pedido",
   description:
     "Completa tus datos, elige envío o retiro en local, paga por transferencia y envía el comprobante por WhatsApp a Pesca Con Fe.",
 };

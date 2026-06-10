@@ -39,6 +39,9 @@ export default async function LoginPage({
   searchParams: Promise<LoginSearchParams>;
 }) {
   const params = await searchParams;
+  const confirmed = getStringParam(params.confirmed) === "1";
+  const error = getStringParam(params.error);
+  const mode = getMode(params.mode);
 
   return (
     <PublicShell>
@@ -56,8 +59,7 @@ export default async function LoginPage({
                 Compra más rápido en Pesca Con Fe
               </h1>
               <p className="mt-4 leading-7 text-white/75">
-                Inicia sesión para autocompletar tus datos en el checkout. Los
-                accesos administrativos se asignan de forma segura.
+                Inicia sesión para autocompletar tus datos al generar un pedido.
               </p>
             </div>
 
@@ -69,9 +71,10 @@ export default async function LoginPage({
 
           <div className="flex items-center justify-center p-5 sm:p-8">
           <LoginPanel
-            confirmed={getStringParam(params.confirmed) === "1"}
-            error={getStringParam(params.error)}
-            mode={getMode(params.mode)}
+            key={`${mode}-${confirmed ? "confirmed" : "pending"}-${error ?? "none"}`}
+            confirmed={confirmed}
+            error={error}
+            mode={mode}
             redirectTo={getSafeRedirect(params.redirect)}
           />
           </div>

@@ -5,7 +5,7 @@ import { CartPageClient } from "@/components/cart/cart-page-client";
 export const metadata: Metadata = {
   title: "Carrito",
   description:
-    "Revisa tu carrito de Pesca Con Fe, modifica cantidades y continúa al checkout por transferencia bancaria.",
+    "Revisa tu carrito de Pesca Con Fe, modifica cantidades y genera tu pedido por transferencia bancaria.",
 };
 
 export default function CartPage() {

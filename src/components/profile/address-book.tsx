@@ -277,7 +277,7 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
               <MapPin className="mx-auto size-12 text-primary" aria-hidden="true" />
               <h3 className="mt-4 text-2xl font-black text-dark-blue">No tienes direcciones</h3>
               <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-                Agrega una direccion para acelerar el checkout de tus proximas compras.
+                Agrega una direccion para acelerar tus proximas compras.
               </p>
             </CardContent>
           </Card>

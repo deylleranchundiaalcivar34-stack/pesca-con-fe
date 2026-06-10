@@ -58,7 +58,7 @@ export function CartPageClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-dark-blue">Tu carrito</h1>
             <p className="mt-2 text-muted-foreground">
-              Revisa productos, cantidades y costos antes de continuar al checkout.
+              Revisa tus productos, cantidades y costos antes de generar tu pedido.
             </p>
           </div>
           <Button
@@ -78,11 +78,11 @@ export function CartPageClient() {
           ))}
         </div>
 
-        <div className="mt-5 flex items-start gap-3 rounded-lg border border-primary/15 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
+        <div className="mt-5 flex items-start gap-3 rounded-lg border border-primary/15 bg-white p-4 text-sm leading-6 text-muted-foreground">
           <PackageCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
           <p>
-            Tu pedido se genera por WhatsApp al finalizar el checkout. Pesca Con Fe
-            confirma el pago por transferencia antes de coordinar el envío.
+            Al generar tu pedido, te guiaremos por WhatsApp para confirmar el pago por
+            transferencia y coordinar la entrega.
           </p>
         </div>
       </div>

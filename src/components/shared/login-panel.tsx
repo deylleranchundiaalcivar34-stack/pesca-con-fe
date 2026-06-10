@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidEcuadorianCedula } from "@/lib/ecuador";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 type LoginPanelProps = {
   confirmed?: boolean;
@@ -19,6 +20,8 @@ type LoginPanelProps = {
   mode?: "login" | "register";
   redirectTo?: string;
 };
+
+type StatusTone = "info" | "error";
 
 function getAuthErrorMessage(message?: string) {
   if (!message) return "No pudimos completar la solicitud.";
@@ -76,9 +79,20 @@ export function LoginPanel({
 }: LoginPanelProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const initialStatusMessage = confirmed
+    ? "Correo confirmado. Ya puedes iniciar sesión."
+    : getRouteErrorMessage(error);
   const [statusMessage, setStatusMessage] = useState<string | null>(
-    confirmed ? "Correo confirmado. Ya puedes iniciar sesión." : getRouteErrorMessage(error),
+    initialStatusMessage,
   );
+  const [statusTone, setStatusTone] = useState<StatusTone>(
+    confirmed || !initialStatusMessage ? "info" : "error",
+  );
+
+  const showStatus = (message: string | null, tone: StatusTone = "error") => {
+    setStatusTone(tone);
+    setStatusMessage(message);
+  };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,7 +106,7 @@ export function LoginPanel({
 
     if (!supabase) {
       setIsPending(false);
-      setStatusMessage(configError);
+      showStatus(configError);
       return;
     }
 
@@ -104,7 +118,7 @@ export function LoginPanel({
     setIsPending(false);
 
     if (signInError) {
-      setStatusMessage(getAuthErrorMessage(signInError.message));
+      showStatus(getAuthErrorMessage(signInError.message));
       return;
     }
 
@@ -128,7 +142,7 @@ export function LoginPanel({
 
     if (!isValidEcuadorianCedula(cedula)) {
       setIsPending(false);
-      setStatusMessage("Ingresa una cédula ecuatoriana válida.");
+      showStatus("Ingresa una cédula ecuatoriana válida.");
       return;
     }
 
@@ -136,7 +150,7 @@ export function LoginPanel({
 
     if (!supabase) {
       setIsPending(false);
-      setStatusMessage(configError);
+      showStatus(configError);
       return;
     }
 
@@ -158,12 +172,12 @@ export function LoginPanel({
     setIsPending(false);
 
     if (signUpError) {
-      setStatusMessage(getAuthErrorMessage(signUpError.message));
+      showStatus(getAuthErrorMessage(signUpError.message));
       return;
     }
 
     if (isExistingEmailSignUp(data.user)) {
-      setStatusMessage("Este correo ya está registrado. Intenta iniciar sesión.");
+      showStatus("Este correo ya está registrado. Intenta iniciar sesión.");
       return;
     }
 
@@ -184,7 +198,7 @@ export function LoginPanel({
 
       if (profileError) {
         setIsPending(false);
-        setStatusMessage(profileError.message);
+        showStatus(profileError.message);
         return;
       }
 
@@ -194,8 +208,9 @@ export function LoginPanel({
       return;
     }
 
-    setStatusMessage(
-      "Registro creado. Revisa tu correo para confirmar la cuenta. Tus datos se usarán para agilizar el checkout.",
+    showStatus(
+      "Registro creado. Revisa tu correo para confirmar la cuenta. Tus datos se usarán para agilizar tus pedidos.",
+      "info",
     );
   };
 
@@ -212,16 +227,23 @@ export function LoginPanel({
           )}
           {isLogin ? "Ingresar" : "Crear cuenta"}
         </CardTitle>
-        <p className="text-sm leading-6 text-muted-foreground">
-          {isLogin
-            ? "Entra para usar tus datos guardados en el checkout."
-            : "Crea tu perfil para que tus compras sean más rápidas."}
-        </p>
+        {!isLogin ? (
+          <p className="text-sm leading-6 text-muted-foreground">
+            Crea tu perfil para que tus compras sean más rápidas.
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         <div className="space-y-5">
           {statusMessage ? (
-            <div className="rounded-md border border-primary/20 bg-secondary p-3 text-sm text-dark-blue">
+            <div
+              className={cn(
+                "rounded-md border p-3 text-sm",
+                statusTone === "error"
+                  ? "!border-destructive/30 bg-red-50 text-destructive"
+                  : "border-primary/20 bg-secondary text-dark-blue",
+              )}
+            >
               {statusMessage}
             </div>
           ) : null}

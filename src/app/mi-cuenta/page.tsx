@@ -257,7 +257,7 @@ export default async function AccountPage({
                   <div className="mb-6">
                     <h2 className="text-2xl font-black text-dark-blue">Mi perfil</h2>
                     <p className="text-muted-foreground">
-                      Actualiza los datos que usaremos para agilizar tu checkout.
+                      Actualiza los datos que usaremos para agilizar tus pedidos.
                     </p>
                   </div>
                   <ProfileForm user={user} />
@@ -269,7 +269,7 @@ export default async function AccountPage({
                   <div className="mb-6">
                     <h2 className="text-2xl font-black text-dark-blue">Direcciones</h2>
                     <p className="text-muted-foreground">
-                      Guarda tus direcciones para agilizar el checkout.
+                      Guarda tus direcciones para agilizar tus pedidos.
                     </p>
                   </div>
                   <AddressBook addresses={addresses} />

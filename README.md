@@ -89,7 +89,3 @@ Servicio: Servientrega Ecuador.
 - Carretes: `$6.50`
 - Otros productos: mínimo `$6.50`
 - Si el carrito tiene varios productos, se toma el valor más alto aplicable.
-
-
-## Reglas
-- No corras lint y build despues de cada cambio. hazlo cada 5 cambios.
