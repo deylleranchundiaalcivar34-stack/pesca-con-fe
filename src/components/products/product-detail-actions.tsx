@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Minus, Plus, ShoppingCart } from "lucide-react";
+import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { getBusinessWhatsAppUrl } from "@/lib/whatsapp";
 import { useCartStore } from "@/store/cart-store";
 
 interface ProductDetailActionsProps {
@@ -48,9 +47,10 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div>
         <Button
           size="lg"
+          className="w-full"
           disabled={outOfStock}
           onClick={() => {
             addItem(product, quantity);
@@ -59,12 +59,6 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
         >
           <ShoppingCart aria-hidden="true" />
           Agregar al carrito
-        </Button>
-        <Button asChild size="lg" variant="premium">
-          <a href={getBusinessWhatsAppUrl()} target="_blank" rel="noreferrer">
-            <MessageCircle aria-hidden="true" />
-            Consultar por WhatsApp
-          </a>
         </Button>
       </div>
     </div>

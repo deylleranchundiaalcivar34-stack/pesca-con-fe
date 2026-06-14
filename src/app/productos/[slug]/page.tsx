@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { PublicShell } from "@/components/layout/public-shell";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ProductGallery } from "@/components/products/product-gallery";
 import { ProductDetailActions } from "@/components/products/product-detail-actions";
 import { ProductGrid } from "@/components/products/product-grid";
@@ -62,21 +61,23 @@ export default async function ProductDetailPage({
   return (
     <PublicShell>
       <ProductJsonLd product={product} />
-      <section className="bg-secondary py-5">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
-          <Link href="/productos" className="hover:text-primary">
-            Productos
-          </Link>
-          <ChevronRight className="size-4" aria-hidden="true" />
-          <span>{product.name}</span>
+      <section className="bg-[linear-gradient(180deg,#f1f7ff_0%,#ffffff_100%)] py-5">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/productos" className="shrink-0 hover:text-primary">
+              Productos
+            </Link>
+            <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">{product.name}</span>
+          </div>
         </div>
       </section>
 
-      <section className="py-10 sm:py-14">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
+      <section className="bg-white pb-12 pt-6 sm:pb-16 sm:pt-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-12 lg:px-8">
           <ProductGallery product={product} />
 
-          <div>
+          <div className="rounded-lg border border-border bg-white p-5 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-6 lg:sticky lg:top-24">
             <div className="flex flex-wrap gap-2">
               <Badge variant="premium">{product.brand}</Badge>
               <Badge variant={product.stock > 0 ? "success" : "destructive"}>
@@ -98,8 +99,9 @@ export default async function ProductDetailPage({
               {product.description}
             </p>
 
-            <Separator className="my-6" />
-            <ProductDetailActions product={product} />
+            <div className="mt-7 border-t border-border pt-6">
+              <ProductDetailActions product={product} />
+            </div>
 
             <div className="mt-8 rounded-lg border border-border bg-white p-5 shadow-sm">
               <h2 className="font-bold text-dark-blue">Características</h2>
@@ -117,12 +119,11 @@ export default async function ProductDetailPage({
       </section>
 
       {product.youtubeVideoId ? (
-        <section className="bg-secondary py-12">
+        <section className="bg-secondary py-12 sm:py-16">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="Video"
               title="Mira el producto en acción"
-              description="Video embebido mediante YouTube para futuras demostraciones reales del producto."
+              description="Una referencia visual para conocer mejor sus detalles, proporciones y uso en pesca."
               align="center"
             />
             <div className="mt-8">
@@ -135,12 +136,11 @@ export default async function ProductDetailPage({
         </section>
       ) : null}
 
-      <section className="py-14 sm:py-16">
+      <section className="bg-white py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
-            eyebrow="Relacionados"
             title="También puede interesarte"
-            description="Productos de la misma categoría para completar tu equipo."
+            description="Opciones de la misma categoría para comparar y completar tu equipo."
           />
           <div className="mt-8">
             <ProductGrid products={related} />
