@@ -2,10 +2,10 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/mock-business";
-import type { BankAccount, BusinessConfig } from "@/types/business";
-import type { Order, OrderItem } from "@/types/order";
-import type { Product, ProductCategory, ProductImage } from "@/types/product";
+import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/datos-negocio";
+import type { BankAccount, BusinessConfig } from "@/types/negocio";
+import type { Order, OrderItem } from "@/types/pedido";
+import type { Product, ProductCategory, ProductImage } from "@/types/producto";
 
 type DbProduct = {
   id: string;
@@ -41,10 +41,12 @@ type DbImage = {
 
 const placeholderImage = "/images/products/product-placeholder.png";
 
+// Normaliza numeros que pueden llegar como string desde Supabase.
 function toNumber(value: number | string | null | undefined) {
   return typeof value === "number" ? value : Number(value ?? 0);
 }
 
+// Convierte una fila publica de producto al modelo que renderiza la tienda.
 function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
   const safeImages = images.length
     ? images
@@ -81,6 +83,7 @@ function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
   };
 }
 
+// Ordena y adapta las imagenes activas de un producto.
 function mapImages(rows: DbImage[]) {
   return rows
     .filter((row) => row.activo)
@@ -94,6 +97,7 @@ function mapImages(rows: DbImage[]) {
     }));
 }
 
+// Carga las imagenes de varios productos en una sola consulta.
 async function getProductImagesByProductIds(
   supabase: SupabaseClient,
   productIds: string[],
@@ -120,6 +124,7 @@ async function getProductImagesByProductIds(
   );
 }
 
+// Lista productos visibles para catalogo, inicio y detalle.
 export async function getProducts() {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -141,11 +146,13 @@ export async function getProducts() {
   return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
 }
 
+// Busca un producto publico por slug.
 export async function getProductBySlug(slug: string) {
   const products = await getProducts();
   return products.find((product) => product.slug === slug) ?? null;
 }
 
+// Devuelve productos relacionados de la misma categoria.
 export async function getRelatedProducts(product: Product, limit = 4) {
   const products = await getProducts();
   return products
@@ -158,6 +165,7 @@ export async function getRelatedProducts(product: Product, limit = 4) {
     .slice(0, limit);
 }
 
+// Carga categorias activas y usa datos locales como respaldo visual.
 export async function getCategories(): Promise<ProductCategory[]> {
   const supabase = await createClient();
   const { data: categories } = await supabase
@@ -193,6 +201,7 @@ export async function getCategories(): Promise<ProductCategory[]> {
   }));
 }
 
+// Lista marcas activas para filtros y formularios.
 export async function getBrands() {
   const supabase = await createClient();
   const { data } = await supabase
@@ -204,6 +213,7 @@ export async function getBrands() {
   return data ?? [];
 }
 
+// Lista marcas del panel admin, incluyendo inactivas.
 export async function getAdminBrands() {
   const supabase = await createClient();
   const { data } = await supabase
@@ -214,14 +224,17 @@ export async function getAdminBrands() {
   return data ?? [];
 }
 
+// Devuelve la configuracion comercial usada en checkout y datos estructurados.
 export async function getBusinessConfig(): Promise<BusinessConfig> {
   return fallbackBusinessConfig;
 }
 
+// Devuelve cuentas bancarias disponibles para transferencias.
 export async function getBankAccounts(): Promise<BankAccount[]> {
   return fallbackBankAccounts;
 }
 
+// Carga productos para administracion con nombres de categoria, subcategoria y marca.
 export async function getAdminProducts() {
   const supabase = await createClient();
   const { data: products } = await supabase
@@ -279,11 +292,13 @@ export async function getAdminProducts() {
   });
 }
 
+// Busca un producto admin por id para editarlo.
 export async function getAdminProductById(id: string) {
   const products = await getAdminProducts();
   return products.find((product) => product.id === id) ?? null;
 }
 
+// Carga pedidos para el panel administrativo.
 export async function getAdminOrders(): Promise<Order[]> {
   const supabase = await createClient();
   const { data: orders } = await supabase
@@ -336,6 +351,7 @@ export async function getAdminOrders(): Promise<Order[]> {
   }));
 }
 
+// Carga pedidos asociados a un cliente autenticado.
 export async function getCustomerOrders(userId: string): Promise<Order[]> {
   const supabase = await createClient();
   const { data: orders } = await supabase

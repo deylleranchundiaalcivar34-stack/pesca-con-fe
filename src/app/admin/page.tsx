@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, Boxes, DollarSign, PackagePlus, ShoppingBag } from "lucide-react";
-import { AdminMetricCard } from "@/components/admin/admin-metric-card";
+import { AdminMetricCard } from "@/components/admin/tarjeta-metrica-admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,10 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { StatusBadge } from "@/components/shared/insignia-estado";
 import { getAdminOrders, getAdminProducts } from "@/lib/supabase/data";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utilidades";
 
+// Dashboard admin con metricas, pedidos recientes y bajo stock.
 export default async function AdminDashboardPage() {
   const [orders, products] = await Promise.all([getAdminOrders(), getAdminProducts()]);
   const confirmedOrders = orders.filter(

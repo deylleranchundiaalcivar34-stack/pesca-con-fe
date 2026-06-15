@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PublicShell } from "@/components/layout/public-shell";
-import { ProductCatalog } from "@/components/products/product-catalog";
-import { SectionHeading } from "@/components/shared/section-heading";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { ProductCatalog } from "@/components/products/catalogo-productos";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { getBrands, getCategories, getProducts } from "@/lib/supabase/data";
 
 export const metadata: Metadata = {
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     "Catálogo de cañas, carretes, señuelos e indumentaria de Pesca Con Fe con filtros por categoría, marca, precio y disponibilidad.",
 };
 
+// Pagina de catalogo con filtros iniciales desde la URL.
 export default async function ProductsPage({
   searchParams,
 }: {

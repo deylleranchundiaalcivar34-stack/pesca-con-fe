@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Save, Trash2 } from "lucide-react";
-import { deactivateBrand, updateBrand } from "@/app/admin/marcas/actions";
-import { BrandForm } from "@/components/admin/brand-form";
+import { deactivateBrand, updateBrand } from "@/app/admin/marcas/acciones";
+import { BrandForm } from "@/components/admin/formulario-marca";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getAdminBrands } from "@/lib/supabase/data";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utilidades";
 
 type BrandFilter = "activas" | "inactivas" | "todas";
 
@@ -25,6 +25,7 @@ const filterLinks: Array<{ href: string; label: string; value: BrandFilter }> = 
   { href: "/admin/marcas?estado=todas", label: "Todas", value: "todas" },
 ];
 
+// Normaliza el filtro de marcas recibido desde la URL.
 function getBrandFilter(value?: string | string[]): BrandFilter {
   const filter = Array.isArray(value) ? value[0] : value;
 
@@ -35,6 +36,7 @@ function getBrandFilter(value?: string | string[]): BrandFilter {
   return "activas";
 }
 
+// Pagina admin para crear, editar y desactivar marcas.
 export default async function AdminBrandsPage({
   searchParams,
 }: {

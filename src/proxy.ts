@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
+// Mantiene la sesion de Supabase sincronizada en cada request.
 export async function proxy(request: NextRequest) {
   return updateSession(request);
 }

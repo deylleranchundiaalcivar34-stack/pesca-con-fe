@@ -13,7 +13,7 @@ import {
   ShoppingCart,
   UserRound,
 } from "lucide-react";
-import { logout } from "@/app/auth/actions";
+import { logout } from "@/app/auth/acciones";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,10 +30,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { CartDrawer } from "@/components/cart/cart-drawer";
-import { useIsClient } from "@/hooks/use-is-client";
-import { useCartStore } from "@/store/cart-store";
-import type { PublicUserSummary } from "@/types/user";
+import { CartDrawer } from "@/components/cart/panel-carrito";
+import { useIsClient } from "@/hooks/use-es-cliente";
+import { useCartStore } from "@/store/tienda-carrito";
+import type { PublicUserSummary } from "@/types/usuario";
 
 const navItems = [
   { href: "/", label: "Inicio" },
@@ -42,15 +42,18 @@ const navItems = [
   { href: "/contacto", label: "Contacto" },
 ];
 
+// Decide el nombre completo que se muestra en menu y saludo.
 function getDisplayName(user: PublicUserSummary) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
   return fullName || user.fullName || user.email || "Mi cuenta";
 }
 
+// Acorta el nombre del disparador para que el header no se sature.
 function getTriggerName(user: PublicUserSummary) {
   return user.firstName || user.fullName || user.email || "Mi cuenta";
 }
 
+// Menu del usuario autenticado con accesos de cuenta, admin y logout.
 function UserMenu({ user }: { user: PublicUserSummary }) {
   const [isLoggingOut, startLogoutTransition] = useTransition();
   const displayName = getDisplayName(user);
@@ -137,6 +140,7 @@ function UserMenu({ user }: { user: PublicUserSummary }) {
   );
 }
 
+// Enlace de login con variante para desktop o movil.
 function LoginLink({ mobile = false }: { mobile?: boolean }) {
   return (
     <Button asChild variant="outline" size={mobile ? "default" : "sm"} className={mobile ? "justify-start" : ""}>
@@ -148,6 +152,7 @@ function LoginLink({ mobile = false }: { mobile?: boolean }) {
   );
 }
 
+// Header publico con navegacion, sesion y carrito.
 export function Header({ user }: { user: PublicUserSummary | null }) {
   const isClient = useIsClient();
   const itemCount = useCartStore((state) => state.itemCount());

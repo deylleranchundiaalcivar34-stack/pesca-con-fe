@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { AdminSidebar } from "@/components/admin/barra-lateral-admin";
 
 export const metadata: Metadata = {
   title: {
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   },
 };
 
+// Layout del panel admin con sidebar fijo y area principal.
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-secondary">

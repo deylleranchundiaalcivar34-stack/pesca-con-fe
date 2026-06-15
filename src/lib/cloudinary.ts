@@ -1,5 +1,6 @@
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 
+// Lee credenciales de Cloudinary y detecta si falta configuracion.
 function getCloudinaryEnv() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
   const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
@@ -12,10 +13,12 @@ function getCloudinaryEnv() {
   return { cloudName, apiKey, apiSecret };
 }
 
+// Permite saber si el upload de imagenes esta disponible.
 export function hasCloudinaryEnv() {
   return Boolean(getCloudinaryEnv());
 }
 
+// Crea el cliente Cloudinary configurado para operaciones del servidor.
 export function getCloudinaryClient() {
   const env = getCloudinaryEnv();
 
@@ -33,6 +36,7 @@ export function getCloudinaryClient() {
   return cloudinary;
 }
 
+// Sube una imagen de producto y devuelve los datos que se guardan en Supabase.
 export async function uploadProductImage(file: File, folder = "pesca-con-fe/productos") {
   const bytes = Buffer.from(await file.arrayBuffer());
   const client = getCloudinaryClient();
@@ -58,6 +62,7 @@ export async function uploadProductImage(file: File, folder = "pesca-con-fe/prod
   });
 }
 
+// Elimina de Cloudinary una imagen que ya no debe usarse en el producto.
 export async function deleteCloudinaryImage(publicId: string) {
   const client = getCloudinaryClient();
   await client.uploader.destroy(publicId, { resource_type: "image" });

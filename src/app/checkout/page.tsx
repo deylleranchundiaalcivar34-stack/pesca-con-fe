@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PublicShell } from "@/components/layout/public-shell";
-import { CheckoutForm } from "@/components/checkout/checkout-form";
-import { SectionHeading } from "@/components/shared/section-heading";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { CheckoutForm } from "@/components/checkout/formulario-checkout";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getBankAccounts, getBusinessConfig } from "@/lib/supabase/data";
@@ -9,8 +9,8 @@ import {
   getCustomerAddresses,
   getCustomerProfile,
   getPublicUserSummary,
-} from "@/lib/user";
-import type { CheckoutCustomerDefaults } from "@/types/customer";
+} from "@/lib/usuario";
+import type { CheckoutCustomerDefaults } from "@/types/cliente";
 
 export const metadata: Metadata = {
   title: "Generar pedido",
@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     "Completa tus datos, elige envío o retiro en local, paga por transferencia y envía el comprobante por WhatsApp a Pesca Con Fe.",
 };
 
+// Precarga datos del cliente para facilitar el checkout.
 async function getCheckoutCustomerDefaults(): Promise<CheckoutCustomerDefaults> {
   if (!hasSupabaseEnv()) {
     return {};
@@ -54,6 +55,7 @@ async function getCheckoutCustomerDefaults(): Promise<CheckoutCustomerDefaults> 
   };
 }
 
+// Pagina de checkout con banner, formulario y datos bancarios.
 export default async function CheckoutPage() {
   const [customerDefaults, checkoutAddresses, bankAccounts, businessConfig] = await Promise.all([
     getCheckoutCustomerDefaults(),

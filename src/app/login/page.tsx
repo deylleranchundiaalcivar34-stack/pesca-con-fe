@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ShieldCheck, ShoppingBag } from "lucide-react";
-import { PublicShell } from "@/components/layout/public-shell";
-import { LoginPanel } from "@/components/shared/login-panel";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { LoginPanel } from "@/components/shared/panel-inicio-sesion";
 
 export const metadata: Metadata = {
   title: "Ingresar",
@@ -15,10 +15,12 @@ type LoginSearchParams = {
   redirect?: string | string[];
 };
 
+// Normaliza parametros de URL que pueden venir como arreglo.
 function getStringParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Evita redirecciones externas o inseguras despues del login.
 function getSafeRedirect(value: string | string[] | undefined) {
   const redirect = getStringParam(value);
 
@@ -29,10 +31,12 @@ function getSafeRedirect(value: string | string[] | undefined) {
   return redirect;
 }
 
+// Decide si el panel arranca en login o registro.
 function getMode(value: string | string[] | undefined) {
   return getStringParam(value) === "register" ? "register" : "login";
 }
 
+// Pagina de autenticacion con mensajes desde searchParams.
 export default async function LoginPage({
   searchParams,
 }: {

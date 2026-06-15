@@ -1,25 +1,27 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { PublicShell } from "@/components/layout/public-shell";
-import { HeroSection } from "@/components/home/hero-section";
-import { CategoryCard } from "@/components/home/category-card";
-import { BrandStrip } from "@/components/home/brand-strip";
-import { BenefitsSection } from "@/components/home/benefits-section";
-import { InstagramNewsSection } from "@/components/home/instagram-news-section";
-import { MotionReveal } from "@/components/shared/motion-reveal";
-import { SectionHeading } from "@/components/shared/section-heading";
-import { BackToTopButton } from "@/components/shared/back-to-top-button";
-import { ProductGrid } from "@/components/products/product-grid";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { HeroSection } from "@/components/home/seccion-principal";
+import { CategoryCard } from "@/components/home/tarjeta-categoria";
+import { BrandStrip } from "@/components/home/franja-marcas";
+import { BenefitsSection } from "@/components/home/seccion-beneficios";
+import { InstagramNewsSection } from "@/components/home/seccion-noticias-instagram";
+import { MotionReveal } from "@/components/shared/revelar-con-movimiento";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
+import { BackToTopButton } from "@/components/shared/boton-volver-arriba";
+import { ProductGrid } from "@/components/products/cuadricula-productos";
 import { Button } from "@/components/ui/button";
 import { getCategories, getProducts } from "@/lib/supabase/data";
 
 const categoryOrder = ["canas", "carrete", "senuelos", "indumentaria"];
 
+// Ordena categorias de inicio en el orden comercial deseado.
 function getCategoryPosition(slug: string) {
   const position = categoryOrder.indexOf(slug);
   return position === -1 ? categoryOrder.length : position;
 }
 
+// Pagina principal: carga categorias y productos destacados.
 export default async function HomePage() {
   const [categories, products] = await Promise.all([getCategories(), getProducts()]);
   const homeCategories = [...categories].sort(

@@ -1,6 +1,7 @@
-import { AdminOrderTable } from "@/components/admin/admin-order-table";
+import { AdminOrderTable } from "@/components/admin/tabla-pedidos-admin";
 import { getAdminOrders } from "@/lib/supabase/data";
 
+// Pagina admin que carga pedidos y los entrega a la tabla.
 export default async function AdminOrdersPage() {
   const orders = await getAdminOrders();
 

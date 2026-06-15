@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_URL } from "@/lib/constantes";
 
+// Define reglas basicas para rastreadores y enlaza el sitemap.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [

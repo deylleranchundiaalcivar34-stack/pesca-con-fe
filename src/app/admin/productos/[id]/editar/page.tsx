@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { ProductForm } from "@/components/admin/product-form";
+import { ProductForm } from "@/components/admin/formulario-producto";
 import {
   getAdminProductById,
   getBrands,
   getCategories,
 } from "@/lib/supabase/data";
 
+// Pagina admin para editar un producto existente.
 export default async function EditProductPage({
   params,
 }: {

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { PublicShell } from "@/components/layout/public-shell";
+import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SectionHeading } from "@/components/shared/section-heading";
-import { businessConfig } from "@/data/mock-business";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
+import { businessConfig } from "@/data/datos-negocio";
 
 export const metadata: Metadata = {
   title: "Contacto",
@@ -46,6 +46,7 @@ const socialLinks = [
   },
 ] as const;
 
+// Pagina de contacto con datos del negocio y redes.
 export default function ContactPage() {
   return (
     <PublicShell>

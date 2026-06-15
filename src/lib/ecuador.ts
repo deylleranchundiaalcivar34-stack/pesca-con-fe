@@ -1,3 +1,4 @@
+// Valida cedulas ecuatorianas con el algoritmo oficial de digito verificador.
 export function isValidEcuadorianCedula(value: string) {
   const cedula = value.replace(/\D/g, "");
 

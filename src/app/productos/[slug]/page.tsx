@@ -2,21 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { PublicShell } from "@/components/layout/public-shell";
+import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Badge } from "@/components/ui/badge";
-import { ProductGallery } from "@/components/products/product-gallery";
-import { ProductDetailActions } from "@/components/products/product-detail-actions";
-import { ProductGrid } from "@/components/products/product-grid";
-import { ProductJsonLd } from "@/components/shared/product-json-ld";
-import { SectionHeading } from "@/components/shared/section-heading";
-import { YouTubeEmbed } from "@/components/shared/youtube-embed";
+import { ProductGallery } from "@/components/products/galeria-producto";
+import { ProductDetailActions } from "@/components/products/acciones-detalle-producto";
+import { ProductGrid } from "@/components/products/cuadricula-productos";
+import { ProductJsonLd } from "@/components/shared/producto-json-ld";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
+import { YouTubeEmbed } from "@/components/shared/video-youtube";
 import {
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/supabase/data";
-import { formatCurrency } from "@/lib/utils";
-import { SITE_URL } from "@/lib/constants";
+import { formatCurrency } from "@/lib/utilidades";
+import { SITE_URL } from "@/lib/constantes";
 
+// Genera metadatos SEO del producto segun su slug.
 export async function generateMetadata({
   params,
 }: {
@@ -46,6 +47,7 @@ export async function generateMetadata({
   };
 }
 
+// Pagina de detalle con galeria, compra, relacionados y video.
 export default async function ProductDetailPage({
   params,
 }: {

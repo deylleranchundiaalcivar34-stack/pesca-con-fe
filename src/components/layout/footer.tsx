@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { businessConfig } from "@/data/mock-business";
+import { businessConfig } from "@/data/datos-negocio";
 import { Button } from "@/components/ui/button";
 
 const socialLinks = [
@@ -27,6 +27,7 @@ const socialLinks = [
   },
 ] as const;
 
+// Footer publico con enlaces, contacto y redes sociales.
 export function Footer() {
   return (
     <footer className="border-t border-border bg-dark-blue text-white">

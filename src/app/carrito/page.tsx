@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { PublicShell } from "@/components/layout/public-shell";
-import { CartPageClient } from "@/components/cart/cart-page-client";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { CartPageClient } from "@/components/cart/pagina-carrito-cliente";
 
 export const metadata: Metadata = {
   title: "Carrito",
@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     "Revisa tu carrito de Pesca Con Fe, modifica cantidades y genera tu pedido por transferencia bancaria.",
 };
 
+// Pagina contenedora del carrito del cliente.
 export default function CartPage() {
   return (
     <PublicShell>

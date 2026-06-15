@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "./env";
 
+// Crea el cliente Supabase para componentes del navegador.
 export function createClient() {
   const supabaseEnv = getSupabaseEnv();
 

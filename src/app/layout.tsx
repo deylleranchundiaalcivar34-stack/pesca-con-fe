@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { LocalBusinessJsonLd } from "@/components/shared/local-business-json-ld";
-import { SITE_URL } from "@/lib/constants";
+import { LocalBusinessJsonLd } from "@/components/shared/negocio-local-json-ld";
+import { SITE_URL } from "@/lib/constantes";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,6 +48,7 @@ export const metadata: Metadata = {
   },
 };
 
+// Layout raiz: define idioma, fuentes, SEO base y toasts globales.
 export default function RootLayout({
   children,
 }: Readonly<{

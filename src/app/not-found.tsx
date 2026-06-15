@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { PublicShell } from "@/components/layout/public-shell";
+import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Button } from "@/components/ui/button";
 
+// Pagina personalizada para rutas no encontradas.
 export default function NotFoundPage() {
   return (
     <PublicShell>

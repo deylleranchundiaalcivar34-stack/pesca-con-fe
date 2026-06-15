@@ -9,9 +9,9 @@ import {
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import { PublicShell } from "@/components/layout/public-shell";
+import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Button } from "@/components/ui/button";
-import { SectionHeading } from "@/components/shared/section-heading";
+import { SectionHeading } from "@/components/shared/encabezado-seccion";
 
 export const metadata: Metadata = {
   title: "Quiénes somos",
@@ -79,6 +79,7 @@ const galleryImages = [
   },
 ] as const;
 
+// Pagina institucional con historia, valores y galeria.
 export default function AboutPage() {
   return (
     <PublicShell>

@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_URL } from "@/lib/constantes";
 import { getProducts } from "@/lib/supabase/data";
 
+// Genera sitemap dinamico con rutas estaticas y productos activos.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
     "",

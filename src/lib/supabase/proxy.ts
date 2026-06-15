@@ -2,11 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "./env";
 
+// Evita redirecciones abiertas al volver al admin despues del login.
 function getSafeAdminRedirect(request: NextRequest) {
   const path = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   return path.startsWith("/admin") ? path : "/admin";
 }
 
+// Envia al login con una razon opcional y redirect interno seguro.
 function redirectToLogin(request: NextRequest, reason?: string) {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
@@ -20,6 +22,7 @@ function redirectToLogin(request: NextRequest, reason?: string) {
   return NextResponse.redirect(url);
 }
 
+// Actualiza cookies de sesion y protege rutas administrativas.
 export async function updateSession(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   let response = NextResponse.next({

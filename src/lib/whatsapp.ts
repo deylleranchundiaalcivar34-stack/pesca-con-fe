@@ -1,7 +1,7 @@
-import type { BankAccount, BusinessConfig } from "@/types/business";
-import type { CustomerInfo, DeliveryType, OrderItem } from "@/types/order";
-import { businessConfig } from "@/data/mock-business";
-import { formatCurrency } from "./utils";
+import type { BankAccount, BusinessConfig } from "@/types/negocio";
+import type { CustomerInfo, DeliveryType, OrderItem } from "@/types/pedido";
+import { businessConfig } from "@/data/datos-negocio";
+import { formatCurrency } from "./utilidades";
 
 interface CheckoutMessageInput {
   customer: CustomerInfo;
@@ -15,6 +15,7 @@ interface CheckoutMessageInput {
   business?: BusinessConfig;
 }
 
+// Arma el mensaje que se envia al WhatsApp de la tienda al finalizar checkout.
 export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
   const productLines = input.items
     .map(
@@ -61,6 +62,7 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     .join("\n");
 }
 
+// Codifica un mensaje para abrir WhatsApp con texto precargado.
 export function getWhatsAppPrefilledUrl(message: string, business: BusinessConfig = businessConfig) {
   // Los enlaces https://wa.me/message/<codigo> abren el perfil/mensaje del negocio,
   // pero WhatsApp no garantiza que acepten un parametro ?text prellenado.
@@ -70,6 +72,7 @@ export function getWhatsAppPrefilledUrl(message: string, business: BusinessConfi
   )}`;
 }
 
+// Abre el chat general de la tienda sin mensaje de pedido.
 export function getBusinessWhatsAppUrl() {
   return businessConfig.social.whatsapp;
 }

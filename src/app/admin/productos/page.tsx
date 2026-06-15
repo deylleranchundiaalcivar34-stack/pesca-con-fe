@@ -1,6 +1,7 @@
-import { AdminProductTable } from "@/components/admin/admin-product-table";
+import { AdminProductTable } from "@/components/admin/tabla-productos-admin";
 import { getAdminProducts } from "@/lib/supabase/data";
 
+// Pagina admin que carga productos para gestionarlos.
 export default async function AdminProductsPage() {
   const products = await getAdminProducts();
 

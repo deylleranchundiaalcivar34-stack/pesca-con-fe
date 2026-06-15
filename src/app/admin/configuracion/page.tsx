@@ -1,6 +1,7 @@
-import { bankAccounts, businessConfig } from "@/data/mock-business";
+import { bankAccounts, businessConfig } from "@/data/datos-negocio";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Muestra datos comerciales y cuentas configuradas.
 export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
@@ -46,6 +47,7 @@ export default function AdminSettingsPage() {
   );
 }
 
+// Par label/valor usado en la configuracion admin.
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>

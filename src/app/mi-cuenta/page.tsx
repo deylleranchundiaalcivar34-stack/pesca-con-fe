@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogOut, MapPin, PackageSearch, UserRound } from "lucide-react";
-import { logout } from "@/app/auth/actions";
-import { PublicShell } from "@/components/layout/public-shell";
-import { AddressBook } from "@/components/profile/address-book";
-import { ProfileForm } from "@/components/profile/profile-form";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { logout } from "@/app/auth/acciones";
+import { PublicShell } from "@/components/layout/contenedor-publico";
+import { AddressBook } from "@/components/profile/libreta-direcciones";
+import { ProfileForm } from "@/components/profile/formulario-perfil";
+import { StatusBadge } from "@/components/shared/insignia-estado";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DELIVERY_TYPE_LABELS } from "@/lib/constants";
+import { DELIVERY_TYPE_LABELS } from "@/lib/constantes";
 import { getCustomerOrders } from "@/lib/supabase/data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -17,9 +17,9 @@ import {
   getCustomerAddresses,
   getCustomerProfile,
   getPublicUserSummary,
-} from "@/lib/user";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import type { PublicUserSummary } from "@/types/user";
+} from "@/lib/usuario";
+import { cn, formatCurrency, formatDate } from "@/lib/utilidades";
+import type { PublicUserSummary } from "@/types/usuario";
 
 export const metadata: Metadata = {
   title: "Mi cuenta",
@@ -46,6 +46,7 @@ const accountLinks = [
   },
 ];
 
+// Calcula iniciales para el avatar de cuenta.
 function getInitials(user: PublicUserSummary) {
   const source = user.fullName ?? user.email ?? "Usuario";
   const parts = source.split(" ").filter(Boolean);
@@ -57,6 +58,7 @@ function getInitials(user: PublicUserSummary) {
   return source.slice(0, 2).toUpperCase();
 }
 
+// Decide que seccion de cuenta mostrar segun query string.
 function getSection(searchParams: AccountSearchParams) {
   const value = Array.isArray(searchParams.seccion)
     ? searchParams.seccion[0]
@@ -69,6 +71,7 @@ function getSection(searchParams: AccountSearchParams) {
   return "pedidos";
 }
 
+// Carga usuario, perfil y direcciones para la pagina de cuenta.
 async function getAccountUser() {
   if (!hasSupabaseEnv()) {
     redirect("/login");
@@ -88,6 +91,7 @@ async function getAccountUser() {
   return getPublicUserSummary(user, profile);
 }
 
+// Navegacion lateral de las secciones de cuenta.
 function Sidebar({
   activeSection,
   user,
@@ -150,6 +154,7 @@ function Sidebar({
   );
 }
 
+// Estado vacio cuando el cliente aun no tiene pedidos.
 function EmptyOrders() {
   return (
     <Card>
@@ -167,6 +172,7 @@ function EmptyOrders() {
   );
 }
 
+// Lista pedidos del cliente dentro de Mi cuenta.
 function OrdersList({
   orders,
 }: {
@@ -218,6 +224,7 @@ function OrdersList({
   );
 }
 
+// Pagina de cuenta con perfil, direcciones y pedidos.
 export default async function AccountPage({
   searchParams,
 }: {
