@@ -1,91 +1,218 @@
-# Pesca Con Fe Ecommerce Frontend
+# Pesca Con Fe
 
-Frontend completo para un ecommerce moderno de artículos de pesca en Shushufindi, Ecuador. Está construido con Next.js App Router, TypeScript, Tailwind CSS, componentes estilo shadcn/ui, lucide-react, Zustand, React Hook Form y Zod.
+Proyecto ecommerce para **Pesca Con Fe**, una tienda de artículos de pesca ubicada en Shushufindi, Ecuador. El sitio permite mostrar productos, administrar catálogo, recibir pedidos, guardar clientes, manejar direcciones, controlar estados de pedidos y trabajar con imágenes de productos subidas a Cloudinary.
 
-## Estado del proyecto
+El proyecto ya no es solamente un frontend visual con datos de prueba: actualmente usa **Next.js App Router**, **Supabase**, **Supabase Auth**, **Server Actions**, **Cloudinary**, **Zustand**, **React Hook Form** y **Zod**.
+
+## Documentación principal
+
+La explicación completa para principiantes está en:
+
+- [`docs/Documentación.md`](docs/Documentación.md)
+
+También hay documentación específica de base de datos en:
+
+- [`docs/MODELO-DB.md`](docs/MODELO-DB.md)
+- [`docs/supabase_pesca_con_fe_base.sql`](docs/supabase_pesca_con_fe_base.sql)
+- [`docs/supabase_pesca_con_fe_seed.sql`](docs/supabase_pesca_con_fe_seed.sql)
+
+## Stack técnico
+
+- **Next.js 16.2.6** con App Router
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS 4**
+- **Supabase** para base de datos, autenticación y RLS
+- **Cloudinary** para imágenes de productos
+- **Zustand** para el carrito
+- **React Hook Form** y **Zod** para formularios y validación
+- **lucide-react** para iconos
+- **Framer Motion** para animaciones
+- **pnpm** como gestor de paquetes
+
+## Funcionalidades actuales
 
 - Tienda pública con inicio, catálogo, filtros, detalle de producto, carrito, checkout, quiénes somos y contacto.
-- Checkout por transferencia bancaria con cuentas nacionales de Ecuador y mensaje de WhatsApp prellenado.
-- Carrito global con Zustand, drawer rápido, página de revisión, subtotal, envío Servientrega y total.
-- Panel administrador visual con dashboard, gestión de productos, formularios, ventas, venta manual y configuración.
-- Datos mock estructurados para productos, pedidos, cuentas bancarias y configuración del negocio.
-- Base preparada para integrar Supabase, Cloudinary, Supabase Auth, RLS y Server Actions reales.
+- Catálogo leído desde Supabase: categorías, subcategorías, marcas, productos e imágenes.
+- Carrito persistente en el navegador usando Zustand y `localStorage`.
+- Checkout con datos de cliente, dirección, tipo de entrega, items del carrito y creación de pedido en Supabase.
+- Pedidos anónimos o asociados a usuarios autenticados.
+- Apertura de WhatsApp con mensaje prellenado después de crear un pedido.
+- Login con Supabase Auth.
+- Área de cliente con perfil, direcciones y pedidos.
+- Panel administrador protegido por sesión y perfil admin activo.
+- Administración de productos, marcas y pedidos.
+- Subida y eliminación de imágenes de productos con Cloudinary.
+- SEO básico con metadata, sitemap, robots y JSON-LD.
 
-## Stack
+## Estructura general
 
-- Next.js con App Router
-- TypeScript
-- pnpm
-- Tailwind CSS
-- shadcn/ui style components
-- lucide-react
-- tailwindcss-animate
-- Framer Motion
-- Zustand
-- React Hook Form
-- Zod
+```txt
+src/
+  app/                 Rutas de Next.js: páginas públicas, cuenta, checkout y admin.
+  components/          Componentes visuales reutilizables.
+  data/                Datos fijos del negocio usados por el frontend.
+  hooks/               Hooks pequeños reutilizables.
+  lib/                 Utilidades, Supabase, Cloudinary, envío, WhatsApp y constantes.
+  store/               Estado global del carrito.
+  types/               Tipos TypeScript del dominio.
 
-## Ejecutar en local
-
-```bash
-pnpm install
-pnpm dev
-```
-
-Luego abre:
-
-```bash
-http://localhost:3000
+docs/                  Documentación, modelo de base de datos y scripts SQL.
+public/                Imágenes y recursos públicos.
 ```
 
 ## Rutas principales
 
-- `/` inicio
-- `/productos` catálogo con filtros
-- `/productos/[slug]` detalle de producto
-- `/carrito` carrito
-- `/checkout` checkout por transferencia
-- `/quienes-somos` historia, misión y comunidad de Pesca Con Fe
-- `/contacto` contacto y mapa
-- `/login` login visual mock
-- `/admin` dashboard administrador
-- `/admin/productos` gestión de productos
-- `/admin/productos/nuevo` crear producto
-- `/admin/productos/[id]/editar` editar producto mock
-- `/admin/ventas` gestión de ventas y pedidos
-- `/admin/ventas/nueva` crear venta manual
-- `/admin/configuracion` configuración visual
+### Sitio público
 
-## Integraciones futuras
+| Ruta | Descripción |
+| --- | --- |
+| `/` | Página de inicio |
+| `/productos` | Catálogo con filtros |
+| `/productos/[slug]` | Detalle de producto |
+| `/carrito` | Revisión del carrito |
+| `/checkout` | Formulario para crear pedido |
+| `/quienes-somos` | Información del negocio |
+| `/contacto` | Información de contacto |
+| `/login` | Inicio de sesión y registro |
 
-Los comentarios `TODO` marcan puntos de integración para:
+### Cliente
 
-- Supabase Database
-- Supabase Auth
-- Cloudinary upload
-- Supabase Storage si se decide usarlo
-- RLS por roles
-- Server Actions reales
-- Persistencia de órdenes, productos, stock y configuración
+| Ruta | Descripción |
+| --- | --- |
+| `/mi-cuenta` | Resumen de la cuenta del cliente |
+
+### Administración
+
+| Ruta | Descripción |
+| --- | --- |
+| `/admin` | Dashboard administrativo |
+| `/admin/productos` | Lista y gestión de productos |
+| `/admin/productos/nuevo` | Crear producto |
+| `/admin/productos/[id]/editar` | Editar producto |
+| `/admin/marcas` | Crear, editar y desactivar marcas |
+| `/admin/pedidos` | Gestión de pedidos |
+
+## Variables de entorno
+
+Crea un archivo `.env.local` en la raíz del proyecto.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=tu-proyecto.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=tu_publishable_key
+
+CLOUDINARY_CLOUD_NAME=tu_cloud_name
+CLOUDINARY_API_KEY=tu_api_key
+CLOUDINARY_API_SECRET=tu_api_secret
+
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+Notas:
+
+- `NEXT_PUBLIC_SUPABASE_URL` puede escribirse como dominio corto (`tu-proyecto`) o como URL completa (`https://tu-proyecto.supabase.co`).
+- Las variables de Cloudinary solo se usan del lado servidor para subir y eliminar imágenes.
+- `NEXT_PUBLIC_SITE_URL` se usa para metadata, sitemap y datos estructurados. En producción debería apuntar al dominio real.
+
+## Ejecutar en local
+
+Instala dependencias:
+
+```bash
+pnpm install
+```
+
+Inicia el servidor de desarrollo:
+
+```bash
+pnpm dev
+```
+
+Abre:
+
+```txt
+http://localhost:3000
+```
+
+## Comandos útiles
+
+```bash
+pnpm dev
+```
+
+Ejecuta el servidor local de desarrollo.
+
+```bash
+pnpm lint
+```
+
+Revisa problemas de ESLint.
+
+```bash
+pnpm build
+```
+
+Genera una build de producción y detecta errores de compilación.
+
+```bash
+pnpm start
+```
+
+Ejecuta la build de producción después de correr `pnpm build`.
+
+## Base de datos
+
+La base de datos está pensada para Supabase. Las tablas principales son:
+
+| Tabla | Uso |
+| --- | --- |
+| `perfiles_admin` | Define quién puede entrar al panel administrador |
+| `perfiles_cliente` | Guarda datos del cliente autenticado |
+| `direcciones_cliente` | Guarda direcciones reutilizables |
+| `categorias` | Categorías del catálogo |
+| `subcategorias` | Subcategorías por categoría |
+| `marcas` | Marcas de productos |
+| `productos` | Productos vendibles |
+| `producto_imagenes` | URLs y metadatos de imágenes en Cloudinary |
+| `pedidos` | Encabezado del pedido |
+| `pedido_items` | Productos incluidos en cada pedido |
+| `movimientos_inventario` | Cambios de stock |
+
+Los scripts SQL están en `docs/`. Para entender el modelo completo, revisa [`docs/MODELO-DB.md`](docs/MODELO-DB.md).
 
 ## Flujo de pedido
 
-1. El cliente agrega productos al carrito.
-2. Abre el drawer del carrito y pasa a `/carrito` para revisar cantidades, envío y total.
-3. Completa sus datos en checkout.
-4. Elige transferencia bancaria.
-5. El sistema genera un pedido pendiente de pago.
-6. Se abre WhatsApp con el mensaje prellenado.
-7. El cliente envía el comprobante.
-8. El administrador confirma el pago.
-9. Solo al confirmar pago se simula la reducción de stock.
-10. El pedido puede marcarse como enviado.
+1. El cliente navega el catálogo.
+2. Agrega productos al carrito.
+3. Revisa cantidades, subtotal, envío y total.
+4. Completa el checkout.
+5. El sistema crea un pedido y sus items en Supabase.
+6. El carrito se limpia.
+7. Se abre WhatsApp con un mensaje prellenado.
+8. El administrador confirma pago, envío, retiro o cancelación desde el panel.
 
-## Envío
+## Imágenes de productos
 
-Servicio: Servientrega Ecuador.
+Las imágenes no se guardan directamente en Supabase. El flujo es:
 
-- Cañas: `$8.50`
-- Carretes: `$6.50`
-- Otros productos: mínimo `$6.50`
-- Si el carrito tiene varios productos, se toma el valor más alto aplicable.
+1. El administrador selecciona imágenes en el formulario de producto.
+2. La Server Action sube cada archivo a Cloudinary.
+3. Cloudinary devuelve una URL segura y un `public_id`.
+4. Supabase guarda esa URL y ese `public_id` en `producto_imagenes`.
+5. El catálogo muestra las imágenes usando las URLs guardadas.
+
+## Autenticación y permisos
+
+- Supabase Auth maneja las sesiones.
+- Los clientes normales usan `perfiles_cliente`.
+- Los administradores necesitan una fila activa en `perfiles_admin`.
+- Las políticas RLS de Supabase protegen lecturas y escrituras según el tipo de usuario.
+- El panel admin también se protege desde la app con validaciones de sesión/perfil.
+
+## Notas para desarrollo
+
+- No modificar archivos dentro de `docs/` sin revisar primero si son documentación o scripts SQL necesarios.
+- Después de cambios de código, ejecutar como mínimo `pnpm lint`.
+- Después de cambios grandes en rutas, Server Actions, Supabase o imports, ejecutar también `pnpm build`.
+- Si se renombran archivos, buscar y actualizar todos los imports afectados.
+- Para una explicación paso a paso del proyecto, usar `docs/Documentación.md` como guía principal.

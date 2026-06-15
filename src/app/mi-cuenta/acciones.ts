@@ -101,7 +101,6 @@ export async function updateProfile(
   }
 
   revalidatePath("/");
-  revalidatePath("/mi-perfil");
   revalidatePath("/mi-cuenta");
 
   return {

@@ -14,7 +14,6 @@ async function callOrderFunction(name: string, orderId: string) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/pedidos");
-  revalidatePath("/admin/ventas");
 }
 
 // Confirma que el cliente pago el pedido.
