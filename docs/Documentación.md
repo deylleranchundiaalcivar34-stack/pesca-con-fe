@@ -22,8 +22,9 @@ Esta guía explica el proyecto desde cero. La idea es que una persona principian
 14. [Cloudinary e imágenes de productos](#14-cloudinary-e-imágenes-de-productos)
 15. [SEO, sitemap, robots y JSON-LD](#15-seo-sitemap-robots-y-json-ld)
 16. [Variables de entorno](#16-variables-de-entorno)
-17. [Comandos de desarrollo](#17-comandos-de-desarrollo)
-18. [Glosario para principiantes](#18-glosario-para-principiantes)
+17. [Rendimiento y navegación rápida](#17-rendimiento-y-navegación-rápida)
+18. [Comandos de desarrollo](#18-comandos-de-desarrollo)
+19. [Glosario para principiantes](#19-glosario-para-principiantes)
 
 ## 1. Qué es este proyecto
 
@@ -151,7 +152,8 @@ Contiene piezas reutilizables de interfaz.
 
 Ejemplos:
 
-- `components/layout/header.tsx`: cabecera pública.
+- `components/layout/header.tsx`: cabecera pública estática.
+- `components/layout/controles-header-cliente.tsx`: controles interactivos del header, como usuario, carrito y menú móvil.
 - `components/layout/footer.tsx`: pie de página.
 - `components/products/tarjeta-producto.tsx`: tarjeta individual de producto.
 - `components/checkout/formulario-checkout.tsx`: formulario de checkout.
@@ -163,7 +165,9 @@ Contiene lógica reutilizable que no es directamente UI.
 
 Ejemplos:
 
-- `lib/supabase/data.ts`: funciones para leer datos desde Supabase.
+- `lib/supabase/data.ts`: funciones para leer datos desde Supabase, incluyendo lecturas públicas cacheadas.
+- `lib/supabase/publico.ts`: crea cliente Supabase anónimo para lecturas públicas sin cookies.
+- `lib/sesion-publica.ts`: avisa al header cuando login o logout cambian la sesión visible.
 - `lib/supabase/server.ts`: crea cliente Supabase para servidor.
 - `lib/supabase/client.ts`: crea cliente Supabase para navegador.
 - `lib/cloudinary.ts`: sube y elimina imágenes en Cloudinary.
@@ -316,6 +320,37 @@ Ejemplos:
 - login,
 - botones con eventos.
 
+### Shell público rápido
+
+Las páginas públicas usan `PublicShell` para mostrar header, contenido y footer. Ese shell no lee cookies ni consulta la sesión del usuario, porque hacerlo convertiría páginas como inicio, catálogo, contacto o carrito en páginas dinámicas.
+
+El header se divide en dos partes:
+
+- `header.tsx`: logo y navegación principal, renderizados como contenido estático.
+- `controles-header-cliente.tsx`: usuario, login, carrito y menú móvil, hidratados en el navegador.
+
+Para saber si hay usuario autenticado, los controles del header llaman a:
+
+```txt
+src/app/api/sesion/route.ts
+```
+
+Así la navegación pública puede cargarse rápido y, al mismo tiempo, el header sigue mostrando login, cuenta, admin o carrito según corresponda. Cuando el usuario inicia o cierra sesión, `lib/sesion-publica.ts` avisa a esos controles para refrescar el estado visible sin esperar una recarga manual.
+
+### Estados de carga
+
+Algunas rutas tienen un archivo `loading.tsx`. Ese archivo muestra un esqueleto visual mientras Next.js prepara la página real.
+
+Ejemplos:
+
+- `src/app/productos/loading.tsx`
+- `src/app/productos/[slug]/loading.tsx`
+- `src/app/checkout/loading.tsx`
+- `src/app/mi-cuenta/loading.tsx`
+- `src/app/admin/loading.tsx`
+
+Esto no cambia la lógica de compra. Solo evita que una navegación lenta parezca congelada.
+
 ## 6. Rutas y páginas principales
 
 ### Rutas públicas
@@ -351,9 +386,10 @@ Los componentes son bloques reutilizables. En lugar de escribir todo en una sola
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| `components/layout/header.tsx` | Navegación pública, usuario, login y carrito. |
+| `components/layout/header.tsx` | Navegación pública estática. |
+| `components/layout/controles-header-cliente.tsx` | Usuario, login, carrito y menú móvil del header. |
 | `components/layout/footer.tsx` | Pie de página, redes, contacto y enlaces. |
-| `components/layout/contenedor-publico.tsx` | Envuelve páginas públicas con header y footer. |
+| `components/layout/contenedor-publico.tsx` | Envuelve páginas públicas con header y footer sin leer cookies. |
 
 ### Inicio
 
@@ -484,6 +520,14 @@ Esa página carga:
 - categorías,
 - marcas.
 
+Esas lecturas públicas se hacen desde `src/lib/supabase/data.ts` con caché de Next.js. Para no depender de cookies, usan el cliente anónimo de:
+
+```txt
+src/lib/supabase/publico.ts
+```
+
+Cuando el admin cambia productos o marcas, las server actions invalidan esa caché para que el catálogo público se actualice.
+
 Luego se los pasa a:
 
 ```txt
@@ -499,6 +543,14 @@ El catálogo filtra por:
 - disponibilidad,
 - precio máximo,
 - orden.
+
+Si la URL incluye una categoría, por ejemplo:
+
+```txt
+/productos?categoria=canas
+```
+
+el componente `ProductCatalog` lee ese parámetro en el navegador y arranca filtrado. Esto evita que toda la página de catálogo tenga que renderizarse dinámicamente en el servidor.
 
 Flujo:
 
@@ -544,6 +596,8 @@ const product = await getProductBySlug(slug);
 ```
 
 Si no existe, Next muestra `notFound()`.
+
+Los productos activos también se pasan a `generateStaticParams()`. Eso permite que Next.js prerenderice las páginas de detalle conocidas y las sirva más rápido. Los productos relacionados se consultan directamente por categoría para no recargar todo el catálogo varias veces.
 
 El detalle muestra:
 
@@ -1087,7 +1141,35 @@ NEXT_PUBLIC_SITE_URL=
 
 Se usa para sitemap, SEO y datos estructurados.
 
-## 17. Comandos de desarrollo
+## 17. Rendimiento y navegación rápida
+
+La tienda pública intenta servir la mayor cantidad posible de contenido como HTML estático o cacheado. Esto ayuda a que los clics entre páginas se sientan más rápidos.
+
+Puntos importantes:
+
+- Las rutas públicas como `/`, `/productos`, `/carrito`, `/contacto` y `/quienes-somos` no deben leer cookies directamente.
+- El estado de sesión del header se consulta aparte desde `/api/sesion`.
+- Los datos públicos de productos, categorías y marcas usan caché con tags.
+- Los detalles de producto usan `generateStaticParams()` para prerenderizar productos activos.
+- Las rutas con trabajo dinámico muestran `loading.tsx` mientras cargan.
+
+Cuando un admin cambia productos o marcas, las acciones llaman `updateTag()` y `revalidatePath()` para refrescar la tienda pública.
+
+Comandos útiles para revisar rendimiento:
+
+```bash
+pnpm build
+```
+
+La tabla final indica si una ruta es estática (`○`), dinámica (`ƒ`) o SSG (`●`).
+
+```bash
+pnpm next build --debug
+```
+
+Ayuda a detectar si una ruta se volvió dinámica por usar cookies, `searchParams` u otro dato de request.
+
+## 18. Comandos de desarrollo
 
 Instalar dependencias:
 
@@ -1125,7 +1207,7 @@ Iniciar build ya generado:
 pnpm start
 ```
 
-## 18. Glosario para principiantes
+## 19. Glosario para principiantes
 
 ### Componente
 
@@ -1200,6 +1282,22 @@ Ejemplo:
 ```ts
 revalidatePath("/productos");
 ```
+
+### Cache
+
+Guardar temporalmente el resultado de una consulta para no repetir el mismo trabajo en cada visita.
+
+### Tag de caché
+
+Etiqueta que se pone a datos cacheados. En este proyecto se usan tags como `products` y `brands` para refrescar la tienda cuando el admin cambia información.
+
+### `updateTag`
+
+Función de Next.js usada en Server Actions para expirar inmediatamente datos cacheados por tag.
+
+### `loading.tsx`
+
+Archivo especial de Next.js que muestra una interfaz temporal mientras una ruta termina de cargar.
 
 ### LocalStorage
 

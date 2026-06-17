@@ -13,10 +13,11 @@ import { useCartStore } from "@/store/tienda-carrito";
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
 // Tarjeta de producto para catalogo e inicio con accion de agregar al carrito.
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const outOfStock = product.stock === 0;
 
@@ -31,7 +32,7 @@ export function ProductCard({ product }: ProductCardProps) {
             src={product.mainImage}
             alt={product.imageAlt}
             fill
-            priority={product.isFeatured}
+            priority={priority}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />

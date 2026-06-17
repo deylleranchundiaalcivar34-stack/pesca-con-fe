@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { uploadProductImage } from "@/lib/cloudinary";
 import { createClient } from "@/lib/supabase/server";
@@ -33,6 +33,14 @@ async function requireAdmin() {
 // Lee un campo de formulario como texto limpio.
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+// Invalida cache publica despues de cambios que afectan la tienda.
+function revalidatePublicProducts() {
+  updateTag("products");
+  revalidatePath("/");
+  revalidatePath("/productos");
+  revalidatePath("/productos/[slug]", "page");
 }
 
 // Extrae el ID de YouTube desde un ID directo o desde URLs comunes.
@@ -221,8 +229,7 @@ export async function saveProduct(formData: FormData) {
     await uploadImagesForProduct(data.id, formData, userId);
   }
 
-  revalidatePath("/");
-  revalidatePath("/productos");
+  revalidatePublicProducts();
   revalidatePath("/admin/productos");
   redirect("/admin/productos");
 }
@@ -238,8 +245,7 @@ export async function toggleProductActive(formData: FormData) {
     .update({ activo: !active, actualizado_por: userId })
     .eq("id", id);
 
-  revalidatePath("/");
-  revalidatePath("/productos");
+  revalidatePublicProducts();
   revalidatePath("/admin/productos");
 }
 
@@ -253,8 +259,7 @@ export async function deleteProduct(formData: FormData) {
     .update({ activo: false, actualizado_por: userId })
     .eq("id", id);
 
-  revalidatePath("/");
-  revalidatePath("/productos");
+  revalidatePublicProducts();
   revalidatePath("/admin/productos");
 }
 
@@ -324,7 +329,6 @@ export async function deleteProductImage(formData: FormData) {
     }
   }
 
-  revalidatePath("/");
-  revalidatePath("/productos");
+  revalidatePublicProducts();
   revalidatePath("/admin/productos");
 }

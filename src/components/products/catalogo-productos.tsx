@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Filter } from "lucide-react";
 import type { Product, ProductCategory } from "@/types/producto";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,6 @@ interface ProductCatalogProps {
   products: Product[];
   categories: ProductCategory[];
   brands: string[];
-  initialCategory?: string;
 }
 
 // Coordina filtros, ordenamiento y vista movil del catalogo.
@@ -33,14 +33,37 @@ export function ProductCatalog({
   products,
   categories,
   brands,
-  initialCategory,
 }: ProductCatalogProps) {
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get("categoria") ?? "all";
+
+  return (
+    <ProductCatalogInner
+      key={categoryFromUrl}
+      products={products}
+      categories={categories}
+      brands={brands}
+      initialCategory={categoryFromUrl}
+    />
+  );
+}
+
+interface ProductCatalogInnerProps extends ProductCatalogProps {
+  initialCategory: string;
+}
+
+function ProductCatalogInner({
+  products,
+  categories,
+  brands,
+  initialCategory,
+}: ProductCatalogInnerProps) {
   const maxProductPrice = Math.ceil(
     products.reduce((highest, product) => Math.max(highest, product.price), 0),
   );
   const [filters, setFilters] = useState<ProductFilterState>({
     search: "",
-    category: initialCategory ?? "all",
+    category: initialCategory,
     subcategory: "all",
     brand: "all",
     availability: "all",

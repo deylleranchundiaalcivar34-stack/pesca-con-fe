@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utilidades";
@@ -35,6 +35,15 @@ function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+// Invalida filtros y productos publicos relacionados con marcas.
+function revalidatePublicBrands() {
+  updateTag("brands");
+  updateTag("products");
+  revalidatePath("/");
+  revalidatePath("/productos");
+  revalidatePath("/productos/[slug]", "page");
+}
+
 // Crea una marca nueva con slug generado.
 export async function saveBrand(formData: FormData) {
   const { supabase } = await requireAdmin();
@@ -57,7 +66,7 @@ export async function saveBrand(formData: FormData) {
 
   revalidatePath("/admin/marcas");
   revalidatePath("/admin/productos");
-  revalidatePath("/productos");
+  revalidatePublicBrands();
   redirect("/admin/marcas");
 }
 
@@ -87,7 +96,7 @@ export async function updateBrand(formData: FormData) {
 
   revalidatePath("/admin/marcas");
   revalidatePath("/admin/productos");
-  revalidatePath("/productos");
+  revalidatePublicBrands();
 }
 
 // Desactiva una marca para ocultarla sin borrar historial.
@@ -110,5 +119,5 @@ export async function deactivateBrand(formData: FormData) {
 
   revalidatePath("/admin/marcas");
   revalidatePath("/admin/productos");
-  revalidatePath("/productos");
+  revalidatePublicBrands();
 }

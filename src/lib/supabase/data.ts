@@ -1,6 +1,8 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createPublicClient } from "@/lib/supabase/publico";
 import { createClient } from "@/lib/supabase/server";
 import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/datos-negocio";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
@@ -40,6 +42,7 @@ type DbImage = {
 };
 
 const placeholderImage = "/images/products/product-placeholder.png";
+const publicDataRevalidateSeconds = 60 * 30;
 
 // Normaliza numeros que pueden llegar como string desde Supabase.
 function toNumber(value: number | string | null | undefined) {
@@ -124,93 +127,201 @@ async function getProductImagesByProductIds(
   );
 }
 
+const getCachedProducts = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("*")
+      .order("destacado", { ascending: false })
+      .order("nombre", { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    const rows = data as DbProduct[];
+    const imagesByProduct = await getProductImagesByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
+  },
+  ["public-products"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedProductBySlug = unstable_cache(
+  async (slug: string) => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    const row = data as DbProduct;
+    const imagesByProduct = await getProductImagesByProductIds(supabase, [row.id]);
+
+    return mapProduct(row, imagesByProduct.get(row.id));
+  },
+  ["public-product-by-slug"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedRelatedProducts = unstable_cache(
+  async (productId: string, categorySlug: string, limit: number) => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("*")
+      .eq("activo", true)
+      .eq("categoria_slug", categorySlug)
+      .neq("id", productId)
+      .order("destacado", { ascending: false })
+      .order("nombre", { ascending: true })
+      .limit(limit);
+
+    if (error || !data) {
+      return [];
+    }
+
+    const rows = data as DbProduct[];
+    const imagesByProduct = await getProductImagesByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
+  },
+  ["public-related-products"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedProductSlugs = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("slug")
+      .eq("activo", true)
+      .order("slug", { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row) => row.slug as string);
+  },
+  ["public-product-slugs"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedCategories = unstable_cache(
+  async (): Promise<ProductCategory[]> => {
+    const supabase = createPublicClient();
+    const { data: categories } = await supabase
+      .from("categorias")
+      .select("id, nombre, slug, activa")
+      .eq("activa", true)
+      .order("nombre", { ascending: true });
+
+    if (!categories?.length) {
+      return fallbackCategories;
+    }
+
+    const { data: subcategories } = await supabase
+      .from("subcategorias")
+      .select("categoria_id, nombre, slug, activa")
+      .eq("activa", true)
+      .order("nombre", { ascending: true });
+
+    return categories.map((category) => ({
+      name: category.nombre,
+      slug: category.slug,
+      description:
+        fallbackCategories.find((fallback) => fallback.slug === category.slug)?.description ?? "",
+      image:
+        fallbackCategories.find((fallback) => fallback.slug === category.slug)?.image ??
+        "/images/categorias/carretes.webp",
+      subcategories: (subcategories ?? [])
+        .filter((subcategory) => subcategory.categoria_id === category.id)
+        .map((subcategory) => ({
+          name: subcategory.nombre,
+          slug: subcategory.slug,
+        })),
+    }));
+  },
+  ["public-categories"],
+  {
+    tags: ["categories"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedBrands = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("marcas")
+      .select("id, nombre, slug")
+      .eq("activa", true)
+      .order("nombre", { ascending: true });
+
+    return data ?? [];
+  },
+  ["public-brands"],
+  {
+    tags: ["brands"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
 // Lista productos visibles para catalogo, inicio y detalle.
 export async function getProducts() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("productos_publicos")
-    .select("*")
-    .order("destacado", { ascending: false })
-    .order("nombre", { ascending: true });
-
-  if (error || !data) {
-    return [];
-  }
-
-  const rows = data as DbProduct[];
-  const imagesByProduct = await getProductImagesByProductIds(
-    supabase,
-    rows.map((row) => row.id),
-  );
-
-  return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
+  return getCachedProducts();
 }
 
 // Busca un producto publico por slug.
 export async function getProductBySlug(slug: string) {
-  const products = await getProducts();
-  return products.find((product) => product.slug === slug) ?? null;
+  return getCachedProductBySlug(slug);
 }
 
 // Devuelve productos relacionados de la misma categoria.
 export async function getRelatedProducts(product: Product, limit = 4) {
-  const products = await getProducts();
-  return products
-    .filter(
-      (candidate) =>
-        candidate.id !== product.id &&
-        candidate.isActive &&
-        candidate.categorySlug === product.categorySlug,
-    )
-    .slice(0, limit);
+  return getCachedRelatedProducts(product.id, product.categorySlug, limit);
+}
+
+// Lista slugs activos para prerenderizar detalles de producto.
+export async function getProductSlugs() {
+  return getCachedProductSlugs();
 }
 
 // Carga categorias activas y usa datos locales como respaldo visual.
 export async function getCategories(): Promise<ProductCategory[]> {
-  const supabase = await createClient();
-  const { data: categories } = await supabase
-    .from("categorias")
-    .select("id, nombre, slug, activa")
-    .eq("activa", true)
-    .order("nombre", { ascending: true });
-
-  if (!categories?.length) {
-    return fallbackCategories;
-  }
-
-  const { data: subcategories } = await supabase
-    .from("subcategorias")
-    .select("categoria_id, nombre, slug, activa")
-    .eq("activa", true)
-    .order("nombre", { ascending: true });
-
-  return categories.map((category) => ({
-    name: category.nombre,
-    slug: category.slug,
-    description:
-      fallbackCategories.find((fallback) => fallback.slug === category.slug)?.description ?? "",
-    image:
-      fallbackCategories.find((fallback) => fallback.slug === category.slug)?.image ??
-      "/images/categorias/carretes.webp",
-    subcategories: (subcategories ?? [])
-      .filter((subcategory) => subcategory.categoria_id === category.id)
-      .map((subcategory) => ({
-        name: subcategory.nombre,
-        slug: subcategory.slug,
-      })),
-  }));
+  return getCachedCategories();
 }
 
 // Lista marcas activas para filtros y formularios.
 export async function getBrands() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("marcas")
-    .select("id, nombre, slug")
-    .eq("activa", true)
-    .order("nombre", { ascending: true });
-
-  return data ?? [];
+  return getCachedBrands();
 }
 
 // Lista marcas del panel admin, incluyendo inactivas.

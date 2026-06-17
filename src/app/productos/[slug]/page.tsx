@@ -12,10 +12,17 @@ import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { YouTubeEmbed } from "@/components/shared/video-youtube";
 import {
   getProductBySlug,
+  getProductSlugs,
   getRelatedProducts,
 } from "@/lib/supabase/data";
 import { formatCurrency } from "@/lib/utilidades";
 import { SITE_URL } from "@/lib/constantes";
+
+// Prerenderiza detalles activos para acelerar navegacion al producto.
+export async function generateStaticParams() {
+  const slugs = await getProductSlugs();
+  return slugs.map((slug) => ({ slug }));
+}
 
 // Genera metadatos SEO del producto segun su slug.
 export async function generateMetadata({

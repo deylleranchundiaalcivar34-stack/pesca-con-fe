@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidEcuadorianCedula } from "@/lib/ecuador";
+import { notifyPublicSessionChange } from "@/lib/sesion-publica";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utilidades";
 
@@ -128,6 +129,7 @@ export function LoginPanel({
     }
 
     toast.success("Sesión iniciada");
+    notifyPublicSessionChange();
     router.push(redirectTo);
     router.refresh();
   };
@@ -208,6 +210,7 @@ export function LoginPanel({
       }
 
       toast.success("Cuenta creada");
+      notifyPublicSessionChange();
       router.push(redirectTo);
       router.refresh();
       return;
