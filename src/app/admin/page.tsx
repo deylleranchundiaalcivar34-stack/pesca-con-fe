@@ -47,7 +47,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminMetricCard
-          title="Ventas del día"
+          title="Total de ventas"
           value={formatCurrency(salesTotal)}
           helper="Total confirmado"
           icon={DollarSign}
