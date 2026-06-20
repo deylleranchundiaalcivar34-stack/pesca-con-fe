@@ -128,12 +128,13 @@ export default async function ProductDetailPage({
       </section>
 
       {product.youtubeVideoId ? (
-        <section className="bg-secondary py-12 sm:py-16">
+        <section className="bg-dark-blue bg-[linear-gradient(rgb(5_44_101_/_0.78),rgb(5_44_101_/_0.78)),url('/images/banners/banner-3.webp')] bg-cover bg-center py-12 sm:py-16">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
               title="Mira el producto en acción"
               description="Una referencia visual para conocer mejor sus detalles, proporciones y uso en pesca."
               align="center"
+              className="[&_h2]:text-white [&_p]:text-white/80"
             />
             <div className="mt-8">
               <YouTubeEmbed

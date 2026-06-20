@@ -24,11 +24,28 @@ function getStringParam(value: string | string[] | undefined) {
 function getSafeRedirect(value: string | string[] | undefined) {
   const redirect = getStringParam(value);
 
-  if (!redirect?.startsWith("/admin")) {
-    return "/";
+  if (
+    redirect === "/checkout" ||
+    redirect === "/preguntas-frecuentes#hacer-pregunta" ||
+    redirect?.startsWith("/admin")
+  ) {
+    return redirect;
   }
 
-  return redirect;
+  return "/";
+}
+
+// Explica por qué una acción protegida envió al usuario al login.
+function getAccessMessage(redirectTo: string) {
+  if (redirectTo === "/checkout") {
+    return "Debes iniciar sesión para generar tu pedido.";
+  }
+
+  if (redirectTo === "/preguntas-frecuentes#hacer-pregunta") {
+    return "Debes iniciar sesión para enviar tu pregunta.";
+  }
+
+  return undefined;
 }
 
 // Decide si el panel arranca en login o registro.
@@ -46,6 +63,7 @@ export default async function LoginPage({
   const confirmed = getStringParam(params.confirmed) === "1";
   const error = getStringParam(params.error);
   const mode = getMode(params.mode);
+  const redirectTo = getSafeRedirect(params.redirect);
 
   return (
     <PublicShell>
@@ -75,11 +93,12 @@ export default async function LoginPage({
 
           <div className="flex items-center justify-center p-5 sm:p-8">
           <LoginPanel
-            key={`${mode}-${confirmed ? "confirmed" : "pending"}-${error ?? "none"}`}
+            key={`${mode}-${confirmed ? "confirmed" : "pending"}-${error ?? "none"}-${redirectTo}`}
+            accessMessage={getAccessMessage(redirectTo)}
             confirmed={confirmed}
             error={error}
             mode={mode}
-            redirectTo={getSafeRedirect(params.redirect)}
+            redirectTo={redirectTo}
           />
           </div>
         </div>

@@ -1,6 +1,6 @@
 # Pesca Con Fe
 
-Proyecto ecommerce para **Pesca Con Fe**, una tienda de artículos de pesca ubicada en Shushufindi, Ecuador. El sitio permite mostrar productos, administrar catálogo, recibir pedidos, guardar clientes, manejar direcciones, controlar estados de pedidos y trabajar con imágenes de productos subidas a Cloudinary.
+Proyecto ecommerce para **Pesca Con Fe**, una tienda de artículos de pesca ubicada en Shushufindi, Ecuador. El sitio permite mostrar productos, resolver preguntas frecuentes, administrar catálogo, recibir pedidos, guardar clientes, manejar direcciones, controlar estados de pedidos y trabajar con imágenes de productos subidas a Cloudinary.
 
 El proyecto ya no es solamente un frontend visual con datos de prueba: actualmente usa **Next.js App Router**, **Supabase**, **Supabase Auth**, **Server Actions**, **Cloudinary**, **Zustand**, **React Hook Form** y **Zod**.
 
@@ -32,16 +32,17 @@ También hay documentación específica de base de datos en:
 
 ## Funcionalidades actuales
 
-- Tienda pública con inicio, catálogo, filtros, detalle de producto, carrito, checkout, quiénes somos y contacto.
+- Tienda pública con inicio, catálogo, filtros, detalle de producto, carrito, preguntas frecuentes, quiénes somos y contacto.
 - Catálogo leído desde Supabase: categorías, subcategorías, marcas, productos e imágenes.
 - Carrito persistente en el navegador usando Zustand y `localStorage`.
-- Checkout con datos de cliente, dirección, tipo de entrega, items del carrito y creación de pedido en Supabase.
-- Pedidos anónimos o asociados a usuarios autenticados.
-- Apertura de WhatsApp con mensaje prellenado después de crear un pedido.
+- Generación de pedidos con identidad bloqueada del perfil, dirección guardada o temporal, tipo de entrega e items del carrito.
+- Pedidos disponibles únicamente para usuarios autenticados.
+- Apertura de WhatsApp con mensajes ordenados después de crear un pedido o enviar una consulta.
+- Preguntas frecuentes definidas en frontend y formulario de consulta que exige autenticación sin guardar datos en una tabla nueva.
 - Login con Supabase Auth.
 - Área de cliente con perfil, direcciones y pedidos.
 - Panel administrador protegido por sesión y perfil admin activo.
-- Administración de productos, marcas y pedidos.
+- Administración de productos, marcas y pedidos, con indicador de guardado para evitar envíos duplicados.
 - Subida y eliminación de imágenes de productos con Cloudinary.
 - SEO básico con metadata, sitemap, robots y JSON-LD.
 
@@ -49,7 +50,7 @@ También hay documentación específica de base de datos en:
 
 ```txt
 src/
-  app/                 Rutas de Next.js: páginas públicas, cuenta, checkout y admin.
+  app/                 Rutas de Next.js: páginas públicas, cuenta, pedidos y admin.
   components/          Componentes visuales reutilizables.
   data/                Datos fijos del negocio usados por el frontend.
   hooks/               Hooks pequeños reutilizables.
@@ -71,8 +72,9 @@ public/                Imágenes y recursos públicos.
 | `/productos` | Catálogo con filtros |
 | `/productos/[slug]` | Detalle de producto |
 | `/carrito` | Revisión del carrito |
-| `/checkout` | Formulario para crear pedido |
+| `/checkout` | Pantalla para generar un pedido autenticado |
 | `/quienes-somos` | Información del negocio |
+| `/preguntas-frecuentes` | Respuestas públicas y consulta autenticada por WhatsApp |
 | `/contacto` | Información de contacto |
 | `/login` | Inicio de sesión y registro |
 
@@ -176,7 +178,6 @@ La base de datos está pensada para Supabase. Las tablas principales son:
 | `producto_imagenes` | URLs y metadatos de imágenes en Cloudinary |
 | `pedidos` | Encabezado del pedido |
 | `pedido_items` | Productos incluidos en cada pedido |
-| `movimientos_inventario` | Cambios de stock |
 
 Los scripts SQL están en `docs/`. Para entender el modelo completo, revisa [`docs/MODELO-DB.md`](docs/MODELO-DB.md).
 
@@ -185,7 +186,7 @@ Los scripts SQL están en `docs/`. Para entender el modelo completo, revisa [`do
 1. El cliente navega el catálogo.
 2. Agrega productos al carrito.
 3. Revisa cantidades, subtotal, envío y total.
-4. Completa el checkout.
+4. Inicia sesión y revisa el formulario para generar el pedido.
 5. El sistema crea un pedido y sus items en Supabase.
 6. El carrito se limpia.
 7. Se abre WhatsApp con un mensaje prellenado.

@@ -34,15 +34,15 @@ export function Footer() {
       <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
         <div>
           <Link
-            href="/"
+            href=""
             className="flex max-w-sm items-center gap-4"
             aria-label="Inicio - Pesca Con Fe"
           >
             <Image
-              src="/images/logos/logo-negro.webp"
+              src="/images/logos/logo-negro-nuevo.webp"
               alt="Pesca Con Fe"
-              width={949}
-              height={940}
+              width={909}
+              height={827}
               className="h-auto w-32 shrink-0"
             />
             <span className="text-2xl font-bold text-white">Pesca Con Fe</span>

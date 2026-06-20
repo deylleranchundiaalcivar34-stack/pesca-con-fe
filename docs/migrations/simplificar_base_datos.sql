@@ -15,6 +15,9 @@ drop function if exists public.marcar_pedido_retirado(uuid);
 drop function if exists public.marcar_pedido_enviado(uuid);
 drop function if exists public.cancelar_pedido(uuid);
 
+drop table if exists public.movimientos_inventario;
+drop type if exists public.tipo_movimiento_inventario;
+
 drop trigger if exists perfiles_admin_actualizado_en on public.perfiles_admin;
 drop trigger if exists perfiles_cliente_actualizado_en on public.perfiles_cliente;
 drop trigger if exists direcciones_cliente_actualizado_en on public.direcciones_cliente;
@@ -96,6 +99,7 @@ alter table if exists public.pedidos
   drop column if exists enviado_en,
   drop column if exists cancelado_en,
   drop column if exists notas,
+  drop column if exists creado_por,
   drop column if exists actualizado_en;
 
 drop type if exists public.tipo_cuenta_bancaria;
@@ -139,6 +143,8 @@ declare
   pedido_id_creado uuid;
   pedido_codigo_creado text;
   cliente_actual uuid := auth.uid();
+  perfil_cliente public.perfiles_cliente%rowtype;
+  direccion_cliente_input uuid;
   tipo_entrega_input public.tipo_entrega;
   subtotal_input numeric(10,2);
   envio_input numeric(10,2);
@@ -146,12 +152,40 @@ declare
   items_input jsonb;
   item_input jsonb;
 begin
+  if cliente_actual is null then
+    raise exception 'Debes iniciar sesion para generar un pedido';
+  end if;
+
+  select pc.* into perfil_cliente
+  from public.perfiles_cliente as pc
+  where pc.id = cliente_actual;
+
+  if not found
+    or nullif(trim(perfil_cliente.nombre_completo), '') is null
+    or nullif(trim(perfil_cliente.cedula), '') is null
+    or nullif(trim(perfil_cliente.celular), '') is null
+    or nullif(trim(perfil_cliente.correo::text), '') is null then
+    raise exception 'Completa tu perfil antes de generar un pedido';
+  end if;
+
   if payload is null or jsonb_typeof(payload) <> 'object' then
     raise exception 'Datos de pedido invalidos';
   end if;
 
   if coalesce(payload->>'estado', 'pendiente_pago') <> 'pendiente_pago' then
     raise exception 'Solo se pueden crear pedidos pendientes de pago';
+  end if;
+
+  direccion_cliente_input := nullif(payload->>'direccion_cliente_id', '')::uuid;
+
+  if direccion_cliente_input is not null and not exists (
+    select 1
+    from public.direcciones_cliente d
+    where d.id = direccion_cliente_input
+      and d.cliente_id = cliente_actual
+      and d.activa = true
+  ) then
+    raise exception 'La direccion seleccionada no pertenece al cliente';
   end if;
 
   tipo_entrega_input := coalesce(payload->>'tipo_entrega', 'envio_servientrega')::public.tipo_entrega;
@@ -189,26 +223,24 @@ begin
     subtotal,
     envio,
     total,
-    estado,
-    creado_por
+    estado
   )
   values (
     cliente_actual,
-    payload->>'cliente_nombre_completo',
-    nullif(payload->>'cliente_cedula', ''),
-    payload->>'cliente_celular',
-    nullif(payload->>'cliente_correo', '')::citext,
+    perfil_cliente.nombre_completo,
+    perfil_cliente.cedula,
+    perfil_cliente.celular,
+    perfil_cliente.correo,
     nullif(payload->>'cliente_provincia', ''),
     nullif(payload->>'cliente_ciudad', ''),
     nullif(payload->>'cliente_direccion', ''),
     nullif(payload->>'cliente_referencia_entrega', ''),
-    nullif(payload->>'direccion_cliente_id', '')::uuid,
+    direccion_cliente_input,
     tipo_entrega_input,
     subtotal_input,
     envio_input,
     total_input,
-    'pendiente_pago',
-    cliente_actual
+    'pendiente_pago'
   )
   returning pedidos.id, pedidos.codigo
   into pedido_id_creado, pedido_codigo_creado;
@@ -244,7 +276,8 @@ end;
 $$;
 
 revoke all on function public.crear_pedido_web(jsonb) from public;
-grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
+revoke all on function public.crear_pedido_web(jsonb) from anon;
+grant execute on function public.crear_pedido_web(jsonb) to authenticated;
 
 create or replace function public.confirmar_pago_pedido(pedido_id_input uuid)
 returns void
@@ -256,7 +289,6 @@ declare
   pedido_record public.pedidos%rowtype;
   item_record record;
   stock_actual integer;
-  stock_nuevo integer;
 begin
   if not public.es_admin() then
     raise exception 'No autorizado';
@@ -291,33 +323,10 @@ begin
       raise exception 'Stock insuficiente para %', item_record.producto_nombre;
     end if;
 
-    stock_nuevo := stock_actual - item_record.cantidad;
-
     update public.productos
-    set stock = stock_nuevo,
+    set stock = stock_actual - item_record.cantidad,
         actualizado_por = auth.uid()
     where id = item_record.producto_id;
-
-    insert into public.movimientos_inventario (
-      producto_id,
-      pedido_id,
-      tipo,
-      cantidad_delta,
-      stock_antes,
-      stock_despues,
-      motivo,
-      creado_por
-    )
-    values (
-      item_record.producto_id,
-      pedido_id_input,
-      'venta_confirmada',
-      item_record.cantidad * -1,
-      stock_actual,
-      stock_nuevo,
-      'Pago confirmado',
-      auth.uid()
-    );
   end loop;
 
   update public.pedidos
@@ -406,7 +415,6 @@ declare
   pedido_record public.pedidos%rowtype;
   item_record record;
   stock_actual integer;
-  stock_nuevo integer;
 begin
   if not public.es_admin() then
     raise exception 'No autorizado';
@@ -435,33 +443,10 @@ begin
       for update;
 
       if stock_actual is not null then
-        stock_nuevo := stock_actual + item_record.cantidad;
-
         update public.productos
-        set stock = stock_nuevo,
+        set stock = stock_actual + item_record.cantidad,
             actualizado_por = auth.uid()
         where id = item_record.producto_id;
-
-        insert into public.movimientos_inventario (
-          producto_id,
-          pedido_id,
-          tipo,
-          cantidad_delta,
-          stock_antes,
-          stock_despues,
-          motivo,
-          creado_por
-        )
-        values (
-          item_record.producto_id,
-          pedido_id_input,
-          'reversion_cancelacion',
-          item_record.cantidad,
-          stock_actual,
-          stock_nuevo,
-          'Pedido cancelado',
-          auth.uid()
-        );
       end if;
     end loop;
   end if;

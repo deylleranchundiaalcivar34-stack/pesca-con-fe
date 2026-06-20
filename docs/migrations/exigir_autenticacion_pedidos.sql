@@ -1,5 +1,8 @@
--- Permite crear pedidos web sin iniciar sesion manteniendo RLS activo.
--- Ejecutar en el SQL Editor de Supabase para el proyecto de produccion.
+-- Exige una sesion autenticada para crear pedidos web.
+-- Conserva snapshots del comprador, pero obtiene su identidad desde perfiles_cliente.
+-- Ejecutar manualmente en Supabase SQL Editor despues de crear un respaldo.
+
+begin;
 
 create or replace function public.crear_pedido_web(payload jsonb)
 returns table(id uuid, codigo text)
@@ -11,6 +14,8 @@ declare
   pedido_id_creado uuid;
   pedido_codigo_creado text;
   cliente_actual uuid := auth.uid();
+  perfil_cliente public.perfiles_cliente%rowtype;
+  direccion_cliente_input uuid;
   tipo_entrega_input public.tipo_entrega;
   subtotal_input numeric(10,2);
   envio_input numeric(10,2);
@@ -18,13 +23,40 @@ declare
   items_input jsonb;
   item_input jsonb;
 begin
+  if cliente_actual is null then
+    raise exception 'Debes iniciar sesion para generar un pedido';
+  end if;
+
+  select pc.* into perfil_cliente
+  from public.perfiles_cliente as pc
+  where pc.id = cliente_actual;
+
+  if not found
+    or nullif(trim(perfil_cliente.nombre_completo), '') is null
+    or nullif(trim(perfil_cliente.cedula), '') is null
+    or nullif(trim(perfil_cliente.celular), '') is null
+    or nullif(trim(perfil_cliente.correo::text), '') is null then
+    raise exception 'Completa tu perfil antes de generar un pedido';
+  end if;
+
   if payload is null or jsonb_typeof(payload) <> 'object' then
     raise exception 'Datos de pedido invalidos';
   end if;
 
-  if coalesce(payload->>'canal', 'web') <> 'web'
-    or coalesce(payload->>'estado', 'pendiente_pago') <> 'pendiente_pago' then
-    raise exception 'Solo se pueden crear pedidos web pendientes de pago';
+  if coalesce(payload->>'estado', 'pendiente_pago') <> 'pendiente_pago' then
+    raise exception 'Solo se pueden crear pedidos pendientes de pago';
+  end if;
+
+  direccion_cliente_input := nullif(payload->>'direccion_cliente_id', '')::uuid;
+
+  if direccion_cliente_input is not null and not exists (
+    select 1
+    from public.direcciones_cliente d
+    where d.id = direccion_cliente_input
+      and d.cliente_id = cliente_actual
+      and d.activa = true
+  ) then
+    raise exception 'La direccion seleccionada no pertenece al cliente';
   end if;
 
   tipo_entrega_input := coalesce(payload->>'tipo_entrega', 'envio_servientrega')::public.tipo_entrega;
@@ -43,8 +75,7 @@ begin
     raise exception 'El pedido no tiene items';
   end if;
 
-  if tipo_entrega_input = 'retiro_local'
-    and (envio_input <> 0 or payload->'direccion_retiro_snapshot' is null) then
+  if tipo_entrega_input = 'retiro_local' and envio_input <> 0 then
     raise exception 'Datos de retiro invalidos';
   end if;
 
@@ -60,37 +91,27 @@ begin
     cliente_referencia_entrega,
     direccion_cliente_id,
     tipo_entrega,
-    direccion_retiro_snapshot,
-    cuenta_bancaria_id,
-    cuenta_bancaria_snapshot,
     subtotal,
     envio,
     total,
-    estado,
-    canal,
-    creado_por
+    estado
   )
   values (
     cliente_actual,
-    payload->>'cliente_nombre_completo',
-    nullif(payload->>'cliente_cedula', ''),
-    payload->>'cliente_celular',
-    nullif(payload->>'cliente_correo', '')::citext,
+    perfil_cliente.nombre_completo,
+    perfil_cliente.cedula,
+    perfil_cliente.celular,
+    perfil_cliente.correo,
     nullif(payload->>'cliente_provincia', ''),
     nullif(payload->>'cliente_ciudad', ''),
     nullif(payload->>'cliente_direccion', ''),
     nullif(payload->>'cliente_referencia_entrega', ''),
-    nullif(payload->>'direccion_cliente_id', '')::uuid,
+    direccion_cliente_input,
     tipo_entrega_input,
-    payload->'direccion_retiro_snapshot',
-    nullif(payload->>'cuenta_bancaria_id', '')::uuid,
-    payload->'cuenta_bancaria_snapshot',
     subtotal_input,
     envio_input,
     total_input,
-    'pendiente_pago',
-    'web',
-    cliente_actual
+    'pendiente_pago'
   )
   returning pedidos.id, pedidos.codigo
   into pedido_id_creado, pedido_codigo_creado;
@@ -126,8 +147,10 @@ end;
 $$;
 
 revoke all on function public.crear_pedido_web(jsonb) from public;
-grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
+revoke all on function public.crear_pedido_web(jsonb) from anon;
+grant execute on function public.crear_pedido_web(jsonb) to authenticated;
 
-drop policy if exists "Cualquiera puede crear pedidos web" on public.pedidos;
-drop policy if exists "Cualquiera puede crear items de pedidos web" on public.pedido_items;
-drop function if exists public.pedido_web_puede_recibir_items(uuid);
+alter table public.pedidos
+  drop column if exists creado_por;
+
+commit;

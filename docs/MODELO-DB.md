@@ -13,10 +13,10 @@ El modelo esta simplificado: los datos puramente visuales o de frontend, como co
 - La tienda publica lee catalogo, marcas, categorias, subcategorias, productos e imagenes activas.
 - Las imagenes de productos viven en Cloudinary; la base guarda metadatos, URLs y `public_id`.
 - Un producto puede tener multiples imagenes y solo una imagen principal activa.
-- El checkout crea pedidos anonimos o vinculados a un usuario autenticado.
+- El checkout crea pedidos unicamente para usuarios autenticados con perfil completo.
 - Los pedidos y sus items guardan snapshots de cliente, entrega, producto, precio e imagen.
 - El stock baja cuando un administrador confirma pago o registra una venta manual.
-- `pedidos.creado_en`, `pedido_items.creado_en` y `movimientos_inventario.creado_en` se conservan como fechas operativas.
+- `pedidos.creado_en` y `pedido_items.creado_en` se conservan como fechas operativas.
 - Las politicas RLS protegen escritura admin, datos de clientes y pedidos.
 
 ## Relacion General
@@ -35,8 +35,6 @@ erDiagram
   productos ||--o{ producto_imagenes : tiene
   productos ||--o{ pedido_items : vendido_como
   pedidos ||--o{ pedido_items : contiene
-  productos ||--o{ movimientos_inventario : afecta
-  pedidos ||--o{ movimientos_inventario : origina
 ```
 
 `auth_users` representa `auth.users`; no se crea manualmente en `public`.
@@ -65,13 +63,6 @@ create type tipo_entrega as enum (
   'retiro_local'
 );
 
-create type tipo_movimiento_inventario as enum (
-  'venta_confirmada',
-  'venta_manual',
-  'ajuste_manual',
-  'reposicion',
-  'reversion_cancelacion'
-);
 ```
 
 ## 3. Funciones Base
@@ -238,7 +229,7 @@ Metadatos de imagenes subidas a Cloudinary. La base no guarda `api_secret`, uplo
 
 ### `pedidos`
 
-Soporta pedidos anonimos y pedidos de usuarios logueados. Los datos de negocio, instrucciones de pago y cuentas bancarias se muestran desde frontend, no se relacionan con tablas de Supabase.
+Soporta pedidos de usuarios autenticados. Los datos de identidad se copian desde `perfiles_cliente` y la entrega conserva un snapshot para admitir direcciones temporales. Los datos de negocio, instrucciones de pago y cuentas bancarias se muestran desde frontend, no se relacionan con tablas de Supabase.
 
 | Columna | Tipo | Notas |
 | --- | --- | --- |
@@ -259,7 +250,6 @@ Soporta pedidos anonimos y pedidos de usuarios logueados. Los datos de negocio, 
 | `envio` | `numeric(10,2)` | >= 0 |
 | `total` | `numeric(10,2)` | `subtotal + envio` |
 | `estado` | `estado_pedido` | Default `pendiente_pago` |
-| `creado_por` | `uuid` | Usuario creador si existe |
 | `confirmado_por` | `uuid` | Admin que confirma pago |
 | `creado_en` | `timestamptz` | Fecha operativa del pedido |
 
@@ -282,28 +272,11 @@ Guarda snapshot de producto, precio e imagen principal al momento de compra.
 | `total_linea` | `numeric` | Generado |
 | `creado_en` | `timestamptz` | Fecha del item |
 
-### `movimientos_inventario`
-
-Bitacora operativa de cambios de stock.
-
-| Columna | Tipo | Notas |
-| --- | --- | --- |
-| `id` | `uuid` | PK |
-| `producto_id` | `uuid` | Referencia `productos(id)` |
-| `pedido_id` | `uuid` | Opcional |
-| `tipo` | `tipo_movimiento_inventario` | Motivo estructurado |
-| `cantidad_delta` | `integer` | Positivo o negativo |
-| `stock_antes` | `integer` | >= 0 |
-| `stock_despues` | `integer` | >= 0 |
-| `motivo` | `text` | Opcional |
-| `creado_por` | `uuid` | Usuario/admin que origina el movimiento |
-| `creado_en` | `timestamptz` | Fecha del movimiento |
-
 ## 7. Funciones De Pedido
 
 ### `crear_pedido_web(payload jsonb)`
 
-RPC `security definer` usada por checkout. Crea el pedido y sus items en una sola transaccion logica, incluso para usuarios anonimos.
+RPC `security definer` usada por checkout. Exige `auth.uid()`, obtiene la identidad desde `perfiles_cliente` y crea el pedido con sus items en una sola transaccion logica.
 
 - No recibe ni guarda origen de venta.
 - No recibe ni guarda cuenta bancaria.
@@ -313,11 +286,11 @@ RPC `security definer` usada por checkout. Crea el pedido y sus items en una sol
 
 ### Funciones de estado
 
-- `confirmar_pago_pedido(uuid)`: valida admin, descuenta stock, crea `movimientos_inventario`, cambia estado a `pagado_confirmado` y guarda `confirmado_por`.
+- `confirmar_pago_pedido(uuid)`: valida admin, descuenta stock, cambia estado a `pagado_confirmado` y guarda `confirmado_por`.
 - `marcar_pedido_listo_retiro(uuid)`: cambia retiro local pagado a `listo_retiro`.
 - `marcar_pedido_retirado(uuid)`: cambia retiro listo a `retirado`.
 - `marcar_pedido_enviado(uuid)`: cambia envio pagado a `enviado`.
-- `cancelar_pedido(uuid)`: cambia a `cancelado`; si ya habia descontado stock, lo revierte con movimiento de inventario.
+- `cancelar_pedido(uuid)`: cambia a `cancelado`; si ya habia descontado stock, lo devuelve.
 
 Ninguna funcion escribe timestamps de estado eliminados.
 
@@ -366,8 +339,6 @@ create index pedidos_cliente_celular_idx
 create index pedido_items_pedido_idx
   on public.pedido_items(pedido_id);
 
-create index movimientos_inventario_producto_creado_idx
-  on public.movimientos_inventario(producto_id, creado_en desc);
 ```
 
 ## 9. Vistas
@@ -413,7 +384,6 @@ alter table public.productos enable row level security;
 alter table public.producto_imagenes enable row level security;
 alter table public.pedidos enable row level security;
 alter table public.pedido_items enable row level security;
-alter table public.movimientos_inventario enable row level security;
 ```
 
 ### Lectura publica
@@ -427,12 +397,12 @@ El cliente puede leer y actualizar su perfil, gestionar sus direcciones, leer su
 ### Checkout web
 
 ```sql
-grant execute on function public.crear_pedido_web(jsonb) to anon, authenticated;
+grant execute on function public.crear_pedido_web(jsonb) to authenticated;
 ```
 
 ### Administracion
 
-Los admins activos pueden gestionar catalogo, imagenes, clientes, direcciones, pedidos e items. En inventario pueden leer movimientos y crear movimientos.
+Los admins activos pueden gestionar catalogo, imagenes, clientes, direcciones, pedidos e items.
 
 ## 11. Sincronizacion Desde Auth Metadata
 
@@ -481,7 +451,7 @@ Reglas de integracion:
 | Productos | `productos`, `producto_imagenes` |
 | Checkout | `crear_pedido_web()` |
 | Pedidos cliente | `pedidos`, `pedido_items` |
-| Confirmacion de pago | `confirmar_pago_pedido()` + `movimientos_inventario` |
+| Confirmacion de pago | `confirmar_pago_pedido()` |
 | Supabase Auth metadata | `perfiles_cliente` |
 | Direcciones de cliente | `direcciones_cliente` |
 
@@ -492,7 +462,7 @@ Reglas de integracion:
 3. Crear `es_cedula_ecuatoriana()` y `siguiente_codigo_pedido()`.
 4. Crear `perfiles_admin` y luego `es_admin()`.
 5. Crear perfiles cliente y trigger desde `auth.users`.
-6. Crear direcciones, catalogo, productos, imagenes, pedidos, items e inventario.
+6. Crear direcciones, catalogo, productos, imagenes, pedidos e items.
 7. Crear indices.
 8. Crear funciones de pedido.
 9. Crear vistas con `security_invoker = true`.
@@ -515,7 +485,6 @@ Para operar el ecommerce real, estas tablas son suficientes:
 - `producto_imagenes`
 - `pedidos`
 - `pedido_items`
-- `movimientos_inventario`
 
 ## 16. Pendientes Para Versiones Futuras
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, MapPin, MessageCircle, Store, Truck } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
@@ -119,6 +120,7 @@ export function CheckoutForm({
   bankAccounts: BankAccount[];
   businessConfig: BusinessConfig;
 }) {
+  const router = useRouter();
   const items = useCartStore((state) => state.items);
   const isClient = useIsClient();
   const subtotal = useCartStore((state) => state.subtotal());
@@ -232,6 +234,17 @@ export function CheckoutForm({
       deliveryType: values.deliveryType,
     });
 
+    if ("requiresAuth" in createdOrder && createdOrder.requiresAuth) {
+      router.push("/login?redirect=%2Fcheckout");
+      return;
+    }
+
+    if ("requiresProfile" in createdOrder && createdOrder.requiresProfile) {
+      toast.error(createdOrder.message);
+      router.push("/mi-cuenta?seccion=perfil&checkout=1");
+      return;
+    }
+
     if (!createdOrder.ok || !createdOrder.code) {
       toast.error(createdOrder.message);
       return;
@@ -285,11 +298,27 @@ export function CheckoutForm({
         <Card>
           <CardHeader>
             <CardTitle>Datos del cliente</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Estos datos se toman de tu perfil. Puedes modificarlos desde{" "}
+              <Link
+                href="/mi-cuenta?seccion=perfil"
+                className="font-semibold text-primary hover:underline"
+              >
+                Mi cuenta
+              </Link>
+              .
+            </p>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" {...register("addressId")} />
             <Field id="fullName" label="Nombre completo" error={errors.fullName?.message}>
-              <Input id="fullName" {...register("fullName")} autoComplete="name" />
+              <Input
+                id="fullName"
+                {...register("fullName")}
+                autoComplete="name"
+                readOnly
+                className="bg-muted"
+              />
             </Field>
             <Field id="cedula" label="Cédula ecuatoriana" error={errors.cedula?.message}>
               <Input
@@ -298,13 +327,29 @@ export function CheckoutForm({
                 autoComplete="off"
                 inputMode="numeric"
                 maxLength={10}
+                readOnly
+                className="bg-muted"
               />
             </Field>
             <Field id="phone" label="Celular" error={errors.phone?.message}>
-              <Input id="phone" {...register("phone")} inputMode="tel" autoComplete="tel" />
+              <Input
+                id="phone"
+                {...register("phone")}
+                inputMode="tel"
+                autoComplete="tel"
+                readOnly
+                className="bg-muted"
+              />
             </Field>
-            <Field id="email" label="Correo (opcional)" error={errors.email?.message}>
-              <Input id="email" {...register("email")} type="email" autoComplete="email" />
+            <Field id="email" label="Correo" error={errors.email?.message}>
+              <Input
+                id="email"
+                {...register("email")}
+                type="email"
+                autoComplete="email"
+                readOnly
+                className="bg-muted"
+              />
             </Field>
           </CardContent>
         </Card>

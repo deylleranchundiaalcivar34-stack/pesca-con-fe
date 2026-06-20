@@ -187,16 +187,16 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-secondary py-16 sm:py-20">
+      <section className="bg-dark-blue bg-[linear-gradient(rgb(5_44_101_/_0.78),rgb(5_44_101_/_0.78)),url('/images/banners/banner-3.webp')] bg-cover bg-center py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1fr_390px] lg:items-start">
             <div className="max-w-[48rem]">
               <SectionHeading
-                className="max-w-[46rem]"
+                className="max-w-[46rem] [&_h2]:text-white [&_p]:text-white/80"
                 title="Más que una tienda: una pasión compartida"
                 description="Antes incluso de consolidarse como negocio, Pesca Con Fe nació como una forma de compartir experiencias de pesca en ríos y lagunas de Shushufindi y Sucumbíos."
               />
-              <div className="mt-7 grid max-w-[45rem] gap-5 text-base leading-7 text-muted-foreground">
+              <div className="mt-7 grid max-w-[45rem] gap-5 text-base leading-7 text-white/80">
                 <p>
                   Hugo Anchundia, junto a amigos y hermanos de la iglesia, empezó a
                   documentar salidas de pesca y compartir contenido audiovisual,
@@ -209,7 +209,7 @@ export default function AboutPage() {
                   educación ambiental, convivencia familiar y respeto por los
                   ecosistemas amazónicos.
                 </p>
-                <p className="rounded-r-lg border-l-4 border-primary bg-white/70 py-4 pl-5 pr-4 text-sm font-bold leading-6 text-dark-blue shadow-sm">
+                <p className="rounded-r-lg border-l-4 border-gold bg-white/90 py-4 pl-5 pr-4 text-sm font-bold leading-6 text-dark-blue shadow-sm">
                   Reconocido como el primer club oficial legalmente constituido en
                   Ecuador dedicado a la pesca deportiva responsable y pesca con
                   liberación.

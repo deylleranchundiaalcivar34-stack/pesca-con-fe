@@ -63,7 +63,7 @@ export function AdminSidebar() {
         </Sheet>
       </div>
 
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-white/10 bg-dark-blue p-5 text-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/10 bg-dark-blue p-5 text-white lg:block">
         <SidebarContent activeHref={activeHref} />
       </aside>
     </>
@@ -130,20 +130,25 @@ function Brand({ compact = false }: { compact?: boolean }) {
       <span
         className={cn(
           "relative flex shrink-0 items-center justify-center overflow-hidden",
-          compact ? "size-11" : "size-14",
+          compact ? "size-11" : "size-24",
         )}
       >
         <Image
-          src="/images/logos/logo-negro.webp"
+          src="/images/logos/logo-negro-nuevo.webp"
           alt="Pesca Con Fe"
           fill
-          sizes={compact ? "44px" : "56px"}
+          sizes={compact ? "44px" : "96px"}
           className="object-contain"
           priority
         />
       </span>
       <span>
-        <span className={cn("block font-bold", compact ? "text-dark-blue" : "text-white")}>
+        <span
+          className={cn(
+            "block font-bold",
+            compact ? "text-dark-blue" : "text-lg text-white",
+          )}
+        >
           Pesca Con Fe
         </span>
         <span className={cn("block text-xs", compact ? "text-muted-foreground" : "text-white/60")}>

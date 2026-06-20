@@ -10,7 +10,7 @@ export const businessConfig: BusinessConfig = {
   city: "Shushufindi",
   country: "Ecuador",
   schedule: "Lunes a Sábado, 08:30 AM - 06:00 PM",
-  phones: ["0939927826", "0984967946"],
+  phones: ["0984967946","0939927826"],
   whatsappPhoneE164: "593939927826",
   email: "pescaconfe@gmail.com",
   social: {
@@ -188,6 +188,6 @@ export const bankAccounts: BankAccount[] = [
       height: 160,
     },
     accountType: "Ahorro",
-    accountNumber: "12828212",
+    accountNumber: "1068019904",
   },
 ];

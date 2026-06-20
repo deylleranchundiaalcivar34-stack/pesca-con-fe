@@ -15,37 +15,51 @@ interface CheckoutMessageInput {
   business?: BusinessConfig;
 }
 
+interface CustomerQuestionMessageInput {
+  question: string;
+  fullName?: string;
+}
+
 // Arma el mensaje que se envia al WhatsApp de la tienda al finalizar checkout.
 export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
   const productLines = input.items
     .map(
       (item) =>
-        `- ${item.productName} x${item.quantity}: ${formatCurrency(
+        `• ${item.productName} x${item.quantity}: ${formatCurrency(
           item.price * item.quantity,
         )}`,
     )
     .join("\n");
 
   return [
-    `Hola, soy ${input.customer.fullName}. Generé un pedido en Pesca Con Fe.`,
-    input.orderCode ? `Pedido: ${input.orderCode}` : undefined,
+    "*NUEVO PEDIDO - PESCA CON FE*",
+    input.orderCode ? `Código: *${input.orderCode}*` : undefined,
     "",
-    "Productos:",
+    "*CLIENTE*",
+    `Nombre: ${input.customer.fullName}`,
+    "",
+    "*PRODUCTOS*",
     productLines,
     "",
+    "*RESUMEN DE PAGO*",
     `Subtotal: ${formatCurrency(input.subtotal)}`,
     input.deliveryType === "retiro_local"
       ? "Retiro en local: sin costo de envío"
       : `Envío Servientrega: ${formatCurrency(input.shipping)}`,
-    `Total: ${formatCurrency(input.total)}`,
+    `*Total: ${formatCurrency(input.total)}*`,
     "",
-    `Banco elegido: ${input.bankAccount.bank}`,
+    "*CUENTA BANCARIA*",
+    `Banco: ${input.bankAccount.bank}`,
     `Cuenta: ${input.bankAccount.accountType} ${input.bankAccount.accountNumber}`,
     `Titular: ${input.bankAccount.owner}`,
     "",
+    "*ENTREGA*",
     input.deliveryType === "retiro_local"
-      ? "Entrega: retiro en local físico"
-      : `Entrega: ${input.customer.city}, ${input.customer.province}`,
+      ? "Modalidad: retiro en el local"
+      : "Modalidad: envío por Servientrega",
+    input.deliveryType === "envio_servientrega"
+      ? `Destino: ${input.customer.city}, ${input.customer.province}`
+      : undefined,
     input.deliveryType === "envio_servientrega"
       ? `Dirección: ${input.customer.address}`
       : undefined,
@@ -56,7 +70,24 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
       ? `Celular de contacto: ${input.customer.contactPhone}`
       : undefined,
     "",
-    "Adjunto comprobante de transferencia.",
+    "Adjunto el comprobante de transferencia para confirmar el pago.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Arma una consulta general identificada con la cuenta que inició sesión.
+export function buildCustomerQuestionWhatsAppMessage(
+  input: CustomerQuestionMessageInput,
+) {
+  return [
+    "*CONSULTA - PESCA CON FE*",
+    "",
+    "*CLIENTE*",
+    input.fullName || "Cliente autenticado",
+    "",
+    "*PREGUNTA*",
+    input.question,
   ]
     .filter(Boolean)
     .join("\n");

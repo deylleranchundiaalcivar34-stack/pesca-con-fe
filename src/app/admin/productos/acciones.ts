@@ -264,10 +264,8 @@ export async function deleteProduct(formData: FormData) {
 }
 
 // Marca una imagen existente como principal.
-export async function setMainImage(formData: FormData) {
+export async function setMainImage(productId: string, imageId: string) {
   const { supabase, userId } = await requireAdmin();
-  const productId = getText(formData, "productId");
-  const imageId = getText(formData, "imageId");
 
   await supabase
     .from("producto_imagenes")
@@ -276,16 +274,17 @@ export async function setMainImage(formData: FormData) {
   await supabase
     .from("producto_imagenes")
     .update({ principal: true, actualizado_por: userId })
-    .eq("id", imageId);
+    .eq("id", imageId)
+    .eq("producto_id", productId);
 
+  revalidatePublicProducts();
   revalidatePath("/admin/productos");
+  revalidatePath(`/admin/productos/${productId}/editar`);
 }
 
 // Desactiva una imagen de producto y limpia Cloudinary si corresponde.
-export async function deleteProductImage(formData: FormData) {
+export async function deleteProductImage(productId: string, imageId: string) {
   const { supabase, userId } = await requireAdmin();
-  const productId = getText(formData, "productId");
-  const imageId = getText(formData, "imageId");
 
   const { data: image, error: imageError } = await supabase
     .from("producto_imagenes")
@@ -331,4 +330,5 @@ export async function deleteProductImage(formData: FormData) {
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
+  revalidatePath(`/admin/productos/${productId}/editar`);
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCustomerProfile } from "@/lib/usuario";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { DeliveryType, OrderItem } from "@/types/pedido";
 
@@ -42,10 +43,35 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: "Inicia sesion para generar tu pedido.",
+      code: null,
+      requiresAuth: true,
+    };
+  }
+
+  const profile = await getCustomerProfile(supabase, user.id);
+
+  if (
+    !profile?.fullName.trim() ||
+    !profile.cedula.trim() ||
+    !profile.phone.trim() ||
+    !profile.email.trim()
+  ) {
+    return {
+      ok: false,
+      message: "Completa tus datos de cliente antes de generar el pedido.",
+      code: null,
+      requiresProfile: true,
+    };
+  }
+
   let addressId = input.customer.addressId || null;
 
   if (
-    user &&
     input.deliveryType === "envio_servientrega" &&
     input.customer.saveAddress &&
     !addressId &&
@@ -88,11 +114,6 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   }
 
   const payload = {
-    cliente_id: user?.id ?? null,
-    cliente_nombre_completo: input.customer.fullName,
-    cliente_cedula: input.customer.cedula,
-    cliente_celular: input.customer.phone,
-    cliente_correo: input.customer.email || null,
     cliente_provincia: input.customer.province || null,
     cliente_ciudad: input.customer.city || null,
     cliente_direccion: input.customer.address || null,
@@ -103,7 +124,6 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     envio: input.shipping,
     total: input.total,
     estado: "pendiente_pago",
-    creado_por: user?.id ?? null,
     items: input.items.map((item) => ({
       producto_id: item.productId,
       producto_nombre: item.productName,

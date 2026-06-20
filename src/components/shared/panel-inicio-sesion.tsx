@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utilidades";
 
 type LoginPanelProps = {
+  accessMessage?: string;
   confirmed?: boolean;
   error?: string;
   mode?: "login" | "register";
@@ -44,6 +45,10 @@ function getAuthErrorMessage(message?: string) {
     normalized.includes("already registered")
   ) {
     return "Este correo ya está registrado. Intenta iniciar sesión.";
+  }
+
+  if (normalized.includes("database error saving new user")) {
+    return "No pudimos crear la cuenta. Es posible que el correo o la cédula ya estén registrados.";
   }
 
   return message;
@@ -78,6 +83,7 @@ function getSupabaseClientOrMessage() {
 
 // Maneja login y registro con Supabase desde una misma interfaz.
 export function LoginPanel({
+  accessMessage,
   confirmed = false,
   error,
   mode = "login",
@@ -85,20 +91,25 @@ export function LoginPanel({
 }: LoginPanelProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const routeErrorMessage = getRouteErrorMessage(error);
   const initialStatusMessage = confirmed
-    ? "Correo confirmado. Ya puedes iniciar sesión."
-    : getRouteErrorMessage(error);
+    ? ["Correo confirmado. Ya puedes iniciar sesión.", accessMessage]
+        .filter(Boolean)
+        .join(" ")
+    : routeErrorMessage ?? accessMessage ?? null;
   const [statusMessage, setStatusMessage] = useState<string | null>(
     initialStatusMessage,
   );
   const [statusTone, setStatusTone] = useState<StatusTone>(
-    confirmed || !initialStatusMessage ? "info" : "error",
+    routeErrorMessage ? "error" : "info",
   );
 
   const showStatus = (message: string | null, tone: StatusTone = "error") => {
     setStatusTone(tone);
     setStatusMessage(message);
   };
+  const redirectQuery =
+    redirectTo === "/" ? "" : `&redirect=${encodeURIComponent(redirectTo)}`;
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -165,7 +176,7 @@ export function LoginPanel({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/login?confirmed=1`,
+        emailRedirectTo: `${window.location.origin}/login?confirmed=1${redirectQuery}`,
         data: {
           first_name: firstName,
           last_name: lastName,
@@ -367,7 +378,13 @@ export function LoginPanel({
           <div className="rounded-md bg-secondary p-3 text-center text-sm text-muted-foreground">
             {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}{" "}
             <Button asChild variant="link" className="h-auto p-0 font-bold">
-              <Link href={isLogin ? "/login?mode=register" : "/login"}>
+              <Link
+                href={
+                  isLogin
+                    ? `/login?mode=register${redirectQuery}`
+                    : `/login${redirectTo === "/" ? "" : `?redirect=${encodeURIComponent(redirectTo)}`}`
+                }
+              >
                 {isLogin ? "Crear cuenta" : "Ingresar"}
               </Link>
             </Button>

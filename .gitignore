@@ -10,6 +10,11 @@
 !.yarn/releases
 !.yarn/versions
 /docs
+!/docs/
+/docs/*
+!/docs/migrations/
+/docs/migrations/*
+!/docs/migrations/exigir_autenticacion_pedidos.sql
 
 # testing
 /coverage

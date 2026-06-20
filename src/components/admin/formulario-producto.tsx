@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Save, Star, Trash2 } from "lucide-react";
+import { ImagePlus, LoaderCircle, Save, Star, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
+import { useFormStatus } from "react-dom";
+import { toast } from "sonner";
 import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/acciones";
 import type { Product, ProductCategory } from "@/types/producto";
 import { Button } from "@/components/ui/button";
@@ -53,11 +56,13 @@ interface ProductFormProps {
 
 // Formulario principal para crear o editar productos del catalogo.
 export function ProductForm({ mode, product, categories, brands }: ProductFormProps) {
+  const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
+  const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
   const {
     register,
     control,
@@ -164,6 +169,27 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
   const mainSelectedImageIndex = selectedImagePreviews.findIndex(
     (image) => image.id === mainSelectedImageId,
   );
+
+  // Gestiona imagenes guardadas sin enviar ni reiniciar el formulario del producto.
+  const runExistingImageAction = async (
+    imageId: string,
+    action: (productId: string, selectedImageId: string) => Promise<void>,
+    successMessage: string,
+  ) => {
+    if (!product) return;
+
+    setPendingExistingImageId(imageId);
+
+    try {
+      await action(product.id, imageId);
+      router.refresh();
+      toast.success(successMessage);
+    } catch {
+      toast.error("No pudimos actualizar la imagen. Intenta nuevamente.");
+    } finally {
+      setPendingExistingImageId(null);
+    }
+  };
 
   return (
     <form
@@ -325,10 +351,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 onCheckedChange={(checked) => setValue("isFeatured", checked)}
               />
             </div>
-            <Button type="submit" className="mt-5 w-full" size="lg">
-              <Save aria-hidden="true" />
-              {mode === "create" ? "Crear producto" : "Guardar cambios"}
-            </Button>
+            <ProductSubmitButton mode={mode} />
           </CardContent>
         </Card>
 
@@ -461,26 +484,35 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                           {image.isMain ? "Principal" : image.alt}
                         </span>
                         <div className="flex shrink-0 gap-2">
-                          <Button
-                            type="submit"
-                            size="sm"
-                            variant={image.isMain ? "premium" : "outline"}
-                            name="imageId"
-                            value={image.id}
-                            formAction={setMainImage}
-                            disabled={image.isMain}
-                          >
+                           <Button
+                             type="button"
+                             size="sm"
+                             variant={image.isMain ? "premium" : "outline"}
+                             onClick={() =>
+                               void runExistingImageAction(
+                                 image.id,
+                                 setMainImage,
+                                 "Imagen principal actualizada.",
+                               )
+                             }
+                             disabled={image.isMain || pendingExistingImageId !== null}
+                           >
                             <Star aria-hidden="true" />
                             {image.isMain ? "Principal" : "Hacer principal"}
                           </Button>
-                          <Button
-                            type="submit"
-                            size="icon"
-                            variant="outline"
-                            name="imageId"
-                            value={image.id}
-                            formAction={deleteProductImage}
-                            aria-label={`Quitar ${image.alt}`}
+                           <Button
+                             type="button"
+                             size="icon"
+                             variant="outline"
+                             onClick={() =>
+                               void runExistingImageAction(
+                                 image.id,
+                                 deleteProductImage,
+                                 "Imagen quitada.",
+                               )
+                             }
+                             disabled={pendingExistingImageId !== null}
+                             aria-label={`Quitar ${image.alt}`}
                           >
                             <Trash2 aria-hidden="true" />
                           </Button>
@@ -495,6 +527,30 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
         </Card>
       </aside>
     </form>
+  );
+}
+
+// Evita envios duplicados y comunica el progreso de creacion o edicion.
+function ProductSubmitButton({ mode }: { mode: ProductFormProps["mode"] }) {
+  const { pending } = useFormStatus();
+  const idleLabel = mode === "create" ? "Crear producto" : "Guardar cambios";
+  const pendingLabel = mode === "create" ? "Creando producto..." : "Guardando cambios...";
+
+  return (
+    <Button
+      type="submit"
+      className="mt-5 w-full"
+      size="lg"
+      disabled={pending}
+      aria-live="polite"
+    >
+      {pending ? (
+        <LoaderCircle className="animate-spin" aria-hidden="true" />
+      ) : (
+        <Save aria-hidden="true" />
+      )}
+      {pending ? pendingLabel : idleLabel}
+    </Button>
   );
 }
 

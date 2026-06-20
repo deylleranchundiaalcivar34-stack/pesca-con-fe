@@ -15,7 +15,7 @@ Esta guía explica el proyecto desde cero. La idea es que una persona principian
 7. [Componentes principales](#7-componentes-principales)
 8. [Estado del carrito](#8-estado-del-carrito)
 9. [Catálogo y detalle de producto](#9-catálogo-y-detalle-de-producto)
-10. [Checkout y creación de pedidos](#10-checkout-y-creación-de-pedidos)
+10. [Generación de pedidos](#10-generación-de-pedidos)
 11. [Autenticación, perfil y direcciones](#11-autenticación-perfil-y-direcciones)
 12. [Panel administrador](#12-panel-administrador)
 13. [Supabase y base de datos](#13-supabase-y-base-de-datos)
@@ -28,7 +28,7 @@ Esta guía explica el proyecto desde cero. La idea es que una persona principian
 
 ## 1. Qué es este proyecto
 
-Pesca Con Fe es un ecommerce para una tienda de artículos de pesca en Shushufindi, Ecuador. El sitio permite que una persona vea productos, filtre el catálogo, agregue productos al carrito, genere un pedido, elija envío o retiro en local y envíe el comprobante por WhatsApp.
+Pesca Con Fe es un ecommerce para una tienda de artículos de pesca en Shushufindi, Ecuador. El sitio permite que una persona vea productos, filtre el catálogo, consulte preguntas frecuentes, agregue productos al carrito, genere un pedido, elija envío o retiro en local y envíe el comprobante por WhatsApp.
 
 También tiene un panel administrador para gestionar productos, marcas, pedidos, estados de pedidos e imágenes.
 
@@ -37,7 +37,7 @@ En palabras simples:
 - El cliente entra al sitio.
 - Revisa productos.
 - Agrega productos al carrito.
-- Completa el checkout.
+- Inicia sesión y revisa el formulario para generar el pedido.
 - El sistema crea un pedido en Supabase.
 - Se abre WhatsApp con un mensaje listo para enviar.
 - El administrador revisa el pedido y confirma el pago.
@@ -51,7 +51,7 @@ flowchart TD
   B --> C["Abre detalle de producto"]
   C --> D["Agrega al carrito"]
   D --> E["Revisa carrito"]
-  E --> F["Completa checkout"]
+  E --> F["Genera el pedido"]
   F --> G["Se crea pedido en Supabase"]
   G --> H["Se abre WhatsApp con mensaje"]
   H --> I["Cliente envía comprobante"]
@@ -73,7 +73,7 @@ El proyecto usa varias herramientas. No todas hacen lo mismo, así que conviene 
 | Cloudinary | Almacenamiento y entrega de imágenes de productos. |
 | Zustand | Estado global del carrito en el navegador. |
 | React Hook Form | Manejo de formularios. |
-| Zod | Validación de datos del checkout. |
+| Zod | Validación de datos del formulario de pedido. |
 | Lucide React | Iconos. |
 | Framer Motion | Animaciones suaves. |
 | Sonner | Notificaciones tipo toast. |
@@ -88,7 +88,7 @@ Una buena forma de entenderlo es seguir el camino de un usuario:
 2. Catálogo: `src/app/productos/page.tsx`
 3. Detalle: `src/app/productos/[slug]/page.tsx`
 4. Carrito: `src/store/tienda-carrito.ts` y `src/components/cart/*`
-5. Checkout: `src/components/checkout/formulario-checkout.tsx`
+5. Generación del pedido: `src/components/checkout/formulario-checkout.tsx`
 6. Pedido en base de datos: `src/app/checkout/acciones.ts`
 7. Panel admin: `src/app/admin/*`
 
@@ -142,6 +142,7 @@ Ejemplos:
 | `src/app/productos/page.tsx` | `/productos` |
 | `src/app/productos/[slug]/page.tsx` | `/productos/algun-producto` |
 | `src/app/checkout/page.tsx` | `/checkout` |
+| `src/app/preguntas-frecuentes/page.tsx` | `/preguntas-frecuentes` |
 | `src/app/admin/page.tsx` | `/admin` |
 
 Los archivos `acciones.ts` dentro de algunas carpetas contienen server actions. Es decir, funciones que corren en el servidor y pueden escribir en Supabase.
@@ -156,7 +157,8 @@ Ejemplos:
 - `components/layout/controles-header-cliente.tsx`: controles interactivos del header, como usuario, carrito y menú móvil.
 - `components/layout/footer.tsx`: pie de página.
 - `components/products/tarjeta-producto.tsx`: tarjeta individual de producto.
-- `components/checkout/formulario-checkout.tsx`: formulario de checkout.
+- `components/checkout/formulario-checkout.tsx`: formulario para generar pedidos.
+- `components/faq/formulario-pregunta.tsx`: consulta autenticada por WhatsApp.
 - `components/admin/formulario-producto.tsx`: formulario para crear o editar productos.
 
 ### `src/lib`
@@ -199,9 +201,10 @@ Ejemplos:
 
 Contiene datos locales que no dependen de Supabase.
 
-Archivo principal:
+Archivos principales:
 
 - `data/datos-negocio.ts`
+- `data/preguntas-frecuentes.ts`
 
 Incluye:
 
@@ -211,6 +214,7 @@ Incluye:
 - cuentas bancarias,
 - categorías visuales,
 - logos de marcas.
+- preguntas y respuestas públicas.
 
 ### `public`
 
@@ -219,7 +223,7 @@ Contiene archivos públicos como imágenes. Todo lo que está en `public` se pue
 Ejemplo:
 
 ```tsx
-<Image src="/images/logos/logo-negro.webp" alt="Pesca Con Fe" />
+<Image src="/images/logos/logo-negro-nuevo.webp" alt="Pesca Con Fe" />
 ```
 
 ### `docs`
@@ -231,8 +235,8 @@ Archivos importantes:
 - `docs/MODELO-DB.md`
 - `docs/supabase_pesca_con_fe_base.sql`
 - `docs/supabase_pesca_con_fe_seed.sql`
-- `docs/supabase_allow_anonymous_checkout_orders.sql`
-- `docs/supabase_cancel_order.sql`
+- `docs/migrations/exigir_autenticacion_pedidos.sql`
+- `docs/migrations/limpiar_datos_conservar_usuarios_perfiles.sql`
 
 ## 5. Cómo funciona Next.js en este proyecto
 
@@ -365,6 +369,7 @@ Esto no cambia la lógica de compra. Solo evita que una navegación lenta parezc
 | `/login` | `src/app/login/page.tsx` | Login y registro. |
 | `/mi-cuenta` | `src/app/mi-cuenta/page.tsx` | Perfil, direcciones y pedidos del cliente. |
 | `/quienes-somos` | `src/app/quienes-somos/page.tsx` | Historia e información institucional. |
+| `/preguntas-frecuentes` | `src/app/preguntas-frecuentes/page.tsx` | Respuestas públicas y consulta autenticada por WhatsApp. |
 | `/contacto` | `src/app/contacto/page.tsx` | Información de contacto, redes y mapa. |
 
 ### Rutas admin
@@ -421,12 +426,20 @@ Los componentes son bloques reutilizables. En lugar de escribir todo en una sola
 | `item-carrito.tsx` | Línea de producto del carrito. |
 | `resumen-carrito.tsx` | Subtotal, envío y total. |
 
-### Checkout
+### Formulario de pedido
 
 | Archivo | Responsabilidad |
 | --- | --- |
 | `formulario-checkout.tsx` | Formulario principal de pedido. |
 | `tarjeta-cuenta-bancaria.tsx` | Cuenta bancaria seleccionable. |
+
+### Preguntas frecuentes
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `app/preguntas-frecuentes/page.tsx` | Página pública con respuestas desplegables. |
+| `data/preguntas-frecuentes.ts` | Contenido local; no crea tablas ni registros en Supabase. |
+| `faq/formulario-pregunta.tsx` | Conserva temporalmente la consulta y exige sesión antes de abrir WhatsApp. |
 
 ### Panel admin
 
@@ -610,24 +623,24 @@ El detalle muestra:
 - productos relacionados,
 - datos estructurados para SEO.
 
-## 10. Checkout y creación de pedidos
+## 10. Generación de pedidos
 
-El checkout es uno de los flujos más importantes.
+La pantalla para generar pedidos es uno de los flujos más importantes. Su ruta técnica sigue siendo `/checkout`.
 
 Archivos principales:
 
 | Archivo | Función |
 | --- | --- |
-| `src/app/checkout/page.tsx` | Carga datos iniciales y renderiza el checkout. |
+| `src/app/checkout/page.tsx` | Carga datos iniciales y renderiza el formulario de pedido. |
 | `src/components/checkout/formulario-checkout.tsx` | Maneja el formulario. |
 | `src/app/checkout/acciones.ts` | Crea el pedido en Supabase. |
 | `src/lib/whatsapp.ts` | Arma el mensaje para WhatsApp. |
 
-### Qué hace el checkout
+### Qué hace el formulario
 
-1. Lee el carrito desde Zustand.
-2. Pide datos del cliente.
-3. Permite elegir envío o retiro.
+1. Comprueba que exista una sesión y un perfil completo.
+2. Lee el carrito desde Zustand y muestra la identidad bloqueada del perfil.
+3. Permite elegir envío o retiro y usar una dirección guardada o temporal.
 4. Permite seleccionar cuenta bancaria.
 5. Valida datos con Zod.
 6. Llama a una server action.
@@ -640,12 +653,12 @@ Flujo completo:
 ```mermaid
 sequenceDiagram
   participant Cliente
-  participant Checkout as Formulario checkout
+  participant Checkout as Formulario de pedido
   participant Action as createCheckoutOrder
   participant DB as Supabase
   participant WA as WhatsApp
 
-  Cliente->>Checkout: Completa datos y confirma
+  Cliente->>Checkout: Revisa sus datos y confirma
   Checkout->>Checkout: Valida con Zod
   Checkout->>Action: Envía datos del pedido
   Action->>DB: Guarda dirección si aplica
@@ -682,7 +695,7 @@ Además, si el cliente elige envío por Servientrega, se exigen:
 
 Si elige retiro local, esos datos no son obligatorios.
 
-### Server action del checkout
+### Server action del formulario de pedido
 
 Está en:
 
@@ -699,7 +712,7 @@ createCheckoutOrder(input)
 Esta función:
 
 - crea cliente Supabase del servidor,
-- revisa si hay usuario autenticado,
+- exige un usuario autenticado y un perfil completo,
 - guarda dirección si el cliente pidió guardarla,
 - arma un `payload`,
 - llama a la función RPC `crear_pedido_web`,
@@ -719,7 +732,7 @@ Ventajas:
 
 - centraliza la creación del pedido,
 - permite guardar pedido e items de forma más controlada,
-- puede funcionar para clientes anónimos y autenticados,
+- exige un cliente autenticado con perfil completo,
 - evita repartir demasiada lógica crítica en el frontend.
 
 ## 11. Autenticación, perfil y direcciones
@@ -743,7 +756,11 @@ El panel de login:
 - permite iniciar sesión,
 - permite registrarse,
 - muestra mensajes de error claros,
+- explica si la redirección se debe a que el cliente intentó generar un pedido o enviar una pregunta,
+- conserva el destino durante login, registro y confirmación de correo,
 - usa Supabase desde el navegador.
+
+La pregunta pendiente se guarda temporalmente en `sessionStorage` y se restaura al volver a `/preguntas-frecuentes`. No se almacena en Supabase.
 
 Ejemplo conceptual:
 
@@ -864,6 +881,10 @@ El formulario permite editar:
 - destacado,
 - imágenes.
 
+El botón principal muestra `Creando producto...` o `Guardando cambios...` y permanece deshabilitado mientras la Server Action termina. Esto evita clics repetidos y envíos duplicados.
+
+Las acciones `setMainImage` y `deleteProductImage` se ejecutan desde botones independientes que no envían ni reinician el formulario completo. Después actualizan la ruta de edición, el catálogo y el detalle público.
+
 Flujo de creación:
 
 ```mermaid
@@ -975,9 +996,8 @@ Contiene funciones como:
 | `marcas` | Marcas de productos. |
 | `productos` | Productos vendibles. |
 | `producto_imagenes` | Imágenes subidas a Cloudinary. |
-| `pedidos` | Pedidos creados por checkout. |
+| `pedidos` | Pedidos creados desde el formulario autenticado. |
 | `pedido_items` | Productos dentro de cada pedido. |
-| `movimientos_inventario` | Historial de cambios de stock. |
 
 ### Vistas principales
 
@@ -1013,7 +1033,6 @@ erDiagram
   productos ||--o{ producto_imagenes : tiene
   pedidos ||--o{ pedido_items : contiene
   productos ||--o{ pedido_items : vendido_como
-  productos ||--o{ movimientos_inventario : afecta
 ```
 
 ### Datos locales vs datos en Supabase
@@ -1028,6 +1047,7 @@ Vive en código:
 - imágenes visuales de categorías,
 - logos de marcas,
 - textos comerciales.
+- preguntas frecuentes.
 
 Vive en Supabase:
 
@@ -1065,6 +1085,8 @@ Cuando el admin sube imágenes:
 3. Al guardar, la server action sube imágenes a Cloudinary.
 4. Cloudinary devuelve URL, public ID, tamaño, formato, etc.
 5. Esa información se guarda en `producto_imagenes`.
+
+Las imágenes ya guardadas pueden marcarse como principal o desactivarse sin enviar el formulario del producto. Estas acciones verifican nuevamente que el usuario sea administrador y reciben de forma explícita el producto y la imagen seleccionada.
 
 Flujo:
 
@@ -1305,10 +1327,11 @@ Almacenamiento del navegador. En este proyecto se usa para conservar el carrito.
 
 ## Cierre
 
-Este proyecto combina tienda pública, carrito, checkout, cuenta de cliente, panel administrador, Supabase y Cloudinary. La lógica más importante se puede entender siguiendo tres caminos:
+Este proyecto combina tienda pública, carrito, generación de pedidos, preguntas frecuentes, cuenta de cliente, panel administrador, Supabase y Cloudinary. La lógica más importante se puede entender siguiendo estos caminos:
 
-1. Cliente compra: catálogo -> carrito -> checkout -> pedido -> WhatsApp.
+1. Cliente compra: catálogo -> carrito -> inicio de sesión -> pedido -> WhatsApp.
 2. Cliente gestiona cuenta: login -> mi cuenta -> perfil/direcciones/pedidos.
-3. Admin gestiona tienda: admin -> productos/marcas/pedidos -> Supabase/Cloudinary.
+3. Visitante consulta: preguntas frecuentes -> inicio de sesión si desea preguntar -> WhatsApp.
+4. Admin gestiona tienda: admin -> productos/marcas/pedidos -> Supabase/Cloudinary.
 
 Si se entiende esa estructura, el resto del proyecto se vuelve mucho más fácil de leer.

@@ -7,10 +7,10 @@ export function BrandStrip() {
   return (
     <div>
       <div className="mx-auto max-w-3xl text-center">
-        <h2 className="text-3xl font-bold text-dark-blue sm:text-4xl">
+        <h2 className="text-3xl font-bold text-white sm:text-4xl">
           Marcas líderes para pescadores exigentes
         </h2>
-        <p className="mt-3 text-muted-foreground">
+        <p className="mt-3 text-white/80">
           Equipos y accesorios de fabricantes confiables para quienes buscan
           rendimiento en cada salida.
         </p>
