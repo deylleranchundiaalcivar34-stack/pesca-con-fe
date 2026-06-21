@@ -124,7 +124,6 @@ proyecto-pescaconfe/
     proxy.ts
   public/
     images/
-  docs/
   package.json
   next.config.ts
   tsconfig.json
@@ -225,18 +224,6 @@ Ejemplo:
 ```tsx
 <Image src="/images/logos/logo-negro-nuevo.webp" alt="Pesca Con Fe" />
 ```
-
-### `docs`
-
-Contiene documentación, scripts SQL y modelo de base de datos.
-
-Archivos importantes:
-
-- `docs/MODELO-DB.md`
-- `docs/supabase_pesca_con_fe_base.sql`
-- `docs/supabase_pesca_con_fe_seed.sql`
-- `docs/migrations/exigir_autenticacion_pedidos.sql`
-- `docs/migrations/limpiar_datos_conservar_usuarios_perfiles.sql`
 
 ## 5. Cómo funciona Next.js en este proyecto
 
@@ -951,7 +938,6 @@ Supabase se usa para:
 - imágenes de productos,
 - pedidos,
 - items de pedido,
-- movimientos de inventario,
 - permisos admin.
 
 ### Clientes Supabase

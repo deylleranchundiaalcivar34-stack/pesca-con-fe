@@ -42,7 +42,9 @@ type DbImage = {
 };
 
 const placeholderImage = "/images/products/product-placeholder.png";
-const publicDataRevalidateSeconds = 60 * 30;
+// Mantiene el catalogo agil y limita a cinco minutos los datos obsoletos si Supabase
+// cambia fuera del panel administrador, donde las etiquetas se invalidan al instante.
+const publicDataRevalidateSeconds = 60 * 5;
 
 // Normaliza numeros que pueden llegar como string desde Supabase.
 function toNumber(value: number | string | null | undefined) {
