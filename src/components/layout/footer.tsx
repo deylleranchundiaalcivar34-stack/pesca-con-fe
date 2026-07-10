@@ -39,7 +39,7 @@ export function Footer() {
             aria-label="Inicio - Pesca Con Fe"
           >
             <Image
-              src="/images/logos/logo-negro-nuevo.webp"
+              src="/images/logos/logo-negro-nuevo2.webp"
               alt="Pesca Con Fe"
               width={909}
               height={827}

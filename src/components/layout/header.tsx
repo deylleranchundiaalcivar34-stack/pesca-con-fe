@@ -15,16 +15,16 @@ export function Header() {
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex h-14 w-36 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-16 w-48 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Inicio - Pesca Con Fe"
         >
           <Image
-            src="/images/logos/logo-blanco.webp"
+            src="/images/logos/logo-nuevo-negro.webp"
             alt="Pesca Con Fe"
-            width={418}
-            height={178}
+            width={382}
+            height={187}
             priority
-            className="h-auto max-h-12 w-full object-contain"
+            className="h-auto max-h-14 w-full object-contain"
           />
         </Link>
 

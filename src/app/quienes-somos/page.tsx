@@ -24,7 +24,7 @@ const milestones = [
     year: "2019",
     title: "Nace Pesca Con Fe",
     description:
-      "En agosto, el Tecnólogo Hugo Anchundia inicia el emprendimiento en Shushufindi como una tienda virtual para pescadores de la Amazonía.",
+      "En agosto, Hugo Anchundia inicia este emprendimiento en Shushufindi, con la idea de crear una tienda especializada para los amantes de la pesca deportiva en la Amazonía ecuatoriana.",
   },
   {
     year: "2020",
@@ -36,7 +36,7 @@ const milestones = [
     year: "2023",
     title: "Nace el Club Fe Amazónica",
     description:
-      "La pasión compartida por ríos, lagunas y naturaleza dio origen a una comunidad enfocada en pesca responsable y convivencia familiar.",
+      "La pasión compartida por ríos, lagunas, mar y naturaleza dio origen a una comunidad enfocada en pesca responsable y convivencia familiar.",
   },
 ] as const;
 
@@ -63,19 +63,34 @@ const values = [
 
 const galleryImages = [
   {
-    src: "/images/fotos/grupo-de-hermanos-1.webp",
-    alt: "Integrantes de Pesca Con Fe durante una salida de pesca en río amazónico",
-    label: "Comunidad en el agua",
+    src: "/images/fotos/foto-cuadrada1.webp",
+    alt: "Captura de Pacu",
+    label: "Captura de Pacu en los ríos del oriente ecuatoriano",
   },
   {
-    src: "/images/fotos/foto-pesca-8.webp",
-    alt: "Pescador y joven mostrando una captura en la ribera de un río",
-    label: "Familias pescadoras",
+    src: "/images/fotos/foto-pesca10.webp",
+    alt: "Captura Gandio",
+    label: "Captura de pez Gandio de profundidad en altamar",
   },
   {
-    src: "/images/fotos/foto-pesca-5.webp",
-    alt: "Pescador con equipo de pesca en una zona rocosa junto al río",
-    label: "Experiencia en campo",
+    src: "/images/fotos/foto-rectangulo.webp",
+    alt: "Captura de pez Mero Goliat",
+    label: "Captura de pez Mero Goliat en altamar",
+  },
+  {
+    src: "/images/fotos/foto-pesca11.webp",
+    alt: "Captura de pez Dorado en río amazónico",
+    label: "Captura de pez Dorado en río amazónico",
+  },
+  {
+    src: "/images/fotos/foto-pesca14.webp",
+    alt: "Captura de Huayaipe",
+    label: "Captura de pez Huayaipe en altamar",
+  },
+  {
+    src: "/images/fotos/foto-pesca13.webp",
+    alt: "Captura de Wahoo",
+    label: "Captura de pez Wahoo en altamar",
   },
 ] as const;
 
@@ -105,9 +120,9 @@ export default function AboutPage() {
               Una tienda nacida de la fe, la pesca y la Amazonía.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-white/90 drop-shadow-[0_3px_14px_rgb(5_44_101_/_0.72)]">
-              Fishing &amp; Camping Pesca Con Fe nació en Shushufindi para acercar
+              Fishing &amp; Camping Pesca Con Fe nació en Shushufindi para ofrecer
               equipos de pesca deportiva y camping de calidad a quienes viven la
-              aventura en ríos, lagunas y rutas del Ecuador.
+              aventura en ríos, lagunas, mar y rutas  del Ecuador.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
@@ -143,7 +158,7 @@ export default function AboutPage() {
                 />
               </div>
               <figcaption className="mt-3 text-sm leading-6 text-muted-foreground">
-                Local N.º 145, segunda planta del Mega Mercado Municipal de Shushufindi.
+                Local N.º 145 y 146, segunda planta del Mega Mercado Municipal de Shushufindi.
               </figcaption>
             </figure>
 
@@ -151,12 +166,12 @@ export default function AboutPage() {
               <SectionHeading
                 className="max-w-[40rem]"
                 title="Un emprendimiento creado para resolver una necesidad real"
-                description="Fishing & Camping Pesca Con Fe nació en agosto de 2019 en Shushufindi, Sucumbíos, como el sueño del Tecnólogo Hugo Anchundia: acercar equipos de pesca deportiva de calidad a la Amazonía ecuatoriana."
+                description="Fishing & Camping Pesca Con Fe nació en agosto de 2019 en Shushufindi, Sucumbíos, como el sueño de Hugo Anchundia, un amante y apasionado de la pesca deportiva, con la visión de ofrecer equipos de pesca deportiva de calidad a la Amazonía ecuatoriana."
               />
               <div className="mt-7 max-w-[39rem] space-y-5 text-base leading-7 text-muted-foreground">
                 <p>
                   Antes de tener un local físico, el proyecto empezó como tienda virtual.
-                  La idea nació por una necesidad concreta: el acceso limitado a implementos
+                  La idea nació por una necesidad: el acceso limitado a implementos
                   profesionales y semiprofesionales, con altos costos, envíos difíciles y
                   poca disponibilidad en la región.
                 </p>
@@ -210,9 +225,9 @@ export default function AboutPage() {
                   ecosistemas amazónicos.
                 </p>
                 <p className="rounded-r-lg border-l-4 border-gold bg-white/90 py-4 pl-5 pr-4 text-sm font-bold leading-6 text-dark-blue shadow-sm">
-                  Reconocido como el primer club oficial legalmente constituido en
-                  Ecuador dedicado a la pesca deportiva responsable y pesca con
-                  liberación.
+                  Reconocido como el primer club oficial de pesca deportiva legalmente
+                  constituido en la Amazonía ecuatoriana, siendo pioneros en
+                  promover la pesca deportiva responsable con liberación.
                 </p>
               </div>
             </div>
@@ -229,8 +244,8 @@ export default function AboutPage() {
               </figure>
               <figure className="relative aspect-[16/9] overflow-hidden rounded-lg bg-secondary shadow-soft">
                 <Image
-                  src="/images/fotos/oficializacion-club-fe-amazonica.webp"
-                  alt="Oficialización del Club de Pesca Fe Amazónica"
+                  src="/images/fotos/foto-bagre.webp"
+                  alt="Foto captura de bagre en río amazónico"
                   fill
                   sizes="(min-width: 1024px) 430px, 100vw"
                   className="object-cover object-top"
