@@ -80,17 +80,17 @@ const galleryImages = [
   {
     src: "/images/fotos/foto-pesca11.webp",
     alt: "Captura de pez Dorado en río amazónico",
-    label: "Captura de pez Dorado en río amazónico",
+    label: "Captura de pez Dorado en río amazónico, técnica Casting",
   },
   {
     src: "/images/fotos/foto-pesca14.webp",
     alt: "Captura de Huayaipe",
-    label: "Captura de pez Huayaipe en altamar",
+    label: "Captura de pez Huayaipe en altamar, técnica Jiiging",
   },
   {
     src: "/images/fotos/foto-pesca13.webp",
     alt: "Captura de Wahoo",
-    label: "Captura de pez Wahoo en altamar",
+    label: "Captura de pez Wahoo en altamar, técnica Trolling",
   },
 ] as const;
 
@@ -300,7 +300,7 @@ export default function AboutPage() {
               <SectionHeading
                 className="max-w-[42rem]"
                 title="Calidad, confianza y futuro sostenible"
-                description="Trabajamos para que cada compra sea útil, bien asesorada y conectada con una forma más responsable de vivir la pesca."
+                description="Trabajamos para que cada compra sea útil, bien asesorada y conectada con una forma más responsable de vivir la pesca deportiva."
               />
 
               <div className="mt-8 grid gap-4 md:grid-cols-2">

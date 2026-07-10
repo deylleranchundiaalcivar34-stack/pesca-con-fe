@@ -48,7 +48,7 @@ export function Footer() {
             <span className="text-2xl font-bold text-white">Pesca Con Fe</span>
           </Link>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/75">
-            Equipos, accesorios y pasión por la pesca para acompañarte en cada
+            Equipos, accesorios y pasión por la pesca deportiva para acompañarte en cada
             salida, desde la Amazonía hasta tu próxima aventura.
           </p>
         </div>
@@ -68,7 +68,7 @@ export function Footer() {
               <MapPin className="mt-0.5 size-4 text-gold-light" aria-hidden="true" />
               <span className="text-sm leading-6 text-white/75">
                 <span className="block">Mega Mercado Municipal</span>
-                <span className="block">Local N° 145 - Planta Alta</span>
+                <span className="block">Local N° 145 y 146 - Planta Alta</span>
                 <span className="block">Shushufindi, Ecuador</span>
               </span>
             </li>
