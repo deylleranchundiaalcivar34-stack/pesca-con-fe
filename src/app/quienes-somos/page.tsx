@@ -65,7 +65,7 @@ const galleryImages = [
   {
     src: "/images/fotos/foto-cuadrada1.webp",
     alt: "Captura de Pacu",
-    label: "Captura de Pacu en los ríos del oriente ecuatoriano",
+    label: "Captura y liberación de pez Pacú en los ríos del oriente ecuatoriano",
   },
   {
     src: "/images/fotos/foto-pesca10.webp",
@@ -80,7 +80,7 @@ const galleryImages = [
   {
     src: "/images/fotos/foto-pesca11.webp",
     alt: "Captura de pez Dorado en río amazónico",
-    label: "Captura de pez Dorado en río amazónico, técnica Casting",
+    label: "Captura de pez Sábalo en río amazónico, técnica Casting",
   },
   {
     src: "/images/fotos/foto-pesca14.webp",
