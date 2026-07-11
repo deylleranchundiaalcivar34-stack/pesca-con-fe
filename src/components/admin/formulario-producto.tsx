@@ -8,7 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/acciones";
-import type { Product, ProductCategory } from "@/types/producto";
+import type { CatalogNode, Product, ProductCategory } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,7 @@ type ProductFormValues = {
   slug: string;
   sku: string;
   brand: string;
-  categorySlug: string;
-  subcategorySlug: string;
+  catalogNodeId: string;
   price: number;
   stock: number;
   description: string;
@@ -51,14 +50,85 @@ interface ProductFormProps {
   mode: "create" | "edit";
   product?: Product;
   categories: ProductCategory[];
+  catalogNodes: CatalogNode[];
   brands: string[];
 }
 
+function findPathByNodeId(nodes: CatalogNode[], nodeId: string): string[] | null {
+  for (const node of nodes) {
+    if (node.id === nodeId) return [node.id];
+    const childPath = findPathByNodeId(node.children, nodeId);
+    if (childPath) return [node.id, ...childPath];
+  }
+
+  return null;
+}
+
+function findPathBySlugs(nodes: CatalogNode[], slugs: string[]): string[] {
+  const path: string[] = [];
+  let currentNodes = nodes;
+
+  for (const slug of slugs.filter(Boolean)) {
+    const match = currentNodes.find((node) => node.slug === slug);
+    if (!match) break;
+    path.push(match.id);
+    currentNodes = match.children;
+  }
+
+  return path;
+}
+
+function getInitialCatalogPathIds(
+  product: Product | undefined,
+  nodes: CatalogNode[],
+  categories: ProductCategory[],
+) {
+  const productNodeId = product?.catalogNodeId;
+  if (productNodeId) {
+    const path = findPathByNodeId(nodes, productNodeId);
+    if (path) return path;
+  }
+
+  const productPathSlugs = product?.catalogPath.map((item) => item.slug) ?? [];
+  const pathFromCatalog = findPathBySlugs(nodes, productPathSlugs);
+  if (pathFromCatalog.length) return pathFromCatalog;
+
+  const legacyPath = findPathBySlugs(nodes, [
+    product?.categorySlug ?? categories[0]?.slug ?? "",
+    product?.subcategorySlug ?? categories[0]?.subcategories[0]?.slug ?? "",
+  ]);
+
+  return legacyPath.length ? legacyPath : nodes[0] ? [nodes[0].id] : [];
+}
+
+function getCatalogPathByIds(nodes: CatalogNode[], ids: string[]) {
+  const path: CatalogNode[] = [];
+  let currentNodes = nodes;
+
+  for (const id of ids) {
+    const match = currentNodes.find((node) => node.id === id);
+    if (!match) break;
+    path.push(match);
+    currentNodes = match.children;
+  }
+
+  return path;
+}
+
+function getOptionsForLevel(nodes: CatalogNode[], selectedPathIds: string[], level: number) {
+  if (level === 0) return nodes;
+
+  const parentPath = getCatalogPathByIds(nodes, selectedPathIds.slice(0, level));
+  return parentPath.at(-1)?.children ?? [];
+}
+
 // Formulario principal para crear o editar productos del catalogo.
-export function ProductForm({ mode, product, categories, brands }: ProductFormProps) {
+export function ProductForm({ mode, product, categories, catalogNodes, brands }: ProductFormProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
+  const initialCatalogPathIds = getInitialCatalogPathIds(product, catalogNodes, categories);
+  const [selectedCatalogPathIds, setSelectedCatalogPathIds] = useState(initialCatalogPathIds);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
@@ -74,8 +144,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
       slug: product?.slug ?? "",
       sku: product?.sku ?? "",
       brand: product?.brand ?? brands[0] ?? "",
-      categorySlug: product?.categorySlug ?? categories[0]?.slug ?? "",
-      subcategorySlug: product?.subcategorySlug ?? categories[0]?.subcategories[0]?.slug ?? "",
+      catalogNodeId: initialCatalogPathIds.at(-1) ?? "",
       price: product?.price ?? 0,
       stock: product?.stock ?? 0,
       description: product?.description ?? "",
@@ -88,44 +157,37 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
 
   const name = useWatch({ control, name: "name" });
   const brand = useWatch({ control, name: "brand" });
-  const categorySlug = useWatch({ control, name: "categorySlug" });
-  const subcategorySlug = useWatch({ control, name: "subcategorySlug" });
   const isActive = useWatch({ control, name: "isActive" });
   const isFeatured = useWatch({ control, name: "isFeatured" });
-  const selectedCategory =
-    categories.find((category) => category.slug === categorySlug) ?? categories[0];
+  const selectedCatalogPath = getCatalogPathByIds(catalogNodes, selectedCatalogPathIds);
+  const selectedCatalogNodeId = selectedCatalogPathIds.at(-1) ?? "";
+  const categorySlug = selectedCatalogPath[0]?.slug ?? product?.categorySlug ?? categories[0]?.slug ?? "";
+  const subcategorySlug = selectedCatalogPath[1]?.slug ?? product?.subcategorySlug ?? "";
 
-  // En creacion, mantiene el slug sincronizado con el nombre escrito.
   useEffect(() => {
     if (mode === "create") {
       setValue("slug", slugify(name), { shouldValidate: true });
     }
   }, [mode, name, setValue]);
 
-  // Guarda previews en una ref para liberar URLs al desmontar.
   useEffect(() => {
     selectedImagePreviewsRef.current = selectedImagePreviews;
   }, [selectedImagePreviews]);
 
-  // Limpia los object URLs creados para previews locales.
   useEffect(() => {
     return () => {
       selectedImagePreviewsRef.current.forEach((image) => URL.revokeObjectURL(image.url));
     };
   }, []);
 
-  // Sincroniza el input real para que FormData reciba las imagenes actuales.
   const syncImageInputFiles = (images: SelectedImagePreview[]) => {
-    if (!imageInputRef.current) {
-      return;
-    }
+    if (!imageInputRef.current) return;
 
     const dataTransfer = new DataTransfer();
     images.forEach((image) => dataTransfer.items.add(image.file));
     imageInputRef.current.files = dataTransfer.files;
   };
 
-  // Convierte archivos seleccionados o arrastrados en previews visibles.
   const updateSelectedImages = (files: FileList | null) => {
     const imageFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
     const previews = imageFiles.map((file, index) => ({
@@ -147,15 +209,12 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
     });
   };
 
-  // Quita una imagen nueva antes de guardar y libera su preview.
   const removeSelectedImage = (id: string) => {
     setSelectedImagePreviews((current) => {
       const imageToRemove = current.find((image) => image.id === id);
       const nextImages = current.filter((image) => image.id !== id);
 
-      if (imageToRemove) {
-        URL.revokeObjectURL(imageToRemove.url);
-      }
+      if (imageToRemove) URL.revokeObjectURL(imageToRemove.url);
 
       if (mainSelectedImageId === id) {
         setMainSelectedImageId(product?.images.length ? null : (nextImages[0]?.id ?? null));
@@ -170,7 +229,6 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
     (image) => image.id === mainSelectedImageId,
   );
 
-  // Gestiona imagenes guardadas sin enviar ni reiniciar el formulario del producto.
   const runExistingImageAction = async (
     imageId: string,
     action: (productId: string, selectedImageId: string) => Promise<void>,
@@ -201,6 +259,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
       <input type="hidden" name="brand" value={brand} />
       <input type="hidden" name="categorySlug" value={categorySlug} />
       <input type="hidden" name="subcategorySlug" value={subcategorySlug} />
+      <input type="hidden" name="catalogNodeId" value={selectedCatalogNodeId} />
       <input type="hidden" name="isActive" value={isActive ? "on" : ""} />
       <input type="hidden" name="isFeatured" value={isFeatured ? "on" : ""} />
       <input
@@ -212,13 +271,13 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
       <div className="min-w-0 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Información del producto</CardTitle>
+            <CardTitle>Informacion del producto</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field id="name" label="Nombre" error={errors.name?.message}>
               <Input id="name" {...register("name")} name="name" required />
             </Field>
-            <Field id="slug" label="Slug automático" error={errors.slug?.message}>
+            <Field id="slug" label="Slug automatico" error={errors.slug?.message}>
               <Input id="slug" value={product?.slug ?? slugify(name)} readOnly disabled />
             </Field>
             <Field id="sku" label="SKU" error={errors.sku?.message}>
@@ -241,45 +300,15 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 </SelectContent>
               </Select>
             </Field>
-            <Field id="category" label="Categoría" error={errors.categorySlug?.message}>
-              <Select
-                value={categorySlug}
-                onValueChange={(value) => {
-                  const nextCategory = categories.find((category) => category.slug === value);
-                  setValue("categorySlug", value, { shouldValidate: true });
-                  setValue("subcategorySlug", nextCategory?.subcategories[0]?.slug ?? "", {
-                    shouldValidate: true,
-                  });
+            <Field id="catalogNode" label="Ubicacion en catalogo" className="sm:col-span-2">
+              <CatalogPathSelector
+                nodes={catalogNodes}
+                selectedPathIds={selectedCatalogPathIds}
+                onChange={(pathIds) => {
+                  setSelectedCatalogPathIds(pathIds);
+                  setValue("catalogNodeId", pathIds.at(-1) ?? "", { shouldValidate: true });
                 }}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.slug} value={category.slug}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field id="subcategory" label="Subcategoría" error={errors.subcategorySlug?.message}>
-              <Select
-                value={subcategorySlug}
-                onValueChange={(value) => setValue("subcategorySlug", value, { shouldValidate: true })}
-              >
-                <SelectTrigger id="subcategory">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(selectedCategory?.subcategories ?? []).map((subcategory) => (
-                    <SelectItem key={subcategory.slug} value={subcategory.slug}>
-                      {subcategory.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </Field>
             <Field id="price" label="Precio" error={errors.price?.message}>
               <Input
@@ -309,10 +338,10 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 name="youtubeVideoId"
               />
             </Field>
-            <Field id="description" label="Descripción" error={errors.description?.message} className="sm:col-span-2">
+            <Field id="description" label="Descripcion" error={errors.description?.message} className="sm:col-span-2">
               <Textarea id="description" {...register("description")} name="description" required />
             </Field>
-            <Field id="features" label="Características (una por línea)" error={errors.features?.message} className="sm:col-span-2">
+            <Field id="features" label="Caracteristicas (una por linea)" error={errors.features?.message} className="sm:col-span-2">
               <Textarea id="features" {...register("features")} name="features" required />
             </Field>
           </CardContent>
@@ -329,7 +358,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
               <div>
                 <Label htmlFor="isActive">Producto activo</Label>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Controla si aparece en el catálogo.
+                  Controla si aparece en el catalogo.
                 </p>
               </div>
               <Switch
@@ -342,7 +371,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
               <div>
                 <Label htmlFor="isFeatured">Producto destacado</Label>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Aparece en la página de inicio.
+                  Aparece en la pagina de inicio.
                 </p>
               </div>
               <Switch
@@ -357,7 +386,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
 
         <Card>
           <CardHeader>
-            <CardTitle>Imágenes</CardTitle>
+            <CardTitle>Imagenes</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -391,9 +420,9 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 )}
               >
                 <ImagePlus className="size-8 text-primary" aria-hidden="true" />
-                <span className="mt-2 font-semibold text-dark-blue">Subir imágenes</span>
+                <span className="mt-2 font-semibold text-dark-blue">Subir imagenes</span>
                 <span className="mt-1 text-sm text-muted-foreground">
-                  Selecciona o arrastra varias imágenes del producto.
+                  Selecciona o arrastra varias imagenes del producto.
                 </span>
                 {selectedImagePreviews.length > 0 ? (
                   <span className="mt-3 rounded-md bg-white px-3 py-1 text-xs font-semibold text-primary">
@@ -413,7 +442,7 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                 className="sr-only"
                 onChange={(event) => updateSelectedImages(event.target.files)}
               />
-              <Field id="imageAlt" label="Texto alternativo para imágenes nuevas">
+              <Field id="imageAlt" label="Texto alternativo para imagenes nuevas">
                 <Input id="imageAlt" name="imageAlt" defaultValue={product?.name ?? ""} />
               </Field>
               {selectedImagePreviews.length ? (
@@ -459,11 +488,6 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                       <p className="mt-2 truncate text-xs text-muted-foreground">
                         {index + 1}. {image.alt}
                       </p>
-                      {image.id === mainSelectedImageId && product?.images.length ? (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          Al guardar, esta imagen reemplazará la principal actual.
-                        </p>
-                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -484,35 +508,35 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
                           {image.isMain ? "Principal" : image.alt}
                         </span>
                         <div className="flex shrink-0 gap-2">
-                           <Button
-                             type="button"
-                             size="sm"
-                             variant={image.isMain ? "premium" : "outline"}
-                             onClick={() =>
-                               void runExistingImageAction(
-                                 image.id,
-                                 setMainImage,
-                                 "Imagen principal actualizada.",
-                               )
-                             }
-                             disabled={image.isMain || pendingExistingImageId !== null}
-                           >
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={image.isMain ? "premium" : "outline"}
+                            onClick={() =>
+                              void runExistingImageAction(
+                                image.id,
+                                setMainImage,
+                                "Imagen principal actualizada.",
+                              )
+                            }
+                            disabled={image.isMain || pendingExistingImageId !== null}
+                          >
                             <Star aria-hidden="true" />
                             {image.isMain ? "Principal" : "Hacer principal"}
                           </Button>
-                           <Button
-                             type="button"
-                             size="icon"
-                             variant="outline"
-                             onClick={() =>
-                               void runExistingImageAction(
-                                 image.id,
-                                 deleteProductImage,
-                                 "Imagen quitada.",
-                               )
-                             }
-                             disabled={pendingExistingImageId !== null}
-                             aria-label={`Quitar ${image.alt}`}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() =>
+                              void runExistingImageAction(
+                                image.id,
+                                deleteProductImage,
+                                "Imagen quitada.",
+                              )
+                            }
+                            disabled={pendingExistingImageId !== null}
+                            aria-label={`Quitar ${image.alt}`}
                           >
                             <Trash2 aria-hidden="true" />
                           </Button>
@@ -530,7 +554,51 @@ export function ProductForm({ mode, product, categories, brands }: ProductFormPr
   );
 }
 
-// Evita envios duplicados y comunica el progreso de creacion o edicion.
+function CatalogPathSelector({
+  nodes,
+  selectedPathIds,
+  onChange,
+}: {
+  nodes: CatalogNode[];
+  selectedPathIds: string[];
+  onChange: (pathIds: string[]) => void;
+}) {
+  const selectedPath = getCatalogPathByIds(nodes, selectedPathIds);
+  const levels = [...selectedPath, null].slice(0, selectedPath.length + 1);
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {levels.map((node, levelIndex) => {
+        const options = getOptionsForLevel(nodes, selectedPathIds, levelIndex);
+        if (!options.length) return null;
+
+        return (
+          <div key={levelIndex}>
+            <Label htmlFor={`catalog-level-${levelIndex}`}>
+              {node?.level ?? options[0]?.level ?? "Nivel"}
+            </Label>
+            <Select
+              value={selectedPathIds[levelIndex] ?? ""}
+              onValueChange={(value) => onChange([...selectedPathIds.slice(0, levelIndex), value])}
+            >
+              <SelectTrigger id={`catalog-level-${levelIndex}`} className="mt-2">
+                <SelectValue placeholder="Selecciona" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProductSubmitButton({ mode }: { mode: ProductFormProps["mode"] }) {
   const { pending } = useFormStatus();
   const idleLabel = mode === "create" ? "Crear producto" : "Guardar cambios";
@@ -554,7 +622,6 @@ function ProductSubmitButton({ mode }: { mode: ProductFormProps["mode"] }) {
   );
 }
 
-// Agrupa etiqueta, control y mensaje de error en el formulario admin.
 function Field({
   id,
   label,

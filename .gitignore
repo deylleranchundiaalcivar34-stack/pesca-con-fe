@@ -12,6 +12,7 @@
 /docs
 !/docs/
 /docs/*
+!/docs/catalogo_jerarquico_flexible.sql
 !/docs/migrations/
 /docs/migrations/*
 !/docs/migrations/exigir_autenticacion_pedidos.sql

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { ProductCatalog } from "@/components/products/catalogo-productos";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
-import { getBrands, getCategories, getProducts } from "@/lib/supabase/data";
+import { getBrands, getCatalogNavigation, getCategories, getProducts } from "@/lib/supabase/data";
 
 export const metadata: Metadata = {
   title: "Catálogo de productos",
@@ -29,9 +29,10 @@ function CatalogLoadingFallback() {
 
 // Pagina de catalogo con filtros iniciales desde la URL.
 export default async function ProductsPage() {
-  const [products, categories, brands] = await Promise.all([
+  const [products, categories, catalogNodes, brands] = await Promise.all([
     getProducts(),
     getCategories(),
+    getCatalogNavigation(),
     getBrands(),
   ]);
 
@@ -52,6 +53,7 @@ export default async function ProductsPage() {
             <ProductCatalog
               products={products.filter((product) => product.isActive)}
               categories={categories}
+              catalogNodes={catalogNodes}
               brands={brands.map((brand) => brand.nombre)}
             />
           </Suspense>

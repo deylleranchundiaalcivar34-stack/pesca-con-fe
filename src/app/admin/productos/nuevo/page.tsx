@@ -1,9 +1,13 @@
 import { ProductForm } from "@/components/admin/formulario-producto";
-import { getBrands, getCategories } from "@/lib/supabase/data";
+import { getBrands, getCatalogNavigation, getCategories } from "@/lib/supabase/data";
 
 // Pagina admin para crear un producto nuevo.
 export default async function NewProductPage() {
-  const [categories, brands] = await Promise.all([getCategories(), getBrands()]);
+  const [categories, catalogNodes, brands] = await Promise.all([
+    getCategories(),
+    getCatalogNavigation(),
+    getBrands(),
+  ]);
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-x-hidden space-y-6">
@@ -16,6 +20,7 @@ export default async function NewProductPage() {
       <ProductForm
         mode="create"
         categories={categories}
+        catalogNodes={catalogNodes}
         brands={brands.map((brand) => brand.nombre)}
       />
     </div>

@@ -85,6 +85,7 @@ function getYouTubeVideoId(value: string) {
 }
 
 // Busca marca, categoria y subcategoria relacionadas antes de guardar.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function resolveProductRelations(formData: FormData) {
   const { supabase } = await requireAdmin();
   const brandName = getText(formData, "brand");
@@ -112,6 +113,58 @@ async function resolveProductRelations(formData: FormData) {
     brandId: brand?.id ?? null,
     categoryId: category.id,
     subcategoryId: subcategory?.id ?? null,
+  };
+}
+
+// Resuelve la ruta flexible del catalogo y conserva columnas antiguas cuando existen.
+async function resolveFlexibleProductRelations(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const brandName = getText(formData, "brand");
+  const catalogNodeIdInput = getText(formData, "catalogNodeId");
+  const catalogNodeId = catalogNodeIdInput.startsWith("fallback-")
+    ? ""
+    : catalogNodeIdInput;
+  let categorySlug = getText(formData, "categorySlug");
+  let subcategorySlug = getText(formData, "subcategorySlug");
+
+  if (catalogNodeId) {
+    const { data: nodes } = await supabase
+      .from("catalogo_nodos")
+      .select("id, parent_id, slug")
+      .eq("activo", true);
+    const nodeById = new Map((nodes ?? []).map((node) => [node.id, node]));
+    const path = [];
+    let current = nodeById.get(catalogNodeId);
+
+    while (current) {
+      path.unshift(current);
+      current = current.parent_id ? nodeById.get(current.parent_id) : undefined;
+    }
+
+    categorySlug = path[0]?.slug ?? categorySlug;
+    subcategorySlug = path[1]?.slug ?? subcategorySlug;
+  }
+
+  const [{ data: brand }, { data: category }] = await Promise.all([
+    supabase.from("marcas").select("id").eq("nombre", brandName).maybeSingle(),
+    supabase.from("categorias").select("id").eq("slug", categorySlug).maybeSingle(),
+  ]);
+
+  const { data: subcategory } = category
+    ? await supabase
+        .from("subcategorias")
+        .select("id")
+        .eq("categoria_id", category.id)
+        .eq("slug", subcategorySlug)
+        .maybeSingle()
+    : { data: null };
+
+  return {
+    supabase,
+    brandId: brand?.id ?? null,
+    categoryId: category?.id ?? null,
+    subcategoryId: subcategory?.id ?? null,
+    catalogNodeId: catalogNodeId || null,
   };
 }
 
@@ -185,7 +238,7 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
 // Crea o actualiza un producto completo desde el formulario admin.
 export async function saveProduct(formData: FormData) {
   const { supabase, userId } = await requireAdmin();
-  const relations = await resolveProductRelations(formData);
+  const relations = await resolveFlexibleProductRelations(formData);
   const productId = getText(formData, "productId");
   const features = getText(formData, "features")
     .split("\n")
@@ -208,9 +261,12 @@ export async function saveProduct(formData: FormData) {
     activo: formData.get("isActive") === "on",
     actualizado_por: userId,
   };
+  const flexiblePayload = relations.catalogNodeId
+    ? { ...payload, catalogo_nodo_id: relations.catalogNodeId }
+    : payload;
 
   if (productId) {
-    const { error } = await supabase.from("productos").update(payload).eq("id", productId);
+    const { error } = await supabase.from("productos").update(flexiblePayload).eq("id", productId);
     if (error) {
       throw new Error(error.message);
     }
@@ -218,7 +274,7 @@ export async function saveProduct(formData: FormData) {
   } else {
     const { data, error } = await supabase
       .from("productos")
-      .insert({ ...payload, creado_por: userId })
+      .insert({ ...flexiblePayload, creado_por: userId })
       .select("id")
       .single();
 

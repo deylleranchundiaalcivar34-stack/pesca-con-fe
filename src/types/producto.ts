@@ -10,6 +10,26 @@ export interface ProductSubcategory {
   slug: string;
 }
 
+export interface CatalogNode {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  level: string;
+  description: string;
+  image: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  children: CatalogNode[];
+}
+
+export interface CatalogPathItem {
+  id?: string;
+  name: string;
+  slug: string;
+  level: string;
+}
+
 export interface ProductCategory {
   name: string;
   slug: CategorySlug;
@@ -36,6 +56,8 @@ export interface Product {
   categorySlug: CategorySlug;
   subcategory: string;
   subcategorySlug: string;
+  catalogNodeId?: string;
+  catalogPath: CatalogPathItem[];
   price: number;
   stock: number;
   description: string;

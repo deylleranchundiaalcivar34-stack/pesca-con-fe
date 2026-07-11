@@ -37,8 +37,10 @@ import {
   publicSessionEventName,
 } from "@/lib/sesion-publica";
 import { useCartStore } from "@/store/tienda-carrito";
+import type { CatalogNode } from "@/types/producto";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
+import { MobileCatalogTree } from "./mega-menu-catalogo";
 
 type SessionResponse = {
   user: PublicUserSummary | null;
@@ -254,7 +256,7 @@ export function HeaderCartButton() {
   );
 }
 
-export function MobileMenu() {
+export function MobileMenu({ catalogNodes }: { catalogNodes: CatalogNode[] }) {
   const { user, setUser } = usePublicUser();
 
   return (
@@ -269,11 +271,15 @@ export function MobileMenu() {
           <SheetTitle>Pesca Con Fe</SheetTitle>
         </SheetHeader>
         <nav className="mt-8 grid gap-2" aria-label="Menú móvil">
-          {navItems.map((item) => (
-            <Button key={item.href} asChild variant="ghost" className="justify-start">
-              <Link href={item.href}>{item.label}</Link>
-            </Button>
-          ))}
+          {navItems.map((item) =>
+            item.href === "/productos" ? (
+              <MobileCatalogTree key={item.href} nodes={catalogNodes} />
+            ) : (
+              <Button key={item.href} asChild variant="ghost" className="justify-start">
+                <Link href={item.href}>{item.label}</Link>
+              </Button>
+            ),
+          )}
           {user ? (
             <>
               <Button asChild variant="outline" className="mt-4 justify-start">

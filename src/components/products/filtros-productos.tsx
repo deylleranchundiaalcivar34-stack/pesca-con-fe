@@ -11,13 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ProductAvailability, ProductCategory } from "@/types/producto";
+import type { CatalogNode, ProductAvailability, ProductCategory } from "@/types/producto";
 import { formatCurrency } from "@/lib/utilidades";
 
 export interface ProductFilterState {
   search: string;
   category: string;
-  subcategory: string;
+  classification: string;
+  subclassification: string;
+  productType: string;
   brand: string;
   availability: ProductAvailability;
   maxPrice: number;
@@ -29,6 +31,7 @@ interface ProductFiltersProps {
   onChange: (value: ProductFilterState) => void;
   maxProductPrice: number;
   categories: ProductCategory[];
+  catalogNodes: CatalogNode[];
   brands: string[];
 }
 
@@ -38,24 +41,44 @@ export function ProductFilters({
   onChange,
   maxProductPrice,
   categories,
+  catalogNodes,
   brands,
 }: ProductFiltersProps) {
-  const currentCategory = categories.find(
-    (category) => category.slug === value.category,
-  );
-  const subcategories = currentCategory
-    ? currentCategory.subcategories.map((subcategory) => ({
-        ...subcategory,
-        label: subcategory.name,
-        value: subcategory.slug,
-      }))
-    : categories.flatMap((category) =>
-        category.subcategories.map((subcategory) => ({
-          ...subcategory,
-          label: `${category.name} · ${subcategory.name}`,
-          value: `${category.slug}:${subcategory.slug}`,
+  const roots = catalogNodes.length
+    ? catalogNodes
+    : categories.map((category) => ({
+        id: category.slug,
+        parentId: null,
+        name: category.name,
+        slug: category.slug,
+        level: "Categoria",
+        description: category.description,
+        image: category.image,
+        isActive: true,
+        sortOrder: 0,
+        children: category.subcategories.map((subcategory) => ({
+          id: `${category.slug}-${subcategory.slug}`,
+          parentId: category.slug,
+          name: subcategory.name,
+          slug: subcategory.slug,
+          level: "Tipo",
+          description: "",
+          image: null,
+          isActive: true,
+          sortOrder: 0,
+          children: [],
         })),
-      );
+      }));
+  const currentCategory = roots.find((node) => node.slug === value.category);
+  const classifications = currentCategory?.children ?? [];
+  const currentClassification = classifications.find(
+    (node) => node.slug === value.classification,
+  );
+  const subclassifications = currentClassification?.children ?? [];
+  const currentSubclassification = subclassifications.find(
+    (node) => node.slug === value.subclassification,
+  );
+  const productTypes = currentSubclassification?.children ?? [];
   const priceFillPercentage =
     maxProductPrice > 0
       ? Math.min(100, Math.max(0, (value.maxPrice / maxProductPrice) * 100))
@@ -68,7 +91,11 @@ export function ProductFilters({
     onChange({
       ...value,
       [key]: nextValue,
-      ...(key === "category" ? { subcategory: "all" } : {}),
+      ...(key === "category"
+        ? { classification: "all", subclassification: "all", productType: "all" }
+        : {}),
+      ...(key === "classification" ? { subclassification: "all", productType: "all" } : {}),
+      ...(key === "subclassification" ? { productType: "all" } : {}),
     });
   };
 
@@ -77,9 +104,7 @@ export function ProductFilters({
       <div className="flex items-center justify-between">
         <div>
           <p className="font-semibold text-dark-blue">Filtros</p>
-          <p className="text-xs text-muted-foreground">
-            Encuentra el equipo ideal.
-          </p>
+          <p className="text-xs text-muted-foreground">Encuentra el equipo ideal.</p>
         </div>
         <SlidersHorizontal className="size-5 text-primary" aria-hidden="true" />
       </div>
@@ -89,47 +114,42 @@ export function ProductFilters({
         <Input
           id="search"
           value={value.search}
-          placeholder="Carrete, caña, Rapala..."
+          placeholder="Carrete, cana, Rapala..."
           onChange={(event) => update("search", event.target.value)}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Categoría</Label>
-        <Select value={value.category} onValueChange={(next) => update("category", next)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Todas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.slug} value={category.slug}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Subcategoría</Label>
-        <Select
-          value={value.subcategory}
-          onValueChange={(next) => update("subcategory", next)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Todas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {subcategories.map((subcategory) => (
-              <SelectItem key={subcategory.value} value={subcategory.value}>
-                {subcategory.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <FilterSelect
+        label="Categoria"
+        value={value.category}
+        allLabel="Todas"
+        options={roots}
+        onChange={(next) => update("category", next)}
+      />
+      <FilterSelect
+        label="Clasificacion"
+        value={value.classification}
+        allLabel="Todas"
+        options={classifications}
+        disabled={!classifications.length}
+        onChange={(next) => update("classification", next)}
+      />
+      <FilterSelect
+        label="Subclasificacion"
+        value={value.subclassification}
+        allLabel="Todas"
+        options={subclassifications}
+        disabled={!subclassifications.length}
+        onChange={(next) => update("subclassification", next)}
+      />
+      <FilterSelect
+        label="Tipo de producto"
+        value={value.productType}
+        allLabel="Todos"
+        options={productTypes}
+        disabled={!productTypes.length}
+        onChange={(next) => update("productType", next)}
+      />
 
       <div className="space-y-2">
         <Label>Marca</Label>
@@ -149,7 +169,7 @@ export function ProductFilters({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="maxPrice">Precio máximo: {formatCurrency(value.maxPrice)}</Label>
+        <Label htmlFor="maxPrice">Precio maximo: {formatCurrency(value.maxPrice)}</Label>
         <input
           id="maxPrice"
           type="range"
@@ -191,7 +211,9 @@ export function ProductFilters({
           onChange({
             search: "",
             category: "all",
-            subcategory: "all",
+            classification: "all",
+            subclassification: "all",
+            productType: "all",
             brand: "all",
             availability: "all",
             maxPrice: maxProductPrice,
@@ -201,6 +223,41 @@ export function ProductFilters({
       >
         Limpiar filtros
       </Button>
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  allLabel,
+  options,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  allLabel: string;
+  options: CatalogNode[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger>
+          <SelectValue placeholder={allLabel} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{allLabel}</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.slug}>
+              {option.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -7,7 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/datos-negocio";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { Order, OrderItem } from "@/types/pedido";
-import type { Product, ProductCategory, ProductImage } from "@/types/producto";
+import type {
+  CatalogNode,
+  CatalogPathItem,
+  Product,
+  ProductCategory,
+  ProductImage,
+} from "@/types/producto";
 
 type DbProduct = {
   id: string;
@@ -19,6 +25,11 @@ type DbProduct = {
   categoria_slug: string;
   subcategoria: string | null;
   subcategoria_slug: string | null;
+  catalogo_nodo_id?: string | null;
+  catalogo_ruta_ids?: string[] | null;
+  catalogo_ruta_nombres?: string[] | null;
+  catalogo_ruta_slugs?: string[] | null;
+  catalogo_ruta_niveles?: string[] | null;
   precio: number | string;
   stock: number;
   descripcion: string;
@@ -28,6 +39,18 @@ type DbProduct = {
   activo: boolean;
   imagen_principal: string | null;
   imagen_alt: string | null;
+};
+
+type DbCatalogNode = {
+  id: string;
+  parent_id: string | null;
+  nombre: string;
+  slug: string;
+  nivel: string;
+  descripcion: string | null;
+  imagen: string | null;
+  activo: boolean;
+  orden: number;
 };
 
 type DbImage = {
@@ -49,6 +72,127 @@ const publicDataRevalidateSeconds = 60 * 5;
 // Normaliza numeros que pueden llegar como string desde Supabase.
 function toNumber(value: number | string | null | undefined) {
   return typeof value === "number" ? value : Number(value ?? 0);
+}
+
+function buildCatalogPath(row: DbProduct): CatalogPathItem[] {
+  const names = row.catalogo_ruta_nombres ?? [];
+  const slugs = row.catalogo_ruta_slugs ?? [];
+  const levels = row.catalogo_ruta_niveles ?? [];
+  const ids = row.catalogo_ruta_ids ?? [];
+
+  if (names.length && slugs.length) {
+    return names.map((name, index) => ({
+      id: ids[index],
+      name,
+      slug: slugs[index] ?? "",
+      level: levels[index] ?? (index === 0 ? "Categoria" : "Nivel"),
+    }));
+  }
+
+  return [
+    {
+      name: row.categoria,
+      slug: row.categoria_slug,
+      level: "Categoria",
+    },
+    row.subcategoria && row.subcategoria_slug
+      ? {
+          name: row.subcategoria,
+          slug: row.subcategoria_slug,
+          level: "Subcategoria",
+        }
+      : null,
+  ].filter((item): item is CatalogPathItem => Boolean(item));
+}
+
+function buildCatalogTree(rows: DbCatalogNode[]): CatalogNode[] {
+  const nodes = new Map<string, CatalogNode>();
+
+  rows.forEach((row) => {
+    nodes.set(row.id, {
+      id: row.id,
+      parentId: row.parent_id,
+      name: row.nombre,
+      slug: row.slug,
+      level: row.nivel,
+      description: row.descripcion ?? "",
+      image: row.imagen,
+      isActive: row.activo,
+      sortOrder: row.orden,
+      children: [],
+    });
+  });
+
+  const roots: CatalogNode[] = [];
+
+  nodes.forEach((node) => {
+    if (node.parentId && nodes.has(node.parentId)) {
+      nodes.get(node.parentId)?.children.push(node);
+      return;
+    }
+
+    roots.push(node);
+  });
+
+  const sortNodes = (items: CatalogNode[]) => {
+    items.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    items.forEach((item) => sortNodes(item.children));
+  };
+
+  sortNodes(roots);
+  return roots;
+}
+
+function fallbackCatalogNavigation(): CatalogNode[] {
+  return fallbackCategories.map((category, categoryIndex) => ({
+    id: `fallback-${category.slug}`,
+    parentId: null,
+    name: category.name,
+    slug: category.slug,
+    level: "Categoria",
+    description: category.description,
+    image: category.image,
+    isActive: true,
+    sortOrder: categoryIndex,
+    children: category.subcategories.map((subcategory, subcategoryIndex) => ({
+      id: `fallback-${category.slug}-${subcategory.slug}`,
+      parentId: `fallback-${category.slug}`,
+      name: subcategory.name,
+      slug: subcategory.slug,
+      level: "Tipo",
+      description: "",
+      image: null,
+      isActive: true,
+      sortOrder: subcategoryIndex,
+      children: [],
+    })),
+  }));
+}
+
+function flattenCatalogNodes(
+  nodes: CatalogNode[],
+  path: CatalogPathItem[] = [],
+): Map<string, CatalogPathItem[]> {
+  const paths = new Map<string, CatalogPathItem[]>();
+
+  for (const node of nodes) {
+    const nextPath = [
+      ...path,
+      {
+        id: node.id,
+        name: node.name,
+        slug: node.slug,
+        level: node.level,
+      },
+    ];
+
+    paths.set(node.id, nextPath);
+    flattenCatalogNodes(node.children, nextPath).forEach((value, key) => {
+      paths.set(key, value);
+    });
+  }
+
+  return paths;
 }
 
 // Convierte una fila publica de producto al modelo que renderiza la tienda.
@@ -75,6 +219,8 @@ function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
     categorySlug: row.categoria_slug,
     subcategory: row.subcategoria ?? "General",
     subcategorySlug: row.subcategoria_slug ?? "general",
+    catalogNodeId: row.catalogo_nodo_id ?? undefined,
+    catalogPath: buildCatalogPath(row),
     price: toNumber(row.precio),
     stock: row.stock,
     description: row.descripcion,
@@ -278,6 +424,52 @@ const getCachedCategories = unstable_cache(
   },
 );
 
+const getCachedCatalogNavigation = unstable_cache(
+  async (): Promise<CatalogNode[]> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("catalogo_nodos")
+      .select("id, parent_id, nombre, slug, nivel, descripcion, imagen, activo, orden")
+      .eq("activo", true)
+      .order("orden", { ascending: true })
+      .order("nombre", { ascending: true });
+
+    if (error || !data?.length) {
+      const categories = await getCachedCategories();
+      return categories.map((category, categoryIndex) => ({
+        id: `fallback-${category.slug}`,
+        parentId: null,
+        name: category.name,
+        slug: category.slug,
+        level: "Categoria",
+        description: category.description,
+        image: category.image,
+        isActive: true,
+        sortOrder: categoryIndex,
+        children: category.subcategories.map((subcategory, subcategoryIndex) => ({
+          id: `fallback-${category.slug}-${subcategory.slug}`,
+          parentId: `fallback-${category.slug}`,
+          name: subcategory.name,
+          slug: subcategory.slug,
+          level: "Tipo",
+          description: "",
+          image: null,
+          isActive: true,
+          sortOrder: subcategoryIndex,
+          children: [],
+        })),
+      }));
+    }
+
+    return buildCatalogTree(data as DbCatalogNode[]);
+  },
+  ["public-catalog-navigation"],
+  {
+    tags: ["categories", "catalog"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
 const getCachedBrands = unstable_cache(
   async () => {
     const supabase = createPublicClient();
@@ -321,6 +513,11 @@ export async function getCategories(): Promise<ProductCategory[]> {
   return getCachedCategories();
 }
 
+// Carga el arbol de navegacion comercial del catalogo.
+export async function getCatalogNavigation(): Promise<CatalogNode[]> {
+  return getCachedCatalogNavigation();
+}
+
 // Lista marcas activas para filtros y formularios.
 export async function getBrands() {
   return getCachedBrands();
@@ -335,6 +532,22 @@ export async function getAdminBrands() {
     .order("nombre", { ascending: true });
 
   return data ?? [];
+}
+
+// Lista nodos del catalogo para administracion, incluyendo inactivos.
+export async function getAdminCatalogNodes(): Promise<CatalogNode[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("catalogo_nodos")
+    .select("id, parent_id, nombre, slug, nivel, descripcion, imagen, activo, orden")
+    .order("orden", { ascending: true })
+    .order("nombre", { ascending: true });
+
+  if (error || !data?.length) {
+    return fallbackCatalogNavigation();
+  }
+
+  return buildCatalogTree(data as DbCatalogNode[]);
 }
 
 // Devuelve la configuracion comercial usada en checkout y datos estructurados.
@@ -369,6 +582,7 @@ export async function getAdminProducts() {
   const categoryById = new Map((categories ?? []).map((item) => [item.id, item]));
   const subcategoryById = new Map((subcategories ?? []).map((item) => [item.id, item]));
   const brandById = new Map((brands ?? []).map((item) => [item.id, item]));
+  const catalogPathsById = flattenCatalogNodes(await getAdminCatalogNodes());
   const imagesByProduct = await getProductImagesByProductIds(
     supabase,
     products.map((row) => row.id),
@@ -378,6 +592,9 @@ export async function getAdminProducts() {
     const category = categoryById.get(row.categoria_id);
     const subcategory = row.subcategoria_id ? subcategoryById.get(row.subcategoria_id) : null;
     const brand = row.marca_id ? brandById.get(row.marca_id) : null;
+    const catalogPath = row.catalogo_nodo_id
+      ? catalogPathsById.get(row.catalogo_nodo_id)
+      : undefined;
 
     return mapProduct(
       {
@@ -390,6 +607,11 @@ export async function getAdminProducts() {
         categoria_slug: category?.slug ?? "sin-categoria",
         subcategoria: subcategory?.nombre ?? null,
         subcategoria_slug: subcategory?.slug ?? null,
+        catalogo_nodo_id: row.catalogo_nodo_id ?? null,
+        catalogo_ruta_ids: catalogPath?.map((item) => item.id ?? "") ?? null,
+        catalogo_ruta_nombres: catalogPath?.map((item) => item.name) ?? null,
+        catalogo_ruta_slugs: catalogPath?.map((item) => item.slug) ?? null,
+        catalogo_ruta_niveles: catalogPath?.map((item) => item.level) ?? null,
         precio: row.precio,
         stock: row.stock,
         descripcion: row.descripcion,

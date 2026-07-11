@@ -3,6 +3,7 @@ import { ProductForm } from "@/components/admin/formulario-producto";
 import {
   getAdminProductById,
   getBrands,
+  getCatalogNavigation,
   getCategories,
 } from "@/lib/supabase/data";
 
@@ -13,9 +14,10 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, categories, brands] = await Promise.all([
+  const [product, categories, catalogNodes, brands] = await Promise.all([
     getAdminProductById(id),
     getCategories(),
+    getCatalogNavigation(),
     getBrands(),
   ]);
 
@@ -33,6 +35,7 @@ export default async function EditProductPage({
         mode="edit"
         product={product}
         categories={categories}
+        catalogNodes={catalogNodes}
         brands={brands.map((brand) => brand.nombre)}
       />
     </div>
