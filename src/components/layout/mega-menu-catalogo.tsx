@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import type { CatalogNode } from "@/types/producto";
+import { cn } from "@/lib/utilidades";
 
 function catalogHref(path: CatalogNode[]) {
   return `/productos/${path.map((node) => node.slug).join("/")}`;
@@ -19,14 +23,15 @@ export function CatalogMegaMenu({ nodes }: { nodes: CatalogNode[] }) {
       </button>
       <div className="invisible absolute left-1/2 top-full z-50 w-[min(72rem,calc(100vw-2rem))] -translate-x-1/2 pt-3 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
         <div className="rounded-md border border-border bg-white p-5 shadow-xl">
-          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
-            <p className="font-black text-dark-blue">Catalogo</p>
-            <Link href="/productos" className="text-sm font-semibold text-primary hover:underline">
-              Ver todo
+          <div className="mb-4 border-b border-border pb-3">
+            <Link href="/productos" className="font-black text-dark-blue transition hover:text-primary">
+              Catálogo
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {nodes.map((node) => renderDesktopCategory(node))}
+            {nodes.map((node) => (
+              <DesktopCategory key={node.id} node={node} />
+            ))}
           </div>
         </div>
       </div>
@@ -34,9 +39,9 @@ export function CatalogMegaMenu({ nodes }: { nodes: CatalogNode[] }) {
   );
 }
 
-function renderDesktopCategory(node: CatalogNode) {
+function DesktopCategory({ node }: { node: CatalogNode }) {
   return (
-    <section key={node.id} className="min-w-0">
+    <section className="min-w-0">
       <div className="mb-2 border-b border-border/70 pb-2">
         <Link
           href={catalogHref([node])}
@@ -45,103 +50,106 @@ function renderDesktopCategory(node: CatalogNode) {
           {node.name}
         </Link>
       </div>
-      <div className="space-y-1 border-l border-border pl-3">
-        {node.children.length ? (
-          node.children.map((child) => renderDesktopNode(child, [node]))
-        ) : (
-          <Link
-            href={catalogHref([node])}
-            className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-primary"
-          >
-            Ver productos
-          </Link>
-        )}
-      </div>
+      {node.children.length ? (
+        <div className="space-y-1 border-l border-border pl-3">
+          {node.children.map((child) => (
+            <DesktopNode key={child.id} node={child} path={[node]} />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function renderDesktopNode(node: CatalogNode, path: CatalogNode[]) {
+function DesktopNode({ node, path }: { node: CatalogNode; path: CatalogNode[] }) {
+  const [open, setOpen] = useState(false);
   const nextPath = [...path, node];
 
-  if (!node.children.length) {
-    return (
-      <Link
-        key={node.id}
-        href={catalogHref(nextPath)}
-        className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-primary"
-      >
-        {node.name}
-      </Link>
-    );
-  }
-
   return (
-    <details key={node.id} className="group/desktop break-inside-avoid">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-semibold text-dark-blue transition hover:bg-secondary/80">
-        <span>{node.name}</span>
-        <ChevronDown
-          className="size-4 shrink-0 text-muted-foreground transition group-open/desktop:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
-      <div className="ml-3 border-l border-border/80 pl-2">
+    <div className="break-inside-avoid">
+      <div className="flex items-center rounded-md transition hover:bg-secondary/80">
         <Link
           href={catalogHref(nextPath)}
-          className="block rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-secondary"
+          className={cn(
+            "min-w-0 flex-1 truncate px-3 py-2 text-sm hover:text-primary",
+            node.children.length ? "font-semibold text-dark-blue" : "font-medium text-muted-foreground",
+          )}
         >
-          Ver todo en {node.name}
+          {node.name}
         </Link>
-        {node.children.map((child) => renderDesktopNode(child, nextPath))}
+        {node.children.length ? (
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            className="mr-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${open ? "Contraer" : "Desplegar"} opciones de ${node.name}`}
+            aria-expanded={open}
+          >
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
-    </details>
+      {node.children.length && open ? (
+        <div className="ml-3 border-l border-border/80 pl-2">
+          {node.children.map((child) => (
+            <DesktopNode key={child.id} node={child} path={nextPath} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 export function MobileCatalogTree({ nodes }: { nodes: CatalogNode[] }) {
   return (
     <div className="rounded-lg border border-border p-2">
-      <Link
-        href="/productos"
-        className="block rounded-md px-3 py-2 text-sm font-bold text-dark-blue hover:bg-secondary"
-      >
+      <Link href="/productos" className="block rounded-md px-3 py-2 text-sm font-bold text-dark-blue hover:bg-secondary">
         Productos
       </Link>
-      <div className="mt-1 space-y-1">{nodes.map((node) => renderMobileNode(node, []))}</div>
+      <div className="mt-1 space-y-1">
+        {nodes.map((node) => (
+          <MobileNode key={node.id} node={node} path={[]} />
+        ))}
+      </div>
     </div>
   );
 }
 
-function renderMobileNode(node: CatalogNode, path: CatalogNode[]) {
+function MobileNode({ node, path }: { node: CatalogNode; path: CatalogNode[] }) {
+  const [open, setOpen] = useState(false);
   const nextPath = [...path, node];
 
-  if (!node.children.length) {
-    return (
-      <Link
-        key={node.id}
-        href={catalogHref(nextPath)}
-        className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-primary"
-      >
-        {node.name}
-      </Link>
-    );
-  }
-
   return (
-    <details key={node.id} className="group/mobile">
-      <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2 text-sm font-semibold text-dark-blue hover:bg-secondary">
-        <span>{node.name}</span>
-        <ChevronDown className="size-4 transition group-open/mobile:rotate-180" aria-hidden="true" />
-      </summary>
-      <div className="ml-3 border-l border-border pl-2">
+    <div>
+      <div className="flex items-center rounded-md hover:bg-secondary">
         <Link
           href={catalogHref(nextPath)}
-          className="block rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-secondary"
+          className={cn(
+            "min-w-0 flex-1 px-3 py-2 text-sm hover:text-primary",
+            node.children.length ? "font-semibold text-dark-blue" : "font-medium text-muted-foreground",
+          )}
         >
-          Ver todo en {node.name}
+          {node.name}
         </Link>
-        {node.children.map((child) => renderMobileNode(child, nextPath))}
+        {node.children.length ? (
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            className="mr-1 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-white hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${open ? "Contraer" : "Desplegar"} opciones de ${node.name}`}
+            aria-expanded={open}
+          >
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
-    </details>
+      {node.children.length && open ? (
+        <div className="ml-3 border-l border-border pl-2">
+          {node.children.map((child) => (
+            <MobileNode key={child.id} node={child} path={nextPath} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
