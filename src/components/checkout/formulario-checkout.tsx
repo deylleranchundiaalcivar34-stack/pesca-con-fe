@@ -168,10 +168,14 @@ export function CheckoutForm({
   const visibleItems = isClient ? items : [];
   const orderItems = visibleItems.map((item) => ({
     productId: item.product.id,
-    productName: item.product.name,
+    variantId: item.variant?.id,
+    variantName: item.variant?.name,
+    productName: item.variant
+      ? `${item.product.name} · ${item.variant.name}`
+      : item.product.name,
     productSlug: item.product.slug,
     image: item.product.mainImage,
-    price: item.product.price,
+    price: item.variant?.price ?? item.product.price,
     quantity: item.quantity,
     categorySlug: item.product.categorySlug,
   }));
@@ -575,7 +579,7 @@ export function CheckoutForm({
           <CardContent>
             <div className="space-y-3">
               {visibleItems.map((item) => (
-                <div key={item.product.id} className="flex justify-between gap-4 text-sm">
+                <div key={item.lineId ?? `${item.product.id}:base`} className="flex justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">
                     {item.product.name} x{item.quantity}
                   </span>

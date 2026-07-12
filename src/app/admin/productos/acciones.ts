@@ -235,6 +235,107 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
   }
 }
 
+type VariantInput = {
+  id?: string;
+  name?: string;
+  description?: string;
+  sku?: string;
+  price?: number;
+  stock?: number;
+  isActive?: boolean;
+  sortOrder?: number;
+};
+
+async function saveProductVariants(productId: string, formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const rawVariants = getText(formData, "variants");
+  let variants: VariantInput[] = [];
+
+  try {
+    variants = rawVariants ? JSON.parse(rawVariants) : [];
+  } catch {
+    throw new Error("Las opciones del producto no tienen un formato válido.");
+  }
+
+  if (!Array.isArray(variants)) {
+    throw new Error("Las opciones del producto no tienen un formato válido.");
+  }
+
+  const normalized = variants.map((variant, index) => {
+    const name = String(variant.name ?? "").trim();
+    const price = Number(variant.price);
+    const stock = Number(variant.stock);
+
+    if (!name) throw new Error(`Completa el nombre de la opción ${index + 1}.`);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error(`El precio de la opción ${index + 1} no es válido.`);
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      throw new Error(`El stock de la opción ${index + 1} no es válido.`);
+    }
+
+    return {
+      id: String(variant.id ?? ""),
+      producto_id: productId,
+      nombre: name,
+      descripcion: String(variant.description ?? "").trim() || null,
+      sku: String(variant.sku ?? "").trim() || null,
+      precio: price,
+      stock,
+      activo: variant.isActive !== false,
+      orden: index + 1,
+    };
+  });
+  const existingRows = normalized.filter((variant) => !variant.id.startsWith("new-"));
+  const newRows = normalized.filter((variant) => variant.id.startsWith("new-"));
+  const submittedExistingIds = existingRows.map((variant) => variant.id);
+
+  const { data: storedVariants, error: storedError } = await supabase
+    .from("producto_variantes")
+    .select("id")
+    .eq("producto_id", productId);
+
+  if (storedError) throw new Error(storedError.message);
+
+  const storedIds = (storedVariants ?? []).map((variant) => variant.id);
+  const removedIds = storedIds.filter((id) => !submittedExistingIds.includes(id));
+
+  if (removedIds.length) {
+    const { error } = await supabase
+      .from("producto_variantes")
+      .update({ activo: false })
+      .eq("producto_id", productId)
+      .in("id", removedIds);
+    if (error) throw new Error(error.message);
+  }
+
+  for (const variant of existingRows) {
+    const { id, ...payload } = variant;
+    const { error } = await supabase
+      .from("producto_variantes")
+      .update(payload)
+      .eq("id", id)
+      .eq("producto_id", productId);
+    if (error) throw new Error(error.message);
+  }
+
+  if (newRows.length) {
+    const { error } = await supabase.from("producto_variantes").insert(
+      newRows.map((variant) => ({
+        producto_id: variant.producto_id,
+        nombre: variant.nombre,
+        descripcion: variant.descripcion,
+        sku: variant.sku,
+        precio: variant.precio,
+        stock: variant.stock,
+        activo: variant.activo,
+        orden: variant.orden,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+}
+
 // Crea o actualiza un producto completo desde el formulario admin.
 export async function saveProduct(formData: FormData) {
   const { supabase, userId } = await requireAdmin();
@@ -271,6 +372,7 @@ export async function saveProduct(formData: FormData) {
       throw new Error(error.message);
     }
     await uploadImagesForProduct(productId, formData, userId);
+    await saveProductVariants(productId, formData);
   } else {
     const { data, error } = await supabase
       .from("productos")
@@ -283,6 +385,7 @@ export async function saveProduct(formData: FormData) {
     }
 
     await uploadImagesForProduct(data.id, formData, userId);
+    await saveProductVariants(data.id, formData);
   }
 
   revalidatePublicProducts();

@@ -75,7 +75,7 @@ export function CartPageClient() {
 
         <div className="grid gap-4">
           {items.map((item) => (
-            <CartLineItem key={item.product.id} item={item} />
+            <CartLineItem key={item.lineId ?? `${item.product.id}:base`} item={item} />
           ))}
         </div>
 

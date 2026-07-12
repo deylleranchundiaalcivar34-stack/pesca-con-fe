@@ -126,6 +126,8 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     estado: "pendiente_pago",
     items: input.items.map((item) => ({
       producto_id: item.productId,
+      variante_id: item.variantId ?? null,
+      variante_nombre: item.variantName ?? null,
       producto_nombre: item.productName,
       producto_slug: item.productSlug,
       producto_sku: null,

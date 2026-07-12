@@ -2,19 +2,21 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product } from "@/types/producto";
+import type { Product, ProductVariant } from "@/types/producto";
 import { calculateShipping } from "@/lib/envio";
 
 export interface CartItem {
+  lineId: string;
   product: Product;
+  variant?: ProductVariant;
   quantity: number;
 }
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, quantity?: number, variant?: ProductVariant) => void;
+  removeItem: (lineId: string) => void;
+  updateQuantity: (lineId: string, quantity: number) => void;
   clearCart: () => void;
   subtotal: () => number;
   shipping: () => number;
@@ -28,19 +30,22 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       // Agrega productos sin permitir cantidades mayores al stock.
-      addItem: (product, quantity = 1) => {
+      addItem: (product, quantity = 1, variant) => {
         set((state) => {
+          const lineId = `${product.id}:${variant?.id ?? "base"}`;
+          const availableStock = variant?.stock ?? product.stock;
           const existing = state.items.find(
-            (item) => item.product.id === product.id,
+            (item) => (item.lineId ?? `${item.product.id}:base`) === lineId,
           );
 
           if (existing) {
             return {
               items: state.items.map((item) =>
-                item.product.id === product.id
+                (item.lineId ?? `${item.product.id}:base`) === lineId
                   ? {
                       ...item,
-                      quantity: Math.min(item.quantity + quantity, product.stock),
+                      lineId,
+                      quantity: Math.min(item.quantity + quantity, availableStock),
                     }
                   : item,
               ),
@@ -50,28 +55,30 @@ export const useCartStore = create<CartState>()(
           return {
             items: [
               ...state.items,
-              { product, quantity: Math.min(quantity, product.stock) },
+              { lineId, product, variant, quantity: Math.min(quantity, availableStock) },
             ],
           };
         });
       },
       // Quita un producto completo del carrito.
-      removeItem: (productId) => {
+      removeItem: (lineId) => {
         set((state) => ({
-          items: state.items.filter((item) => item.product.id !== productId),
+          items: state.items.filter(
+            (item) => (item.lineId ?? `${item.product.id}:base`) !== lineId,
+          ),
         }));
       },
       // Cambia la cantidad de una linea respetando minimo y stock.
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (lineId, quantity) => {
         set((state) => ({
           items: state.items
             .map((item) =>
-              item.product.id === productId
+              (item.lineId ?? `${item.product.id}:base`) === lineId
                 ? {
                     ...item,
                     quantity: Math.max(
                       1,
-                      Math.min(quantity, item.product.stock || 1),
+                      Math.min(quantity, (item.variant?.stock ?? item.product.stock) || 1),
                     ),
                   }
                 : item,
@@ -84,7 +91,7 @@ export const useCartStore = create<CartState>()(
       // Calcula subtotal, envio, total y contador desde el estado actual.
       subtotal: () =>
         get().items.reduce(
-          (sum, item) => sum + item.product.price * item.quantity,
+          (sum, item) => sum + (item.variant?.price ?? item.product.price) * item.quantity,
           0,
         ),
       shipping: () =>

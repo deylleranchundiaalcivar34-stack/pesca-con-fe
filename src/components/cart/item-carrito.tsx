@@ -39,15 +39,18 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
             >
               {item.product.name}
             </Link>
+            {item.variant ? (
+              <p className="mt-1 text-sm font-semibold text-primary">Opción: {item.variant.name}</p>
+            ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
-              {formatCurrency(item.product.price)} · {item.product.brand}
+              {formatCurrency(item.variant?.price ?? item.product.price)} · {item.product.brand}
             </p>
           </div>
           <Button
             type="button"
             size="icon"
             variant="ghost"
-            onClick={() => removeItem(item.product.id)}
+            onClick={() => removeItem(item.lineId ?? `${item.product.id}:base`)}
             aria-label={`Eliminar ${item.product.name}`}
           >
             <Trash2 aria-hidden="true" />
@@ -62,7 +65,9 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
               size="icon"
               className="size-9"
               disabled={item.quantity <= 1}
-              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+              onClick={() =>
+                updateQuantity(item.lineId ?? `${item.product.id}:base`, item.quantity - 1)
+              }
               aria-label="Disminuir cantidad"
             >
               <Minus aria-hidden="true" />
@@ -75,8 +80,10 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
               variant="ghost"
               size="icon"
               className="size-9"
-              disabled={item.quantity >= item.product.stock}
-              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+              disabled={item.quantity >= (item.variant?.stock ?? item.product.stock)}
+              onClick={() =>
+                updateQuantity(item.lineId ?? `${item.product.id}:base`, item.quantity + 1)
+              }
               aria-label="Aumentar cantidad"
             >
               <Plus aria-hidden="true" />
@@ -85,7 +92,7 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
 
           {!compact ? (
             <p className="text-right font-bold text-dark-blue">
-              {formatCurrency(item.product.price * item.quantity)}
+              {formatCurrency((item.variant?.price ?? item.product.price) * item.quantity)}
             </p>
           ) : null}
         </div>

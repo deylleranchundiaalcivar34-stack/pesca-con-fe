@@ -53,7 +53,7 @@ export function CartDrawer({ children }: CartDrawerProps) {
           <>
             <div className="mt-4 grid gap-3">
               {items.map((item) => (
-                <CartLineItem key={item.product.id} item={item} compact />
+                <CartLineItem key={item.lineId ?? `${item.product.id}:base`} item={item} compact />
               ))}
             </div>
             <div className="mt-5">

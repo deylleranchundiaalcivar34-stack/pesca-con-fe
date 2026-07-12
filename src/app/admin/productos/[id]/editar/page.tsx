@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/formulario-producto";
 import {
   getAdminProductById,
+  getAdminProductVariants,
   getBrands,
   getCatalogNavigation,
   getCategories,
@@ -14,8 +15,9 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, categories, catalogNodes, brands] = await Promise.all([
+  const [product, variants, categories, catalogNodes, brands] = await Promise.all([
     getAdminProductById(id),
+    getAdminProductVariants(id),
     getCategories(),
     getCatalogNavigation(),
     getBrands(),
@@ -34,6 +36,7 @@ export default async function EditProductPage({
       <ProductForm
         mode="edit"
         product={product}
+        variants={variants}
         categories={categories}
         catalogNodes={catalogNodes}
         brands={brands.map((brand) => brand.nombre)}

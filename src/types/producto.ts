@@ -76,6 +76,20 @@ export interface ProductImage {
   publicId?: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  name: string;
+  description: string;
+  sku: string;
+  price: number;
+  additionalPrice?: number;
+  stock: number;
+  image?: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -93,6 +107,7 @@ export interface Product {
   description: string;
   features: string[];
   images: ProductImage[];
+  variants: ProductVariant[];
   mainImage: string;
   imageAlt: string;
   youtubeVideoId?: string;

@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, LoaderCircle, Save, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, LoaderCircle, Plus, Save, Star, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/acciones";
-import type { CatalogNode, Product, ProductCategory } from "@/types/producto";
+import type { CatalogNode, Product, ProductCategory, ProductVariant } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ type SelectedImagePreview = {
 interface ProductFormProps {
   mode: "create" | "edit";
   product?: Product;
+  variants?: ProductVariant[];
   categories: ProductCategory[];
   catalogNodes: CatalogNode[];
   brands: string[];
@@ -123,7 +124,7 @@ function getOptionsForLevel(nodes: CatalogNode[], selectedPathIds: string[], lev
 }
 
 // Formulario principal para crear o editar productos del catalogo.
-export function ProductForm({ mode, product, categories, catalogNodes, brands }: ProductFormProps) {
+export function ProductForm({ mode, product, variants = [], categories, catalogNodes, brands }: ProductFormProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
@@ -133,6 +134,7 @@ export function ProductForm({ mode, product, categories, catalogNodes, brands }:
   const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
+  const [productVariants, setProductVariants] = useState<ProductVariant[]>(variants);
   const {
     register,
     control,
@@ -267,6 +269,7 @@ export function ProductForm({ mode, product, categories, catalogNodes, brands }:
         name="mainImageIndex"
         value={mainSelectedImageIndex >= 0 ? String(mainSelectedImageIndex) : ""}
       />
+      <input type="hidden" name="variants" value={JSON.stringify(productVariants)} />
 
       <div className="min-w-0 space-y-6">
         <Card>
@@ -344,6 +347,207 @@ export function ProductForm({ mode, product, categories, catalogNodes, brands }:
             <Field id="features" label="Caracteristicas (una por linea)" error={errors.features?.message} className="sm:col-span-2">
               <Textarea id="features" {...register("features")} name="features" required />
             </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>Opciones del producto</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Úsalas cuando el mismo producto se venda en diferentes medidas, colores,
+                capacidades o configuraciones.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setProductVariants((current) => [
+                  ...current,
+                  {
+                    id: `new-${crypto.randomUUID()}`,
+                    productId: product?.id ?? "",
+                    name: "",
+                    description: "",
+                    sku: "",
+                    price: product?.price ?? 0,
+                    stock: 0,
+                    isActive: true,
+                    sortOrder: current.length + 1,
+                  },
+                ])
+              }
+            >
+              <Plus aria-hidden="true" />
+              Agregar opción
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {productVariants.length ? (
+              <div className="space-y-4">
+                {productVariants.map((variant, index) => (
+                  <div key={variant.id} className="rounded-lg border border-border bg-secondary/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-bold text-dark-blue">Opción {index + 1}</p>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          disabled={index === 0}
+                          aria-label={`Subir opción ${index + 1}`}
+                          onClick={() =>
+                            setProductVariants((current) => {
+                              const next = [...current];
+                              [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                              return next.map((item, itemIndex) => ({ ...item, sortOrder: itemIndex + 1 }));
+                            })
+                          }
+                        >
+                          <ArrowUp aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          disabled={index === productVariants.length - 1}
+                          aria-label={`Bajar opción ${index + 1}`}
+                          onClick={() =>
+                            setProductVariants((current) => {
+                              const next = [...current];
+                              [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                              return next.map((item, itemIndex) => ({ ...item, sortOrder: itemIndex + 1 }));
+                            })
+                          }
+                        >
+                          <ArrowDown aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-destructive"
+                          aria-label={`Quitar opción ${index + 1}`}
+                          onClick={() =>
+                            setProductVariants((current) =>
+                              current
+                                .filter((item) => item.id !== variant.id)
+                                .map((item, itemIndex) => ({ ...item, sortOrder: itemIndex + 1 })),
+                            )
+                          }
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <Field id={`variant-name-${index}`} label="Nombre de la opción">
+                        <Input
+                          id={`variant-name-${index}`}
+                          value={variant.name}
+                          placeholder="Ejemplo: 7 pies · Medium Heavy · 15-30 lb"
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id ? { ...item, name: event.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field id={`variant-sku-${index}`} label="SKU opcional">
+                        <Input
+                          id={`variant-sku-${index}`}
+                          value={variant.sku}
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id ? { ...item, sku: event.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field id={`variant-price-${index}`} label="Precio">
+                        <Input
+                          id={`variant-price-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variant.price}
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id ? { ...item, price: Number(event.target.value) } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field id={`variant-stock-${index}`} label="Stock">
+                        <Input
+                          id={`variant-stock-${index}`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={variant.stock}
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id ? { ...item, stock: Number(event.target.value) } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field id={`variant-description-${index}`} label="Características o descripción" className="sm:col-span-2">
+                        <Textarea
+                          id={`variant-description-${index}`}
+                          value={variant.description}
+                          placeholder="Longitud, poder, libraje, color, aparejo, freno máximo u otros detalles."
+                          rows={3}
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id
+                                  ? { ...item, description: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <label className="mt-4 flex items-center justify-between rounded-md border border-border bg-white p-3">
+                      <span>
+                        <span className="block text-sm font-bold text-dark-blue">Opción activa</span>
+                        <span className="text-xs text-muted-foreground">Disponible para mostrar y vender.</span>
+                      </span>
+                      <Switch
+                        checked={variant.isActive}
+                        onCheckedChange={(checked) =>
+                          setProductVariants((current) =>
+                            current.map((item) =>
+                              item.id === variant.id ? { ...item, isActive: checked } : item,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Este producto usa actualmente el precio y stock generales. Agrega una opción solo si tiene variaciones.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

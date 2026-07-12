@@ -14,6 +14,7 @@ import type {
   Product,
   ProductCategory,
   ProductImage,
+  ProductVariant,
 } from "@/types/producto";
 
 type DbProduct = {
@@ -74,6 +75,20 @@ type DbImage = {
   principal: boolean;
   orden: number;
   activo: boolean;
+};
+
+type DbProductVariant = {
+  id: string;
+  producto_id: string;
+  nombre: string;
+  descripcion: string | null;
+  sku: string | null;
+  precio: number | string;
+  precio_adicional: number | string | null;
+  stock: number;
+  imagen: string | null;
+  activo: boolean;
+  orden: number;
 };
 
 const placeholderImage = "/images/products/product-placeholder.png";
@@ -282,7 +297,11 @@ function catalogPathStartsWith(
 }
 
 // Convierte una fila publica de producto al modelo que renderiza la tienda.
-function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
+function mapProduct(
+  row: DbProduct,
+  images: ProductImage[] = [],
+  variants: ProductVariant[] = [],
+): Product {
   const safeImages = images.length
     ? images
     : [
@@ -312,12 +331,41 @@ function mapProduct(row: DbProduct, images: ProductImage[] = []): Product {
     description: row.descripcion,
     features: row.caracteristicas ?? [],
     images: safeImages,
+    variants,
     mainImage: mainImage.url,
     imageAlt: mainImage.alt,
     youtubeVideoId: row.youtube_video_id ?? undefined,
     isFeatured: row.destacado,
     isActive: row.activo,
   };
+}
+
+function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
+  return rows.map((variant) => ({
+    id: variant.id,
+    productId: variant.producto_id,
+    name: variant.nombre,
+    description: variant.descripcion ?? "",
+    sku: variant.sku ?? "",
+    price: toNumber(variant.precio),
+    additionalPrice:
+      variant.precio_adicional == null ? undefined : toNumber(variant.precio_adicional),
+    stock: variant.stock,
+    image: variant.imagen ?? undefined,
+    isActive: variant.activo,
+    sortOrder: variant.orden,
+  }));
+}
+
+async function getPublicProductVariants(supabase: SupabaseClient, productId: string) {
+  const { data } = await supabase
+    .from("producto_variantes")
+    .select("id, producto_id, nombre, descripcion, sku, precio, precio_adicional, stock, imagen, activo, orden")
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .order("orden", { ascending: true });
+
+  return mapProductVariants((data ?? []) as DbProductVariant[]);
 }
 
 // Ordena y adapta las imagenes activas de un producto.
@@ -403,43 +451,14 @@ const getCachedProductBySlug = unstable_cache(
     }
 
     const row = data as DbProduct;
-    const imagesByProduct = await getProductImagesByProductIds(supabase, [row.id]);
+    const [imagesByProduct, variants] = await Promise.all([
+      getProductImagesByProductIds(supabase, [row.id]),
+      getPublicProductVariants(supabase, row.id),
+    ]);
 
-    return mapProduct(row, imagesByProduct.get(row.id));
+    return mapProduct(row, imagesByProduct.get(row.id), variants);
   },
   ["public-product-by-slug"],
-  {
-    tags: ["products"],
-    revalidate: publicDataRevalidateSeconds,
-  },
-);
-
-const getCachedRelatedProducts = unstable_cache(
-  async (productId: string, categorySlug: string, limit: number) => {
-    const supabase = createPublicClient();
-    const { data, error } = await supabase
-      .from("productos_publicos")
-      .select("*")
-      .eq("activo", true)
-      .eq("categoria_slug", categorySlug)
-      .neq("id", productId)
-      .order("destacado", { ascending: false })
-      .order("nombre", { ascending: true })
-      .limit(limit);
-
-    if (error || !data) {
-      return [];
-    }
-
-    const rows = data as DbProduct[];
-    const imagesByProduct = await getProductImagesByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
-
-    return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
-  },
-  ["public-related-products"],
   {
     tags: ["products"],
     revalidate: publicDataRevalidateSeconds,
@@ -607,9 +626,36 @@ export async function getProductBySlug(slug: string) {
   return getCachedProductBySlug(slug);
 }
 
-// Devuelve productos relacionados de la misma categoria.
-export async function getRelatedProducts(product: Product, limit = 4) {
-  return getCachedRelatedProducts(product.id, product.categorySlug, limit);
+// Prioriza la rama mas cercana del catalogo y luego sube hacia su categoria raiz.
+export async function getRelatedProducts(product: Product, limit = 8) {
+  const products = await getCachedProducts();
+  const productPath = product.catalogPath.map((item) => item.id ?? item.slug);
+
+  return products
+    .filter(
+      (candidate) =>
+        candidate.id !== product.id &&
+        candidate.catalogPath[0]?.slug === product.catalogPath[0]?.slug,
+    )
+    .map((candidate, originalIndex) => {
+      const candidatePath = candidate.catalogPath.map((item) => item.id ?? item.slug);
+      let commonDepth = 0;
+
+      while (
+        commonDepth < productPath.length &&
+        productPath[commonDepth] === candidatePath[commonDepth]
+      ) {
+        commonDepth += 1;
+      }
+
+      return { candidate, commonDepth, originalIndex };
+    })
+    .sort(
+      (left, right) =>
+        right.commonDepth - left.commonDepth || left.originalIndex - right.originalIndex,
+    )
+    .slice(0, limit)
+    .map(({ candidate }) => candidate);
 }
 
 // Lista slugs activos para prerenderizar detalles de producto.
@@ -789,6 +835,35 @@ export async function getAdminProducts() {
 export async function getAdminProductById(id: string) {
   const products = await getAdminProducts();
   return products.find((product) => product.id === id) ?? null;
+}
+
+// Carga todas las opciones de un producto para su editor administrativo.
+export async function getAdminProductVariants(productId: string): Promise<ProductVariant[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("producto_variantes")
+    .select("id, producto_id, nombre, descripcion, sku, precio, precio_adicional, stock, imagen, activo, orden")
+    .eq("producto_id", productId)
+    .order("orden", { ascending: true })
+    .order("nombre", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((variant) => ({
+    id: variant.id,
+    productId: variant.producto_id,
+    name: variant.nombre,
+    description: variant.descripcion ?? "",
+    sku: variant.sku ?? "",
+    price: toNumber(variant.precio),
+    additionalPrice: variant.precio_adicional == null ? undefined : toNumber(variant.precio_adicional),
+    stock: variant.stock,
+    image: variant.imagen ?? undefined,
+    isActive: variant.activo,
+    sortOrder: variant.orden,
+  }));
 }
 
 // Carga pedidos para el panel administrativo.

@@ -6,7 +6,7 @@ import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Badge } from "@/components/ui/badge";
 import { ProductGallery } from "@/components/products/galeria-producto";
 import { ProductDetailActions } from "@/components/products/acciones-detalle-producto";
-import { ProductGrid } from "@/components/products/cuadricula-productos";
+import { RelatedProducts } from "@/components/products/productos-relacionados";
 import { ProductJsonLd } from "@/components/shared/producto-json-ld";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { YouTubeEmbed } from "@/components/shared/video-youtube";
@@ -15,16 +15,13 @@ import {
   getProductSlugs,
   getRelatedProducts,
 } from "@/lib/supabase/data";
-import { formatCurrency } from "@/lib/utilidades";
 import { SITE_URL } from "@/lib/constantes";
 
-// Prerenderiza detalles activos para acelerar navegacion al producto.
 export async function generateStaticParams() {
   const slugs = await getProductSlugs();
   return slugs.map((slug) => ({ slug }));
 }
 
-// Genera metadatos SEO del producto segun su slug.
 export async function generateMetadata({
   params,
 }: {
@@ -54,7 +51,6 @@ export async function generateMetadata({
   };
 }
 
-// Pagina de detalle con galeria, compra, relacionados y video.
 export default async function ProductDetailPage({
   params,
 }: {
@@ -70,9 +66,14 @@ export default async function ProductDetailPage({
   return (
     <PublicShell>
       <ProductJsonLd product={product} />
-      <section className="bg-[linear-gradient(180deg,#f1f7ff_0%,#ffffff_100%)] py-5">
+
+      <nav className="border-b border-border bg-secondary/35 py-4" aria-label="Migas de pan">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
+            <Link href="/" className="shrink-0 hover:text-primary">
+              Inicio
+            </Link>
+            <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
             <Link href="/productos" className="shrink-0 hover:text-primary">
               Productos
             </Link>
@@ -91,34 +92,27 @@ export default async function ProductDetailPage({
               </span>
             ))}
             <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">{product.name}</span>
+            <span className="truncate" aria-current="page">{product.name}</span>
           </div>
         </div>
-      </section>
+      </nav>
 
-      <section className="bg-white pb-12 pt-6 sm:pb-16 sm:pt-8">
+      <section className="bg-white pb-12 pt-7 sm:pb-16 sm:pt-10">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-12 lg:px-8">
           <ProductGallery product={product} />
 
-          <div className="rounded-lg border border-border bg-white p-5 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-6 lg:sticky lg:top-24">
-            <div className="flex flex-wrap gap-2">
+          <div className="rounded-xl border border-border bg-white p-5 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-7 lg:sticky lg:top-24">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <Badge variant="premium">{product.brand}</Badge>
-              <Badge variant={product.stock > 0 ? "success" : "destructive"}>
-                {product.stock > 0
-                  ? `${product.stock} unidades disponibles`
-                  : "Agotado"}
-              </Badge>
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-dark-blue sm:text-5xl">
+
+            <h1 className="mt-5 text-3xl font-black tracking-tight text-dark-blue sm:text-4xl xl:text-5xl">
               {product.name}
             </h1>
-            <p className="mt-3 text-sm font-semibold uppercase tracking-wide text-primary">
-              {product.category} / {product.subcategory}
+            <p className="mt-3 text-sm font-semibold text-primary">
+              {product.catalogPath.map((item) => item.name).join(" / ")}
             </p>
-            <p className="mt-5 text-4xl font-black text-dark-blue">
-              {formatCurrency(product.price)}
-            </p>
-            <p className="mt-5 text-base leading-8 text-muted-foreground">
+            <p className="mt-5 line-clamp-4 text-base leading-7 text-muted-foreground">
               {product.description}
             </p>
 
@@ -126,17 +120,48 @@ export default async function ProductDetailPage({
               <ProductDetailActions product={product} />
             </div>
 
-            <div className="mt-8 rounded-lg border border-border bg-white p-5 shadow-sm">
-              <h2 className="font-bold text-dark-blue">Características</h2>
-              <ul className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+            <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-5 text-sm">
+              <div>
+                <p className="text-muted-foreground">SKU</p>
+                <p className="mt-1 font-bold text-dark-blue">{product.sku}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Marca</p>
+                <p className="mt-1 font-bold text-dark-blue">{product.brand}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-secondary/25 py-12 sm:py-16">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:px-8">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
+              Detalles del producto
+            </p>
+            <h2 className="mt-3 text-3xl font-black text-dark-blue">Descripción</h2>
+            <p className="mt-5 whitespace-pre-line text-base leading-8 text-muted-foreground">
+              {product.description}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-2xl font-black text-dark-blue">Características</h2>
+            {product.features.length ? (
+              <ul className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
                 {product.features.map((feature) => (
-                  <li key={feature} className="flex gap-2">
-                    <span className="mt-2 size-1.5 rounded-full bg-gold" />
-                    <span>{feature}</span>
+                  <li key={feature} className="flex gap-3">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-gold" />
+                    <span className="leading-6">{feature}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Consulta con nuestro equipo para conocer especificaciones adicionales.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -151,26 +176,25 @@ export default async function ProductDetailPage({
               className="[&_h2]:text-white [&_p]:text-white/80"
             />
             <div className="mt-8">
-              <YouTubeEmbed
-                videoId={product.youtubeVideoId}
-                title={`Video de ${product.name}`}
-              />
+              <YouTubeEmbed videoId={product.youtubeVideoId} title={`Video de ${product.name}`} />
             </div>
           </div>
         </section>
       ) : null}
 
-      <section className="bg-white py-14 sm:py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionHeading
-            title="También puede interesarte"
-            description="Opciones de la misma categoría para comparar y completar tu equipo."
-          />
-          <div className="mt-8">
-            <ProductGrid products={related} />
+      {related.length ? (
+        <section className="bg-white py-14 sm:py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <SectionHeading
+              title="También puede interesarte"
+              description="Productos de la misma rama del catálogo, priorizados desde la clasificación más cercana."
+            />
+            <div className="mt-8">
+              <RelatedProducts products={related} />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
     </PublicShell>
   );
 }
