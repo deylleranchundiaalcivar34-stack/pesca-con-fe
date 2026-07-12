@@ -10,7 +10,7 @@ export default async function AdminCatalogPage() {
       <div>
         <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Catalogo</h1>
         <p className="mt-1 text-muted-foreground">
-          Organiza categorias, clasificaciones, subclasificaciones y tipos de producto.
+          Organiza el menu de productos y edita cada pagina de categoria.
         </p>
       </div>
       <CatalogManager nodes={nodes} />

@@ -21,6 +21,15 @@ export interface CatalogNode {
   isActive: boolean;
   sortOrder: number;
   children: CatalogNode[];
+  landingTitle?: string;
+  shortDescription?: string;
+  technicalContent?: string;
+  imageAlt?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  openGraphImage?: string | null;
+  isIndexable?: boolean;
+  updatedAt?: string;
 }
 
 export interface CatalogPathItem {

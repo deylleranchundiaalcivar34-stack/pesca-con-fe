@@ -52,9 +52,6 @@ type DbCatalogNode = {
   imagen: string | null;
   activo: boolean;
   orden: number;
-};
-
-type DbCatalogLandingContent = DbCatalogNode & {
   titulo_landing?: string | null;
   descripcion_corta?: string | null;
   contenido_tecnico?: string | null;
@@ -63,7 +60,10 @@ type DbCatalogLandingContent = DbCatalogNode & {
   meta_description?: string | null;
   open_graph_image?: string | null;
   indexable?: boolean | null;
+  actualizado_en?: string | null;
 };
+
+type DbCatalogLandingContent = DbCatalogNode;
 
 type DbImage = {
   id: string;
@@ -132,6 +132,15 @@ function buildCatalogTree(rows: DbCatalogNode[]): CatalogNode[] {
       isActive: row.activo,
       sortOrder: row.orden,
       children: [],
+      landingTitle: row.titulo_landing ?? "",
+      shortDescription: row.descripcion_corta ?? "",
+      technicalContent: row.contenido_tecnico ?? "",
+      imageAlt: row.imagen_alt ?? "",
+      metaTitle: row.meta_title ?? "",
+      metaDescription: row.meta_description ?? "",
+      openGraphImage: row.open_graph_image,
+      isIndexable: row.indexable ?? true,
+      updatedAt: row.actualizado_en ?? undefined,
     });
   });
 
@@ -686,7 +695,9 @@ export async function getAdminCatalogNodes(): Promise<CatalogNode[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("catalogo_nodos")
-    .select("id, parent_id, nombre, slug, nivel, descripcion, imagen, activo, orden")
+    .select(
+      "id, parent_id, nombre, slug, nivel, descripcion, imagen, activo, orden, titulo_landing, descripcion_corta, contenido_tecnico, imagen_alt, meta_title, meta_description, open_graph_image, indexable, actualizado_en",
+    )
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
 

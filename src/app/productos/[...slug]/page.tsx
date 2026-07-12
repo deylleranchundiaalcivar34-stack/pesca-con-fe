@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { ProductGrid } from "@/components/products/cuadricula-productos";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
@@ -71,8 +71,12 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
 
   return (
     <PublicShell>
-      <section className="border-b border-border bg-secondary/45 py-4">
+      <nav className="border-b border-border bg-white py-4" aria-label="Migas de pan">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
+          <Link href="/" className="font-medium transition-colors hover:text-primary">
+            Inicio
+          </Link>
+          <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
           <Link href="/productos" className="font-medium hover:text-primary">
             Productos
           </Link>
@@ -99,73 +103,93 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
             );
           })}
         </div>
-      </section>
+      </nav>
 
-      <section className="bg-dark-blue text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-gold-light">
-              {landing.node.level}
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-6xl">
-              {landing.content.title}
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/82">{description}</p>
-          </div>
-
+      <article className="bg-white">
+        <header className="mx-auto max-w-7xl px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
           {landing.content.image ? (
-            <div className="relative aspect-[16/9] overflow-hidden rounded-lg border border-white/15 bg-white/5 shadow-2xl">
+            <div className="relative mx-auto aspect-[16/7] min-h-64 overflow-hidden rounded-2xl bg-secondary shadow-sm sm:min-h-80">
               <Image
                 src={landing.content.image}
                 alt={landing.content.imageAlt}
                 fill
                 priority
-                sizes="(min-width: 1024px) 45vw, calc(100vw - 32px)"
+                sizes="(min-width: 1280px) 1216px, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
                 className="object-cover"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-dark-blue/20 via-transparent to-transparent" />
             </div>
           ) : null}
-        </div>
-      </section>
+
+          <div className={`${landing.content.image ? "mt-9 sm:mt-12" : "pt-5 sm:pt-8"} mx-auto max-w-4xl text-center`}>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              {landing.node.level}
+            </p>
+            <h1 className="mt-3 text-4xl font-black tracking-tight text-dark-blue sm:text-5xl lg:text-6xl">
+              {landing.content.title}
+            </h1>
+            <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted-foreground sm:text-xl">
+              {description}
+            </p>
+          </div>
+
+          {landing.content.technicalContent ? (
+            <div className="mx-auto mt-9 max-w-4xl border-t border-border pt-8 sm:mt-12 sm:pt-10">
+              <h2 className="text-center text-2xl font-black text-dark-blue">
+                Información para elegir mejor
+              </h2>
+              <div className="mt-5 whitespace-pre-line text-base leading-8 text-muted-foreground sm:text-lg">
+                {landing.content.technicalContent}
+              </div>
+            </div>
+          ) : null}
+        </header>
+      </article>
 
       {landing.children.length ? (
-        <section className="border-b border-border bg-white py-12">
+        <section className="border-y border-border bg-secondary/30 py-12 sm:py-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              title="Explora categorias relacionadas"
-              description={`Continua navegando dentro de ${landing.node.name}.`}
+              title="Explora categorías relacionadas"
+              description={`Encuentra opciones más específicas dentro de ${landing.node.name}.`}
             />
-            <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {landing.children.map((child) => (
                 <Link
                   key={child.id}
                   href={`/productos/${[...slug, child.slug].join("/")}`}
-                  className="group rounded-lg border border-border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg"
                 >
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">
-                    {child.level}
-                  </p>
-                  <h2 className="mt-2 text-xl font-black text-dark-blue group-hover:text-primary">
-                    {child.name}
-                  </h2>
-                  {child.description ? (
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                      {child.description}
-                    </p>
+                  {child.image ? (
+                    <div className="relative aspect-[16/8] overflow-hidden bg-secondary">
+                      <Image
+                        src={child.image}
+                        alt={child.imageAlt || child.name}
+                        fill
+                        sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, calc(100vw - 32px)"
+                        className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                      />
+                    </div>
                   ) : null}
+                  <div className="p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+                      {child.level}
+                    </p>
+                    <h2 className="mt-2 text-xl font-black text-dark-blue transition-colors group-hover:text-primary">
+                      {child.name}
+                    </h2>
+                    {child.description ? (
+                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                        {child.description}
+                      </p>
+                    ) : null}
+                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-dark-blue transition-colors group-hover:text-primary">
+                      Ver categoría
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                    </span>
+                  </div>
                 </Link>
               ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {landing.content.technicalContent ? (
-        <section className="border-b border-border bg-secondary/35 py-12">
-          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-black text-dark-blue">Informacion tecnica</h2>
-            <div className="mt-4 whitespace-pre-line text-base leading-8 text-muted-foreground">
-              {landing.content.technicalContent}
             </div>
           </div>
         </section>
@@ -174,7 +198,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
       <section className="bg-white py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
-            title={`Productos de ${landing.node.name}`}
+            title="Productos disponibles"
             description={`${landing.products.length} producto${landing.products.length === 1 ? "" : "s"} asociado${landing.products.length === 1 ? "" : "s"} a esta seccion del catalogo.`}
           />
           <div className="mt-8">
