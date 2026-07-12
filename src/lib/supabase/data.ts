@@ -8,6 +8,7 @@ import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusines
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { Order, OrderItem } from "@/types/pedido";
 import type {
+  CatalogLanding,
   CatalogNode,
   CatalogPathItem,
   Product,
@@ -51,6 +52,17 @@ type DbCatalogNode = {
   imagen: string | null;
   activo: boolean;
   orden: number;
+};
+
+type DbCatalogLandingContent = DbCatalogNode & {
+  titulo_landing?: string | null;
+  descripcion_corta?: string | null;
+  contenido_tecnico?: string | null;
+  imagen_alt?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  open_graph_image?: string | null;
+  indexable?: boolean | null;
 };
 
 type DbImage = {
@@ -193,6 +205,71 @@ function flattenCatalogNodes(
   }
 
   return paths;
+}
+
+// Lista todos los caminos activos para sitemap y navegacion jerarquica.
+function listCatalogPaths(
+  nodes: CatalogNode[],
+  parentPath: CatalogPathItem[] = [],
+): CatalogPathItem[][] {
+  return nodes.flatMap((node) => {
+    const path = [
+      ...parentPath,
+      {
+        id: node.id,
+        name: node.name,
+        slug: node.slug,
+        level: node.level,
+      },
+    ];
+
+    return [path, ...listCatalogPaths(node.children, path)];
+  });
+}
+
+// Resuelve cada segmento dentro de sus hermanos para validar el camino completo.
+function findCatalogNodeByPath(nodes: CatalogNode[], slugs: string[]) {
+  const breadcrumbs: CatalogPathItem[] = [];
+  let currentNodes = nodes;
+  let currentNode: CatalogNode | undefined;
+
+  for (const slug of slugs) {
+    currentNode = currentNodes.find((node) => node.slug === slug && node.isActive);
+
+    if (!currentNode) {
+      return null;
+    }
+
+    breadcrumbs.push({
+      id: currentNode.id,
+      name: currentNode.name,
+      slug: currentNode.slug,
+      level: currentNode.level,
+    });
+    currentNodes = currentNode.children;
+  }
+
+  return currentNode ? { node: currentNode, breadcrumbs } : null;
+}
+
+// Comprueba que el producto pertenezca al nodo solicitado o a uno de sus descendientes.
+function catalogPathStartsWith(
+  productPath: CatalogPathItem[],
+  selectedPath: CatalogPathItem[],
+) {
+  return selectedPath.every((selectedNode, index) => {
+    const productNode = productPath[index];
+
+    if (!productNode) {
+      return false;
+    }
+
+    if (selectedNode.id && productNode.id) {
+      return selectedNode.id === productNode.id;
+    }
+
+    return selectedNode.slug === productNode.slug;
+  });
 }
 
 // Convierte una fila publica de producto al modelo que renderiza la tienda.
@@ -470,6 +547,29 @@ const getCachedCatalogNavigation = unstable_cache(
   },
 );
 
+const getCachedCatalogLandingContent = unstable_cache(
+  async (nodeId: string) => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("catalogo_nodos")
+      .select("*")
+      .eq("id", nodeId)
+      .eq("activo", true)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return data as DbCatalogLandingContent;
+  },
+  ["public-catalog-landing-content"],
+  {
+    tags: ["catalog"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
 const getCachedBrands = unstable_cache(
   async () => {
     const supabase = createPublicClient();
@@ -516,6 +616,53 @@ export async function getCategories(): Promise<ProductCategory[]> {
 // Carga el arbol de navegacion comercial del catalogo.
 export async function getCatalogNavigation(): Promise<CatalogNode[]> {
   return getCachedCatalogNavigation();
+}
+
+// Resuelve una landing por su ruta jerarquica y agrega productos de todo el subarbol.
+export async function getCatalogLanding(slugs: string[]): Promise<CatalogLanding | null> {
+  if (!slugs.length || slugs.some((slug) => !slug.trim())) {
+    return null;
+  }
+
+  const [catalogNodes, products] = await Promise.all([
+    getCachedCatalogNavigation(),
+    getCachedProducts(),
+  ]);
+  const resolved = findCatalogNodeByPath(catalogNodes, slugs);
+
+  if (!resolved) {
+    return null;
+  }
+
+  const contentRow = await getCachedCatalogLandingContent(resolved.node.id);
+  const shortDescription =
+    contentRow?.descripcion_corta?.trim() || resolved.node.description;
+  const title = contentRow?.titulo_landing?.trim() || resolved.node.name;
+
+  return {
+    node: resolved.node,
+    breadcrumbs: resolved.breadcrumbs,
+    children: resolved.node.children,
+    products: products.filter(
+      (product) => product.isActive && catalogPathStartsWith(product.catalogPath, resolved.breadcrumbs),
+    ),
+    content: {
+      title,
+      shortDescription,
+      technicalContent: contentRow?.contenido_tecnico?.trim() || "",
+      image: contentRow?.imagen ?? resolved.node.image,
+      imageAlt: contentRow?.imagen_alt?.trim() || title,
+      metaTitle: contentRow?.meta_title?.trim() || title,
+      metaDescription: contentRow?.meta_description?.trim() || shortDescription,
+      openGraphImage: contentRow?.open_graph_image ?? contentRow?.imagen ?? resolved.node.image,
+      isIndexable: contentRow?.indexable ?? true,
+    },
+  };
+}
+
+// Devuelve las rutas completas de todos los nodos activos del catalogo.
+export async function getCatalogPaths(): Promise<CatalogPathItem[][]> {
+  return listCatalogPaths(await getCachedCatalogNavigation());
 }
 
 // Lista marcas activas para filtros y formularios.

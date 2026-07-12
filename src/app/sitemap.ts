@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/constantes";
-import { getProducts } from "@/lib/supabase/data";
+import { getCatalogPaths, getProducts } from "@/lib/supabase/data";
 
 // Genera sitemap dinamico con rutas estaticas y productos activos.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -20,15 +20,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === "" ? 1 : 0.75,
   }));
 
-  const products = await getProducts();
+  const [products, catalogPaths] = await Promise.all([getProducts(), getCatalogPaths()]);
   const productRoutes = products
     .filter((product) => product.isActive)
     .map((product) => ({
-      url: `${SITE_URL}/productos/${product.slug}`,
+      url: `${SITE_URL}/producto/${product.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: product.isFeatured ? 0.9 : 0.7,
     }));
 
-  return [...staticRoutes, ...productRoutes];
+  const catalogRoutes = catalogPaths.map((path) => ({
+    url: `${SITE_URL}/productos/${path.map((item) => item.slug).join("/")}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: path.length === 1 ? 0.85 : 0.75,
+  }));
+
+  return [...staticRoutes, ...catalogRoutes, ...productRoutes];
 }

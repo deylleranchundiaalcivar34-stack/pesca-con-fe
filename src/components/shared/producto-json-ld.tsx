@@ -23,7 +23,7 @@ export function ProductJsonLd({ product }: ProductJsonLdProps) {
         product.stock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
-      url: `${SITE_URL}/productos/${product.slug}`,
+      url: `${SITE_URL}/producto/${product.slug}`,
     },
   };
 

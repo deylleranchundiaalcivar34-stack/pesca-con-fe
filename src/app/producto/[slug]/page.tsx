@@ -41,7 +41,7 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: product.description,
-      url: `${SITE_URL}/productos/${product.slug}`,
+      url: `${SITE_URL}/producto/${product.slug}`,
       images: [{ url: product.mainImage, alt: product.imageAlt }],
       type: "website",
     },
@@ -76,6 +76,20 @@ export default async function ProductDetailPage({
             <Link href="/productos" className="shrink-0 hover:text-primary">
               Productos
             </Link>
+            {product.catalogPath.map((item, index) => (
+              <span key={item.id ?? `${item.slug}-${index}`} className="flex min-w-0 items-center gap-2">
+                <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+                <Link
+                  href={`/productos/${product.catalogPath
+                    .slice(0, index + 1)
+                    .map((pathItem) => pathItem.slug)
+                    .join("/")}`}
+                  className="truncate hover:text-primary"
+                >
+                  {item.name}
+                </Link>
+              </span>
+            ))}
             <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{product.name}</span>
           </div>

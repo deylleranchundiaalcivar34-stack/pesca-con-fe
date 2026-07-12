@@ -2,16 +2,8 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import type { CatalogNode } from "@/types/producto";
 
-const paramByDepth = ["categoria", "clasificacion", "subclasificacion", "tipo"] as const;
-
 function catalogHref(path: CatalogNode[]) {
-  const params = new URLSearchParams();
-
-  path.slice(0, paramByDepth.length).forEach((node, index) => {
-    params.set(paramByDepth[index], node.slug);
-  });
-
-  return `/productos?${params.toString()}`;
+  return `/productos/${path.map((node) => node.slug).join("/")}`;
 }
 
 export function CatalogMegaMenu({ nodes }: { nodes: CatalogNode[] }) {
@@ -46,7 +38,12 @@ function renderDesktopCategory(node: CatalogNode) {
   return (
     <section key={node.id} className="min-w-0">
       <div className="mb-2 border-b border-border/70 pb-2">
-        <p className="truncate text-sm font-black text-dark-blue">{node.name}</p>
+        <Link
+          href={catalogHref([node])}
+          className="block truncate text-sm font-black text-dark-blue hover:text-primary"
+        >
+          {node.name}
+        </Link>
       </div>
       <div className="space-y-1 border-l border-border pl-3">
         {node.children.length ? (
@@ -89,6 +86,12 @@ function renderDesktopNode(node: CatalogNode, path: CatalogNode[]) {
         />
       </summary>
       <div className="ml-3 border-l border-border/80 pl-2">
+        <Link
+          href={catalogHref(nextPath)}
+          className="block rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-secondary"
+        >
+          Ver todo en {node.name}
+        </Link>
         {node.children.map((child) => renderDesktopNode(child, nextPath))}
       </div>
     </details>
@@ -131,6 +134,12 @@ function renderMobileNode(node: CatalogNode, path: CatalogNode[]) {
         <ChevronDown className="size-4 transition group-open/mobile:rotate-180" aria-hidden="true" />
       </summary>
       <div className="ml-3 border-l border-border pl-2">
+        <Link
+          href={catalogHref(nextPath)}
+          className="block rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-secondary"
+        >
+          Ver todo en {node.name}
+        </Link>
         {node.children.map((child) => renderMobileNode(child, nextPath))}
       </div>
     </details>

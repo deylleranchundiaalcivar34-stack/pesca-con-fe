@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.pnpm-store/
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,6 +13,8 @@
 /docs
 !/docs/
 /docs/*
+!/docs/paginas-dinamicas-catalogo.md
+!/docs/catalogo_landings.sql
 !/docs/catalogo_jerarquico_flexible.sql
 !/docs/migrations/
 /docs/migrations/*

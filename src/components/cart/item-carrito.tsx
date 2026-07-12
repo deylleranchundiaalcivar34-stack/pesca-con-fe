@@ -34,7 +34,7 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <Link
-              href={`/productos/${item.product.slug}`}
+              href={`/producto/${item.product.slug}`}
               className="line-clamp-2 font-semibold text-dark-blue hover:text-primary"
             >
               {item.product.name}

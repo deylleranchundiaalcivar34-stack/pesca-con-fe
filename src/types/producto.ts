@@ -30,6 +30,27 @@ export interface CatalogPathItem {
   level: string;
 }
 
+// Datos resueltos para renderizar una landing de un nodo y todo su subarbol.
+export interface CatalogLanding {
+  node: CatalogNode;
+  breadcrumbs: CatalogPathItem[];
+  children: CatalogNode[];
+  products: Product[];
+  content: CatalogLandingContent;
+}
+
+export interface CatalogLandingContent {
+  title: string;
+  shortDescription: string;
+  technicalContent: string;
+  image: string | null;
+  imageAlt: string;
+  metaTitle: string;
+  metaDescription: string;
+  openGraphImage: string | null;
+  isIndexable: boolean;
+}
+
 export interface ProductCategory {
   name: string;
   slug: CategorySlug;

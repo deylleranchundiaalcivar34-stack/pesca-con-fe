@@ -24,7 +24,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   return (
     <Card className="group overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[var(--shadow-soft)]">
       <Link
-        href={`/productos/${product.slug}`}
+        href={`/producto/${product.slug}`}
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
@@ -50,7 +50,7 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               {product.category} · {product.subcategory}
             </p>
-            <Link href={`/productos/${product.slug}`} className="mt-1 block">
+            <Link href={`/producto/${product.slug}`} className="mt-1 block">
               <h3 className="line-clamp-2 min-h-11 text-base font-bold leading-snug text-dark-blue hover:text-primary">
                 {product.name}
               </h3>
