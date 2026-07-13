@@ -3,10 +3,16 @@ import { ProductCard } from "./tarjeta-producto";
 
 interface ProductGridProps {
   products: Product[];
+  variant?: "default" | "catalog";
+  compactPrice?: boolean;
 }
 
 // Organiza una lista de productos en una cuadricula responsive.
-export function ProductGrid({ products }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  variant = "default",
+  compactPrice = false,
+}: ProductGridProps) {
   if (!products.length) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-white p-10 text-center">
@@ -21,12 +27,19 @@ export function ProductGrid({ products }: ProductGridProps) {
   }
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      className={
+        variant === "catalog"
+          ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+      }
+    >
       {products.map((product, index) => (
         <ProductCard
           key={product.id}
           product={product}
           priority={index < 3 && product.isFeatured}
+          compactPrice={compactPrice}
         />
       ))}
     </div>

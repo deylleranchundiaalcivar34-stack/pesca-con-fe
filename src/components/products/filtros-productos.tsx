@@ -3,13 +3,6 @@
 import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { CatalogNode, ProductAvailability, ProductCategory } from "@/types/producto";
 import { formatCurrency } from "@/lib/utilidades";
 
@@ -18,7 +11,6 @@ export interface ProductFilterState {
   category: string;
   classification: string;
   subclassification: string;
-  productType: string;
   brand: string;
   availability: ProductAvailability;
   maxPrice: number;
@@ -74,10 +66,6 @@ export function ProductFilters({
     (node) => node.slug === value.classification,
   );
   const subclassifications = currentClassification?.children ?? [];
-  const currentSubclassification = subclassifications.find(
-    (node) => node.slug === value.subclassification,
-  );
-  const productTypes = currentSubclassification?.children ?? [];
   const priceFillPercentage =
     maxProductPrice > 0
       ? Math.min(100, Math.max(0, (value.maxPrice / maxProductPrice) * 100))
@@ -91,10 +79,9 @@ export function ProductFilters({
       ...value,
       [key]: nextValue,
       ...(key === "category"
-        ? { classification: "all", subclassification: "all", productType: "all" }
+        ? { classification: "all", subclassification: "all" }
         : {}),
-      ...(key === "classification" ? { subclassification: "all", productType: "all" } : {}),
-      ...(key === "subclassification" ? { productType: "all" } : {}),
+      ...(key === "classification" ? { subclassification: "all" } : {}),
     });
   };
 
@@ -131,30 +118,20 @@ export function ProductFilters({
         disabled={!subclassifications.length}
         onChange={(next) => update("subclassification", next)}
       />
-      <FilterSelect
-        label="Tipo de producto"
-        value={value.productType}
-        allLabel="Todos"
-        options={productTypes}
-        disabled={!productTypes.length}
-        onChange={(next) => update("productType", next)}
-      />
-
       <div className="space-y-2">
         <Label>Marca</Label>
-        <Select value={value.brand} onValueChange={(next) => update("brand", next)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Todas" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
+        <select
+          value={value.brand}
+          onChange={(event) => update("brand", event.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="all">Todas</option>
             {brands.map((brand) => (
-              <SelectItem key={brand} value={brand}>
+              <option key={brand} value={brand}>
                 {brand}
-              </SelectItem>
+              </option>
             ))}
-          </SelectContent>
-        </Select>
+        </select>
       </div>
 
       <div className="space-y-2">
@@ -176,20 +153,18 @@ export function ProductFilters({
 
       <div className="space-y-2">
         <Label>Disponibilidad</Label>
-        <Select
+        <select
           value={value.availability}
-          onValueChange={(next) => update("availability", next as ProductAvailability)}
+          onChange={(event) =>
+            update("availability", event.target.value as ProductAvailability)
+          }
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="in-stock">En stock</SelectItem>
-            <SelectItem value="low-stock">Bajo stock</SelectItem>
-            <SelectItem value="out-of-stock">Agotados</SelectItem>
-          </SelectContent>
-        </Select>
+          <option value="all">Todos</option>
+          <option value="in-stock">En stock</option>
+          <option value="low-stock">Bajo stock</option>
+          <option value="out-of-stock">Agotados</option>
+        </select>
       </div>
 
       <Button
@@ -202,7 +177,6 @@ export function ProductFilters({
             category: "all",
             classification: "all",
             subclassification: "all",
-            productType: "all",
             brand: "all",
             availability: "all",
             maxPrice: maxProductPrice,
@@ -234,19 +208,19 @@ function FilterSelect({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger>
-          <SelectValue placeholder={allLabel} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{allLabel}</SelectItem>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <option value="all">{allLabel}</option>
           {options.map((option) => (
-            <SelectItem key={option.id} value={option.slug}>
+            <option key={option.id} value={option.slug}>
               {option.name}
-            </SelectItem>
+            </option>
           ))}
-        </SelectContent>
-      </Select>
+      </select>
     </div>
   );
 }

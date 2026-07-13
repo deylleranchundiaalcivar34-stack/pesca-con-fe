@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/formulario-producto";
 import {
   getAdminProductById,
+  getAdminProductAttributes,
   getAdminProductVariants,
   getBrands,
+  getCatalogAttributes,
   getCatalogNavigation,
   getCategories,
 } from "@/lib/supabase/data";
@@ -15,12 +17,14 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, variants, categories, catalogNodes, brands] = await Promise.all([
+  const [product, variants, categories, catalogNodes, brands, catalogAttributes, productAttributes] = await Promise.all([
     getAdminProductById(id),
     getAdminProductVariants(id),
     getCategories(),
     getCatalogNavigation(),
     getBrands(),
+    getCatalogAttributes(),
+    getAdminProductAttributes(id),
   ]);
 
   if (!product) notFound();
@@ -40,6 +44,8 @@ export default async function EditProductPage({
         categories={categories}
         catalogNodes={catalogNodes}
         brands={brands.map((brand) => brand.nombre)}
+        catalogAttributes={catalogAttributes}
+        initialAttributes={productAttributes}
       />
     </div>
   );

@@ -40,6 +40,8 @@ import {
   publicSessionEventName,
 } from "@/lib/sesion-publica";
 import { useCartStore } from "@/store/tienda-carrito";
+import { useWishlistStore } from "@/store/tienda-lista-deseos";
+import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
 import { formatCurrency } from "@/lib/utilidades";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
@@ -358,9 +360,21 @@ export function HeaderSearch() {
 }
 
 export function HeaderWishlistButton() {
-  return <Button asChild variant="dark" size="icon" className="group" aria-label="Lista de deseos">
-    <Link href="/lista-deseos"><Heart className="transition group-hover:fill-white" aria-hidden="true" /></Link>
-  </Button>;
+  const wishlistCount = useWishlistStore((state) => state.productIds.length);
+  const wishlistHydrated = useWishlistHydrated();
+
+  return (
+    <Button asChild variant="dark" size="icon" className="group relative" aria-label="Lista de deseos">
+      <Link href="/lista-deseos">
+        <Heart className="transition group-hover:fill-white" aria-hidden="true" />
+        {wishlistHydrated && wishlistCount ? (
+          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">
+            {wishlistCount > 9 ? "9+" : wishlistCount}
+          </span>
+        ) : null}
+      </Link>
+    </Button>
+  );
 }
 
 function MobileAccountNavigation({ user }: { user: PublicUserSummary }) {

@@ -1,16 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerProfile } from "@/lib/usuario";
-import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { DeliveryType, OrderItem } from "@/types/pedido";
 
 type CreateCheckoutOrderInput = {
   customer: {
-    fullName: string;
-    cedula: string;
-    phone: string;
-    email?: string;
     addressId?: string;
     addressAlias?: string;
     contactPhone?: string;
@@ -20,12 +16,7 @@ type CreateCheckoutOrderInput = {
     address?: string;
     deliveryReference?: string;
   };
-  items: OrderItem[];
-  subtotal: number;
-  shipping: number;
-  total: number;
-  bankAccount: BankAccount;
-  business: BusinessConfig;
+  items: Array<Pick<OrderItem, "productId" | "variantId" | "quantity">>;
   deliveryType: DeliveryType;
 };
 
@@ -34,10 +25,32 @@ type CheckoutOrderRpcRow = {
   codigo: string;
 };
 
-const checkoutOrderErrorMessage =
-  "No pudimos generar el pedido. Intenta nuevamente o contactanos por WhatsApp.";
+type PersistedCheckoutItem = {
+  id: string;
+  producto_id: string | null;
+  variante_id: string | null;
+  variante_nombre: string | null;
+  variante_sku: string | null;
+  producto_nombre: string;
+  producto_slug: string;
+  producto_imagen: string | null;
+  categoria_slug: string;
+  precio: number | string;
+  cantidad: number;
+};
 
-// Crea el pedido web y, si aplica, guarda una direccion nueva del cliente.
+type PersistedCheckoutOrder = {
+  codigo: string;
+  subtotal: number | string;
+  envio: number | string;
+  total: number | string;
+  pedido_items: PersistedCheckoutItem[];
+};
+
+const checkoutOrderErrorMessage =
+  "No pudimos generar el pedido. Revisa disponibilidad y vuelve a intentarlo.";
+
+// Crea un pedido usando solo identificadores y cantidades; SQL resuelve los valores comerciales.
 export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const supabase = await createClient();
   const {
@@ -47,7 +60,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   if (!user) {
     return {
       ok: false,
-      message: "Inicia sesion para generar tu pedido.",
+      message: "Inicia sesión para generar tu pedido.",
       code: null,
       requiresAuth: true,
     };
@@ -105,7 +118,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       console.error("Checkout address save failed", savedAddressError);
       return {
         ok: false,
-        message: "No pudimos guardar la direccion. Intenta nuevamente.",
+        message: "No pudimos guardar la dirección. Intenta nuevamente.",
         code: null,
       };
     }
@@ -120,29 +133,18 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     cliente_referencia_entrega: input.customer.deliveryReference || null,
     direccion_cliente_id: addressId,
     tipo_entrega: input.deliveryType,
-    subtotal: input.subtotal,
-    envio: input.shipping,
-    total: input.total,
-    estado: "pendiente_pago",
     items: input.items.map((item) => ({
       producto_id: item.productId,
       variante_id: item.variantId ?? null,
-      variante_nombre: item.variantName ?? null,
-      producto_nombre: item.productName,
-      producto_slug: item.productSlug,
-      producto_sku: null,
-      producto_imagen: item.image,
-      categoria_slug: item.categorySlug,
-      precio: item.price,
       cantidad: item.quantity,
     })),
   };
 
-  const { data: order, error } = await supabase
+  const { data: rpcOrder, error } = await supabase
     .rpc("crear_pedido_web", { payload })
     .single<CheckoutOrderRpcRow>();
 
-  if (error || !order) {
+  if (error || !rpcOrder) {
     console.error("Checkout order creation failed", error);
     return {
       ok: false,
@@ -151,9 +153,46 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     };
   }
 
+  const { data: persistedOrder, error: persistedOrderError } = await supabase
+    .from("pedidos")
+    .select(
+      "codigo, subtotal, envio, total, pedido_items(id, producto_id, variante_id, variante_nombre, variante_sku, producto_nombre, producto_slug, producto_imagen, categoria_slug, precio, cantidad)",
+    )
+    .eq("id", rpcOrder.id)
+    .single<PersistedCheckoutOrder>();
+
+  if (persistedOrderError || !persistedOrder) {
+    console.error("Checkout order readback failed", persistedOrderError);
+    return {
+      ok: false,
+      message: checkoutOrderErrorMessage,
+      code: null,
+    };
+  }
+
+  revalidatePath("/mi-cuenta");
+  revalidatePath("/admin/pedidos");
+
   return {
     ok: true,
     message: "Pedido creado.",
-    code: order.codigo as string,
+    code: persistedOrder.codigo,
+    order: {
+      items: persistedOrder.pedido_items.map<OrderItem>((item) => ({
+        productId: item.producto_id ?? item.id,
+        variantId: item.variante_id ?? undefined,
+        variantName: item.variante_nombre ?? undefined,
+        variantSku: item.variante_sku ?? undefined,
+        productName: item.producto_nombre,
+        productSlug: item.producto_slug,
+        image: item.producto_imagen ?? "",
+        price: Number(item.precio),
+        quantity: Number(item.cantidad),
+        categorySlug: item.categoria_slug,
+      })),
+      subtotal: Number(persistedOrder.subtotal),
+      shipping: Number(persistedOrder.envio),
+      total: Number(persistedOrder.total),
+    },
   };
 }

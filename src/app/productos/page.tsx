@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { BenefitsSection } from "@/components/home/seccion-beneficios";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { ProductCatalog } from "@/components/products/catalogo-productos";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
@@ -59,6 +60,7 @@ export default async function ProductsPage() {
           </Suspense>
         </div>
       </section>
+      <BenefitsSection />
     </PublicShell>
   );
 }

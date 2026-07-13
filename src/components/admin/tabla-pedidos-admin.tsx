@@ -300,9 +300,9 @@ function OrderDetail({ order, compact = false }: { order: Order; compact?: boole
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="grid gap-2">
-          {order.items.map((item) => (
+          {order.items.map((item, index) => (
             <div
-              key={item.productId}
+              key={`${item.productId}-${item.variantId ?? "base"}-${index}`}
               className="flex justify-between gap-3 rounded-md bg-white p-3 text-sm md:bg-secondary"
             >
               <span>

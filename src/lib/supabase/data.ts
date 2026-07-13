@@ -9,6 +9,7 @@ import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { Order, OrderItem } from "@/types/pedido";
 import type {
   CatalogLanding,
+  CatalogAttribute,
   CatalogNode,
   CatalogPathItem,
   Product,
@@ -36,6 +37,7 @@ type DbProduct = {
   stock: number;
   descripcion: string;
   caracteristicas: string[] | null;
+  atributos?: Record<string, unknown> | null;
   youtube_video_id: string | null;
   destacado: boolean;
   activo: boolean;
@@ -65,6 +67,19 @@ type DbCatalogNode = {
 };
 
 type DbCatalogLandingContent = DbCatalogNode;
+
+type DbCatalogAttribute = {
+  id: string;
+  catalogo_nodo_id: string;
+  clave: string;
+  etiqueta: string;
+  tipo: CatalogAttribute["type"];
+  unidad: string | null;
+  opciones: string[] | null;
+  obligatorio: boolean;
+  filtrable: boolean;
+  orden: number;
+};
 
 type DbImage = {
   id: string;
@@ -330,6 +345,11 @@ function mapProduct(
     stock: row.stock,
     description: row.descripcion,
     features: row.caracteristicas ?? [],
+    attributes: Object.fromEntries(
+      Object.entries(row.atributos ?? {}).flatMap(([key, value]) =>
+        typeof value === "string" && value.trim() ? [[key, value]] : [],
+      ),
+    ),
     images: safeImages,
     variants,
     mainImage: mainImage.url,
@@ -673,6 +693,50 @@ export async function getCatalogNavigation(): Promise<CatalogNode[]> {
   return getCachedCatalogNavigation();
 }
 
+// Carga definiciones activas que hacen variar el formulario y los filtros por categoría.
+export async function getCatalogAttributes(): Promise<CatalogAttribute[]> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("catalogo_atributos")
+    .select("id, catalogo_nodo_id, clave, etiqueta, tipo, unidad, opciones, obligatorio, filtrable, orden")
+    .eq("activo", true)
+    .order("orden", { ascending: true })
+    .order("etiqueta", { ascending: true });
+
+  if (error) return [];
+
+  return (data as DbCatalogAttribute[]).map((attribute) => ({
+    id: attribute.id,
+    catalogNodeId: attribute.catalogo_nodo_id,
+    key: attribute.clave,
+    label: attribute.etiqueta,
+    type: attribute.tipo,
+    unit: attribute.unidad ?? undefined,
+    options: attribute.opciones ?? [],
+    isRequired: attribute.obligatorio,
+    isFilterable: attribute.filtrable,
+    sortOrder: attribute.orden,
+  }));
+}
+
+// Obtiene valores estructurados para conservarlos al editar un producto.
+export async function getAdminProductAttributes(productId: string): Promise<Record<string, string>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("producto_atributos")
+    .select("valor, catalogo_atributos!inner(clave)")
+    .eq("producto_id", productId);
+
+  if (error) return {};
+
+  return Object.fromEntries(
+    (data ?? []).flatMap((row) => {
+      const relation = row.catalogo_atributos as unknown as { clave?: string } | null;
+      return relation?.clave && row.valor ? [[relation.clave, row.valor]] : [];
+    }),
+  );
+}
+
 // Resuelve una landing por su ruta jerarquica y agrega productos de todo el subarbol.
 export async function getCatalogLanding(slugs: string[]): Promise<CatalogLanding | null> {
   if (!slugs.length || slugs.some((slug) => !slug.trim())) {
@@ -903,6 +967,10 @@ export async function getAdminOrders(): Promise<Order[]> {
       .filter((item) => item.pedido_id === order.id)
       .map<OrderItem>((item) => ({
         productId: String(item.producto_id ?? item.id),
+        variantId: typeof item.variante_id === "string" ? item.variante_id : undefined,
+        variantName:
+          typeof item.variante_nombre === "string" ? item.variante_nombre : undefined,
+        variantSku: typeof item.variante_sku === "string" ? item.variante_sku : undefined,
         productName: String(item.producto_nombre),
         productSlug: String(item.producto_slug),
         image: typeof item.producto_imagen === "string" ? item.producto_imagen : placeholderImage,
@@ -957,6 +1025,10 @@ export async function getCustomerOrders(userId: string): Promise<Order[]> {
       .filter((item) => item.pedido_id === order.id)
       .map<OrderItem>((item) => ({
         productId: String(item.producto_id ?? item.id),
+        variantId: typeof item.variante_id === "string" ? item.variante_id : undefined,
+        variantName:
+          typeof item.variante_nombre === "string" ? item.variante_nombre : undefined,
+        variantSku: typeof item.variante_sku === "string" ? item.variante_sku : undefined,
         productName: String(item.producto_nombre),
         productSlug: String(item.producto_slug),
         image: typeof item.producto_imagen === "string" ? item.producto_imagen : placeholderImage,

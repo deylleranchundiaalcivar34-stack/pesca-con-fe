@@ -44,7 +44,7 @@ export default async function HomePage() {
               align="center"
             />
           </MotionReveal>
-          <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
+          <div className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
             {homeCategories.map((category) => (
               <MotionReveal key={category.slug}>
                 <CategoryCard category={category} />

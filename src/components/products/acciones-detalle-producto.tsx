@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { Heart, Minus, Plus, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/types/producto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/tienda-carrito";
+import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { formatCurrency } from "@/lib/utilidades";
+import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
 
 interface ProductDetailActionsProps {
   product: Product;
@@ -21,6 +23,10 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
   const currentStock = selectedVariant?.stock ?? product.stock;
   const [quantity, setQuantity] = useState(currentStock > 0 ? 1 : 0);
   const addItem = useCartStore((state) => state.addItem);
+  const wishlistedProductIds = useWishlistStore((state) => state.productIds);
+  const toggleWishlist = useWishlistStore((state) => state.toggleProduct);
+  const wishlistHydrated = useWishlistHydrated();
+  const isWishlisted = wishlistHydrated && wishlistedProductIds.includes(product.id);
   const outOfStock = currentStock === 0;
 
   return (
@@ -98,7 +104,7 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
         </div>
       </div>
 
-      <div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Button
           size="lg"
           className="w-full"
@@ -110,6 +116,24 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
         >
           <ShoppingCart aria-hidden="true" />
           Agregar al carrito
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          disabled={!wishlistHydrated}
+          onClick={() => {
+            toggleWishlist(product.id);
+            toast.success(
+              isWishlisted ? "Producto eliminado de tu lista de deseos" : "Producto agregado a tu lista de deseos",
+            );
+          }}
+          aria-label={isWishlisted ? "Quitar de lista de deseos" : "Agregar a lista de deseos"}
+          aria-pressed={isWishlisted}
+          className={isWishlisted ? "border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600" : ""}
+        >
+          <Heart className={isWishlisted ? "fill-current" : ""} aria-hidden="true" />
+          <span className="sm:sr-only">{isWishlisted ? "Quitar de deseos" : "Guardar en deseos"}</span>
         </Button>
       </div>
     </div>

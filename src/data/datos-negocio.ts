@@ -39,7 +39,7 @@ export const categories: ProductCategory[] = [
     subcategories: [
       { name: "Spinning", slug: "spinning" },
       { name: "Casting", slug: "casting" },
-      { name: "Convencional", slug: "convencional" },
+      { name: "Trolling / Convencional", slug: "trolling-convencional" },
     ],
   },
   {
@@ -51,7 +51,7 @@ export const categories: ProductCategory[] = [
       { name: "Popping", slug: "popping" },
       { name: "Spinning", slug: "spinning" },
       { name: "Casting", slug: "casting" },
-      { name: "Trolling", slug: "trolling" },
+      { name: "Trolling / Convencional", slug: "trolling-convencional" },
     ],
   },
   {

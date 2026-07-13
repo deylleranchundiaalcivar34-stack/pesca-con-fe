@@ -246,6 +246,100 @@ type VariantInput = {
   sortOrder?: number;
 };
 
+type ProductAttributeInput = {
+  attributeId?: string;
+  value?: string;
+};
+
+// Valida y reemplaza los atributos estructurados del producto. Nunca acepta
+// atributos de otra categoría, aunque alguien manipule el formulario manualmente.
+async function saveProductAttributes(
+  productId: string,
+  catalogNodeId: string | null,
+  formData: FormData,
+) {
+  const { supabase } = await requireAdmin();
+  const rawAttributes = getText(formData, "attributes");
+  let submitted: ProductAttributeInput[] = [];
+
+  try {
+    submitted = rawAttributes ? JSON.parse(rawAttributes) : [];
+  } catch {
+    throw new Error("Las características del producto no tienen un formato válido.");
+  }
+
+  if (!Array.isArray(submitted)) {
+    throw new Error("Las características del producto no tienen un formato válido.");
+  }
+
+  const [{ data: definitions, error: definitionsError }, { data: nodes, error: nodesError }] =
+    await Promise.all([
+      supabase
+        .from("catalogo_atributos")
+        .select("id, catalogo_nodo_id, obligatorio")
+        .eq("activo", true),
+      supabase.from("catalogo_nodos").select("id, parent_id"),
+    ]);
+
+  if (definitionsError || nodesError) {
+    throw new Error(definitionsError?.message ?? nodesError?.message ?? "No se pudieron validar las características.");
+  }
+
+  const nodeById = new Map((nodes ?? []).map((node) => [node.id, node]));
+  let rootNodeId = catalogNodeId;
+  let current = catalogNodeId ? nodeById.get(catalogNodeId) : undefined;
+  while (current?.parent_id) {
+    current = nodeById.get(current.parent_id);
+  }
+  rootNodeId = current?.id ?? rootNodeId;
+
+  const allowedDefinitions = (definitions ?? []).filter(
+    (definition) => definition.catalogo_nodo_id === rootNodeId,
+  );
+  const allowedById = new Map(allowedDefinitions.map((definition) => [definition.id, definition]));
+  const normalized = submitted.map((attribute) => ({
+    attributeId: String(attribute.attributeId ?? "").trim(),
+    value: String(attribute.value ?? "").trim(),
+  }));
+
+  if (
+    normalized.some(
+      (attribute) =>
+        !attribute.attributeId ||
+        !allowedById.has(attribute.attributeId) ||
+        !attribute.value ||
+        attribute.value.length > 120,
+    )
+  ) {
+    throw new Error("Una característica no corresponde a la categoría seleccionada.");
+  }
+
+  const submittedIds = new Set(normalized.map((attribute) => attribute.attributeId));
+  const missingRequired = allowedDefinitions.some(
+    (definition) => definition.obligatorio && !submittedIds.has(definition.id),
+  );
+  if (missingRequired) {
+    throw new Error("Completa las características requeridas para esta categoría.");
+  }
+
+  const { error: deleteError } = await supabase
+    .from("producto_atributos")
+    .delete()
+    .eq("producto_id", productId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (normalized.length) {
+    const { error: insertError } = await supabase.from("producto_atributos").insert(
+      normalized.map((attribute) => ({
+        producto_id: productId,
+        atributo_id: attribute.attributeId,
+        valor: attribute.value,
+      })),
+    );
+    if (insertError) throw new Error(insertError.message);
+  }
+}
+
 async function saveProductVariants(productId: string, formData: FormData) {
   const { supabase } = await requireAdmin();
   const rawVariants = getText(formData, "variants");
@@ -373,6 +467,7 @@ export async function saveProduct(formData: FormData) {
     }
     await uploadImagesForProduct(productId, formData, userId);
     await saveProductVariants(productId, formData);
+    await saveProductAttributes(productId, relations.catalogNodeId, formData);
   } else {
     const { data, error } = await supabase
       .from("productos")
@@ -386,6 +481,7 @@ export async function saveProduct(formData: FormData) {
 
     await uploadImagesForProduct(data.id, formData, userId);
     await saveProductVariants(data.id, formData);
+    await saveProductAttributes(data.id, relations.catalogNodeId, formData);
   }
 
   revalidatePublicProducts();

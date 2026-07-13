@@ -166,18 +166,10 @@ export function CheckoutForm({
   const displayShipping = isClient && deliveryType === "envio_servientrega" ? shipping : 0;
   const displayTotal = displaySubtotal + displayShipping;
   const visibleItems = isClient ? items : [];
-  const orderItems = visibleItems.map((item) => ({
+  const checkoutItems = visibleItems.map((item) => ({
     productId: item.product.id,
     variantId: item.variant?.id,
-    variantName: item.variant?.name,
-    productName: item.variant
-      ? `${item.product.name} · ${item.variant.name}`
-      : item.product.name,
-    productSlug: item.product.slug,
-    image: item.product.mainImage,
-    price: item.variant?.price ?? item.product.price,
     quantity: item.quantity,
-    categorySlug: item.product.categorySlug,
   }));
   const canSaveAddresses = Boolean(customerDefaults.isAuthenticated);
   const hasSavedAddresses = checkoutAddresses.length > 0;
@@ -229,12 +221,7 @@ export function CheckoutForm({
 
     const createdOrder = await createCheckoutOrder({
       customer: values,
-      items: orderItems,
-      subtotal: displaySubtotal,
-      shipping: displayShipping,
-      total: displayTotal,
-      bankAccount: selectedBank,
-      business: businessConfig,
+      items: checkoutItems,
       deliveryType: values.deliveryType,
     });
 
@@ -256,10 +243,10 @@ export function CheckoutForm({
 
     const message = buildCheckoutWhatsAppMessage({
       customer: values,
-      items: orderItems,
-      subtotal: displaySubtotal,
-      shipping: displayShipping,
-      total: displayTotal,
+      items: createdOrder.order.items,
+      subtotal: createdOrder.order.subtotal,
+      shipping: createdOrder.order.shipping,
+      total: createdOrder.order.total,
       bankAccount: selectedBank,
       deliveryType: values.deliveryType,
       orderCode: createdOrder.code,
@@ -584,7 +571,7 @@ export function CheckoutForm({
                     {item.product.name} x{item.quantity}
                   </span>
                   <span className="font-semibold">
-                    {formatCurrency(item.product.price * item.quantity)}
+                    {formatCurrency((item.variant?.price ?? item.product.price) * item.quantity)}
                   </span>
                 </div>
               ))}

@@ -27,6 +27,7 @@ export interface OrderItem {
   productId: string;
   variantId?: string;
   variantName?: string;
+  variantSku?: string;
   productName: string;
   productSlug: string;
   image: string;

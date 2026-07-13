@@ -7,13 +7,6 @@ import { Filter } from "lucide-react";
 import type { CatalogNode, Product, ProductCategory } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -43,13 +36,12 @@ export function ProductCatalog({
   const categoryFromUrl = searchParams.get("categoria") ?? "all";
   const classificationFromUrl = searchParams.get("clasificacion") ?? "all";
   const subclassificationFromUrl = searchParams.get("subclasificacion") ?? "all";
-  const productTypeFromUrl = searchParams.get("tipo") ?? "all";
   const searchFromUrl = searchParams.get("busqueda") ?? "";
   const pageFromUrl = Number(searchParams.get("pagina") ?? 1);
 
   return (
     <ProductCatalogInner
-      key={`${categoryFromUrl}:${classificationFromUrl}:${subclassificationFromUrl}:${productTypeFromUrl}:${searchFromUrl}`}
+      key={`${categoryFromUrl}:${classificationFromUrl}:${subclassificationFromUrl}:${searchFromUrl}`}
       products={products}
       categories={categories}
       catalogNodes={catalogNodes}
@@ -57,7 +49,6 @@ export function ProductCatalog({
       initialCategory={categoryFromUrl}
       initialClassification={classificationFromUrl}
       initialSubclassification={subclassificationFromUrl}
-      initialProductType={productTypeFromUrl}
       initialSearch={searchFromUrl}
       pageFromUrl={Number.isInteger(pageFromUrl) ? pageFromUrl : 1}
     />
@@ -68,7 +59,6 @@ interface ProductCatalogInnerProps extends ProductCatalogProps {
   initialCategory: string;
   initialClassification: string;
   initialSubclassification: string;
-  initialProductType: string;
   initialSearch: string;
   pageFromUrl: number;
 }
@@ -81,7 +71,6 @@ function ProductCatalogInner({
   initialCategory,
   initialClassification,
   initialSubclassification,
-  initialProductType,
   initialSearch,
   pageFromUrl,
 }: ProductCatalogInnerProps) {
@@ -95,7 +84,6 @@ function ProductCatalogInner({
     category: initialCategory,
     classification: initialClassification,
     subclassification: initialSubclassification,
-    productType: initialProductType,
     brand: "all",
     availability: "all",
     maxPrice: maxProductPrice,
@@ -133,8 +121,6 @@ function ProductCatalogInner({
           pathSlugs[1] === filters.classification;
         const matchesSubclassification =
           filters.subclassification === "all" || pathSlugs[2] === filters.subclassification;
-        const matchesProductType =
-          filters.productType === "all" || pathSlugs[3] === filters.productType;
         const matchesBrand = filters.brand === "all" || product.brand === filters.brand;
         const matchesPrice = product.price <= filters.maxPrice;
         const matchesAvailability =
@@ -150,7 +136,6 @@ function ProductCatalogInner({
           matchesCategory &&
           matchesClassification &&
           matchesSubclassification &&
-          matchesProductType &&
           matchesBrand &&
           matchesPrice &&
           matchesAvailability
@@ -273,21 +258,21 @@ function ProductCatalogInner({
               </SheetContent>
             </Sheet>
 
-            <Select value={filters.sort} onValueChange={updateSort}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="featured">Destacados</SelectItem>
-                <SelectItem value="price-asc">Precio menor</SelectItem>
-                <SelectItem value="price-desc">Precio mayor</SelectItem>
-                <SelectItem value="name">Nombre A-Z</SelectItem>
-              </SelectContent>
-            </Select>
+            <select
+              value={filters.sort}
+              onChange={(event) => updateSort(event.target.value)}
+              className="h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label="Ordenar productos"
+            >
+              <option value="featured">Destacados</option>
+              <option value="price-asc">Precio menor</option>
+              <option value="price-desc">Precio mayor</option>
+              <option value="name">Nombre A-Z</option>
+            </select>
           </div>
         </div>
 
-        <ProductGrid products={paginatedProducts} />
+        <ProductGrid products={paginatedProducts} compactPrice />
         <CatalogPagination
           currentPage={currentPage}
           totalPages={totalPages}

@@ -2,27 +2,32 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { BenefitsSection } from "@/components/home/seccion-beneficios";
 import { PublicShell } from "@/components/layout/contenedor-publico";
-import { ProductGrid } from "@/components/products/cuadricula-productos";
+import { PaginatedProductGrid } from "@/components/products/listado-productos-paginado";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
-import { getCatalogLanding, getProductBySlug } from "@/lib/supabase/data";
+import { getCatalogAttributes, getCatalogLanding, getProductBySlug } from "@/lib/supabase/data";
 import { SITE_URL } from "@/lib/constantes";
 
 interface CatalogLandingPageProps {
   params: Promise<{ slug: string[] }>;
 }
 
-// Genera metadata basica con los campos que catalogo_nodos ya ofrece actualmente.
+const fallbackCategoryBackgrounds: Record<string, string> = {
+  canas: "/images/categorias/canas.webp",
+  carretes: "/images/categorias/carretes.webp",
+  senuelos: "/images/categorias/senuelos.webp",
+  indumentaria: "/images/categorias/indumentaria.webp",
+};
+
 export async function generateMetadata({
   params,
 }: CatalogLandingPageProps): Promise<Metadata> {
   const { slug } = await params;
   const landing = await getCatalogLanding(slug);
 
-  if (!landing) {
-    return {};
-  }
+  if (!landing) return {};
 
   const pathname = `/productos/${slug.join("/")}`;
   const description =
@@ -32,9 +37,7 @@ export async function generateMetadata({
   return {
     title: landing.content.metaTitle,
     description,
-    alternates: {
-      canonical: pathname,
-    },
+    alternates: { canonical: pathname },
     openGraph: {
       title: landing.content.metaTitle,
       description,
@@ -48,18 +51,18 @@ export async function generateMetadata({
   };
 }
 
-// Landing definitiva: valida la ruta completa y muestra productos del nodo y sus descendientes.
+// Landing del catálogo: contenido principal y clasificaciones en una sola cabecera.
 export default async function CatalogLandingPage({ params }: CatalogLandingPageProps) {
   const { slug } = await params;
-  const landing = await getCatalogLanding(slug);
+  const [landing, catalogAttributes] = await Promise.all([
+    getCatalogLanding(slug),
+    getCatalogAttributes(),
+  ]);
 
   if (!landing) {
     if (slug.length === 1) {
       const legacyProduct = await getProductBySlug(slug[0]);
-
-      if (legacyProduct) {
-        permanentRedirect(`/producto/${legacyProduct.slug}`);
-      }
+      if (legacyProduct) permanentRedirect(`/producto/${legacyProduct.slug}`);
     }
 
     notFound();
@@ -68,9 +71,8 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
   const description =
     landing.content.shortDescription ||
     `Descubre nuestra seleccion de ${landing.node.name.toLowerCase()} para tu proxima jornada de pesca.`;
-  const hideRodsLandingDetails = slug.length === 1 && landing.node.slug === "canas";
-  const landingImage = hideRodsLandingDetails ? null : landing.content.image;
-  const showTechnicalContent = Boolean(landing.content.technicalContent) && !hideRodsLandingDetails;
+  const backgroundImage =
+    landing.content.image ?? fallbackCategoryBackgrounds[landing.breadcrumbs[0]?.slug ?? ""];
 
   return (
     <PublicShell>
@@ -109,106 +111,74 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
       </nav>
 
       <article className="bg-white">
-        <header className="mx-auto max-w-7xl px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
-          {landingImage ? (
-            <div className="relative mx-auto aspect-[16/7] min-h-64 overflow-hidden rounded-2xl bg-secondary shadow-sm sm:min-h-80">
-              <Image
-                src={landingImage}
-                alt={landing.content.imageAlt}
-                fill
-                priority
-                sizes="(min-width: 1280px) 1216px, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-dark-blue/20 via-transparent to-transparent" />
-            </div>
+        <header className="relative isolate overflow-hidden border-b border-border bg-secondary/30">
+          {backgroundImage ? (
+            <Image
+              src={backgroundImage}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="-z-20 object-cover opacity-50"
+            />
           ) : null}
+          <div className="absolute inset-0 -z-10 bg-white/70" />
 
-          <div className={`${landingImage ? "mt-9 sm:mt-12" : "pt-5 sm:pt-8"} mx-auto max-w-4xl text-center`}>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-              {landing.node.level}
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-dark-blue sm:text-5xl lg:text-6xl">
-              {landing.content.title}
-            </h1>
-            <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted-foreground sm:text-xl">
-              {description}
-            </p>
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(280px,390px)] lg:items-center lg:gap-16 lg:px-8">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+                {landing.node.level}
+              </p>
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-dark-blue sm:text-5xl lg:text-6xl">
+                {landing.content.title.toLocaleUpperCase("es")}
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-dark-blue/80 sm:text-xl">
+                {description}
+              </p>
+            </div>
+
+            {landing.children.length ? (
+              <aside className="rounded-xl border border-white/80 bg-white/80 p-5 shadow-lg backdrop-blur-sm sm:p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                  Clasificaciones
+                </p>
+                <div className="mt-3 divide-y divide-border/80">
+                  {landing.children.map((child) => (
+                    <Link
+                      key={child.id}
+                      href={`/productos/${[...slug, child.slug].join("/")}`}
+                      className="group flex items-center justify-between gap-4 py-3 text-base font-black text-dark-blue transition-colors hover:text-primary"
+                    >
+                      <span>{child.name}</span>
+                      <ChevronRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                    </Link>
+                  ))}
+                </div>
+              </aside>
+            ) : null}
           </div>
-
-          {showTechnicalContent ? (
-            <div className="mx-auto mt-9 max-w-4xl border-t border-border pt-8 sm:mt-12 sm:pt-10">
-              <h2 className="text-center text-2xl font-black text-dark-blue">
-                Información para elegir mejor
-              </h2>
-              <div className="mt-5 whitespace-pre-line text-base leading-8 text-muted-foreground sm:text-lg">
-                {landing.content.technicalContent}
-              </div>
-            </div>
-          ) : null}
         </header>
+
       </article>
 
-      {landing.children.length ? (
-        <section className="border-y border-border bg-secondary/30 py-12 sm:py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              title="Explora categorías relacionadas"
-              description={`Encuentra opciones más específicas dentro de ${landing.node.name}.`}
-            />
-            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {landing.children.map((child) => (
-                <Link
-                  key={child.id}
-                  href={`/productos/${[...slug, child.slug].join("/")}`}
-                  className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg"
-                >
-                  {child.image ? (
-                    <div className="relative aspect-[16/8] overflow-hidden bg-secondary">
-                      <Image
-                        src={child.image}
-                        alt={child.imageAlt || child.name}
-                        fill
-                        sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, calc(100vw - 32px)"
-                        className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                      />
-                    </div>
-                  ) : null}
-                  <div className="p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
-                      {child.level}
-                    </p>
-                    <h2 className="mt-2 text-xl font-black text-dark-blue transition-colors group-hover:text-primary">
-                      {child.name}
-                    </h2>
-                    {child.description ? (
-                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                        {child.description}
-                      </p>
-                    ) : null}
-                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-dark-blue transition-colors group-hover:text-primary">
-                      Ver categoría
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="bg-white py-14 sm:py-16">
+      <section id="productos-disponibles" className="scroll-mt-20 bg-white py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             title="Productos disponibles"
             description={`${landing.products.length} producto${landing.products.length === 1 ? "" : "s"} asociado${landing.products.length === 1 ? "" : "s"} a esta seccion del catalogo.`}
           />
           <div className="mt-8">
-            <ProductGrid products={landing.products} />
+            <PaginatedProductGrid
+              products={landing.products}
+              attributes={catalogAttributes.filter(
+                (attribute) =>
+                  attribute.catalogNodeId === landing.breadcrumbs[0]?.id && attribute.isFilterable,
+              )}
+            />
           </div>
         </div>
       </section>
+      <BenefitsSection />
     </PublicShell>
   );
 }

@@ -195,9 +195,9 @@ function OrdersList({
               <StatusBadge status={order.status} />
             </div>
             <div className="mt-4 grid gap-2">
-              {order.items.map((item) => (
+              {order.items.map((item, index) => (
                 <div
-                  key={`${order.id}-${item.productId}`}
+                  key={`${order.id}-${item.productId}-${item.variantId ?? "base"}-${index}`}
                   className="flex justify-between gap-4 text-sm"
                 >
                   <span className="text-muted-foreground">

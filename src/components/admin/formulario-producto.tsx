@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { ArrowDown, ArrowUp, ImagePlus, LoaderCircle, Plus, Save, Star, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -8,7 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/acciones";
-import type { CatalogNode, Product, ProductCategory, ProductVariant } from "@/types/producto";
+import type { CatalogAttribute, CatalogNode, Product, ProductCategory, ProductVariant } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,8 @@ interface ProductFormProps {
   categories: ProductCategory[];
   catalogNodes: CatalogNode[];
   brands: string[];
+  catalogAttributes: CatalogAttribute[];
+  initialAttributes?: Record<string, string>;
 }
 
 function findPathByNodeId(nodes: CatalogNode[], nodeId: string): string[] | null {
@@ -124,7 +126,16 @@ function getOptionsForLevel(nodes: CatalogNode[], selectedPathIds: string[], lev
 }
 
 // Formulario principal para crear o editar productos del catalogo.
-export function ProductForm({ mode, product, variants = [], categories, catalogNodes, brands }: ProductFormProps) {
+export function ProductForm({
+  mode,
+  product,
+  variants = [],
+  categories,
+  catalogNodes,
+  brands,
+  catalogAttributes,
+  initialAttributes,
+}: ProductFormProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
@@ -135,6 +146,9 @@ export function ProductForm({ mode, product, variants = [], categories, catalogN
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>(variants);
+  const [attributeValues, setAttributeValues] = useState<Record<string, string>>(
+    initialAttributes ?? product?.attributes ?? {},
+  );
   const {
     register,
     control,
@@ -165,6 +179,23 @@ export function ProductForm({ mode, product, variants = [], categories, catalogN
   const selectedCatalogNodeId = selectedCatalogPathIds.at(-1) ?? "";
   const categorySlug = selectedCatalogPath[0]?.slug ?? product?.categorySlug ?? categories[0]?.slug ?? "";
   const subcategorySlug = selectedCatalogPath[1]?.slug ?? product?.subcategorySlug ?? "";
+  const categoryAttributes = useMemo(
+    () =>
+      catalogAttributes.filter(
+        (attribute) => attribute.catalogNodeId === selectedCatalogPath[0]?.id,
+      ),
+    [catalogAttributes, selectedCatalogPath],
+  );
+  const serializedAttributes = useMemo(
+    () =>
+      JSON.stringify(
+        categoryAttributes.flatMap((attribute) => {
+          const value = attributeValues[attribute.key]?.trim() ?? "";
+          return value ? [{ attributeId: attribute.id, value }] : [];
+        }),
+      ),
+    [attributeValues, categoryAttributes],
+  );
 
   useEffect(() => {
     if (mode === "create") {
@@ -270,6 +301,7 @@ export function ProductForm({ mode, product, variants = [], categories, catalogN
         value={mainSelectedImageIndex >= 0 ? String(mainSelectedImageIndex) : ""}
       />
       <input type="hidden" name="variants" value={JSON.stringify(productVariants)} />
+      <input type="hidden" name="attributes" value={serializedAttributes} />
 
       <div className="min-w-0 space-y-6">
         <Card>
@@ -344,8 +376,56 @@ export function ProductForm({ mode, product, variants = [], categories, catalogN
             <Field id="description" label="Descripcion" error={errors.description?.message} className="sm:col-span-2">
               <Textarea id="description" {...register("description")} name="description" required />
             </Field>
-            <Field id="features" label="Caracteristicas (una por linea)" error={errors.features?.message} className="sm:col-span-2">
-              <Textarea id="features" {...register("features")} name="features" required />
+            {categoryAttributes.length ? (
+              <div className="sm:col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-dark-blue">Características para filtros</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Estos datos se mostrarán como filtros en la categoría seleccionada.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {categoryAttributes.map((attribute) => {
+                    const inputId = `attribute-${attribute.id}`;
+                    const value = attributeValues[attribute.key] ?? "";
+                    const dataListId = attribute.options.length
+                      ? `attribute-options-${attribute.id}`
+                      : undefined;
+
+                    return (
+                      <Field
+                        key={attribute.id}
+                        id={inputId}
+                        label={`${attribute.label}${attribute.unit ? ` (${attribute.unit})` : ""}`}
+                      >
+                        <Input
+                          id={inputId}
+                          type={attribute.type === "numero" ? "number" : "text"}
+                          value={value}
+                          list={dataListId}
+                          required={attribute.isRequired}
+                          onChange={(event) =>
+                            setAttributeValues((current) => ({
+                              ...current,
+                              [attribute.key]: event.target.value,
+                            }))
+                          }
+                        />
+                        {dataListId ? (
+                          <datalist id={dataListId}>
+                            {attribute.options.map((option) => (
+                              <option key={option} value={option} />
+                            ))}
+                          </datalist>
+                        ) : null}
+                      </Field>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            <Field id="features" label="Características técnicas adicionales (una por línea)" error={errors.features?.message} className="sm:col-span-2">
+              <Textarea id="features" {...register("features")} name="features" />
             </Field>
           </CardContent>
         </Card>

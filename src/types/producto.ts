@@ -90,6 +90,19 @@ export interface ProductVariant {
   sortOrder: number;
 }
 
+export interface CatalogAttribute {
+  id: string;
+  catalogNodeId: string;
+  key: string;
+  label: string;
+  type: "texto" | "numero" | "seleccion";
+  unit?: string;
+  options: string[];
+  isRequired: boolean;
+  isFilterable: boolean;
+  sortOrder: number;
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -106,6 +119,7 @@ export interface Product {
   stock: number;
   description: string;
   features: string[];
+  attributes: Record<string, string>;
   images: ProductImage[];
   variants: ProductVariant[];
   mainImage: string;
