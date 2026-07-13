@@ -43,11 +43,12 @@ export function ProductCatalog({
   const classificationFromUrl = searchParams.get("clasificacion") ?? "all";
   const subclassificationFromUrl = searchParams.get("subclasificacion") ?? "all";
   const productTypeFromUrl = searchParams.get("tipo") ?? "all";
+  const searchFromUrl = searchParams.get("busqueda") ?? "";
   const pageFromUrl = Number(searchParams.get("pagina") ?? 1);
 
   return (
     <ProductCatalogInner
-      key={`${categoryFromUrl}:${classificationFromUrl}:${subclassificationFromUrl}:${productTypeFromUrl}`}
+      key={`${categoryFromUrl}:${classificationFromUrl}:${subclassificationFromUrl}:${productTypeFromUrl}:${searchFromUrl}`}
       products={products}
       categories={categories}
       catalogNodes={catalogNodes}
@@ -56,6 +57,7 @@ export function ProductCatalog({
       initialClassification={classificationFromUrl}
       initialSubclassification={subclassificationFromUrl}
       initialProductType={productTypeFromUrl}
+      initialSearch={searchFromUrl}
       pageFromUrl={Number.isInteger(pageFromUrl) ? pageFromUrl : 1}
     />
   );
@@ -66,6 +68,7 @@ interface ProductCatalogInnerProps extends ProductCatalogProps {
   initialClassification: string;
   initialSubclassification: string;
   initialProductType: string;
+  initialSearch: string;
   pageFromUrl: number;
 }
 
@@ -78,6 +81,7 @@ function ProductCatalogInner({
   initialClassification,
   initialSubclassification,
   initialProductType,
+  initialSearch,
   pageFromUrl,
 }: ProductCatalogInnerProps) {
   const pathname = usePathname();
@@ -86,7 +90,7 @@ function ProductCatalogInner({
     products.reduce((highest, product) => Math.max(highest, product.price), 0),
   );
   const [filters, setFilters] = useState<ProductFilterState>({
-    search: "",
+    search: initialSearch,
     category: initialCategory,
     classification: initialClassification,
     subclassification: initialSubclassification,

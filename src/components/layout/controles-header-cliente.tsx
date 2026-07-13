@@ -5,12 +5,14 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
+  Heart,
   LayoutDashboard,
   LogOut,
   MapPin,
   Menu,
   PackageSearch,
   ShoppingCart,
+  Search,
   UserRound,
 } from "lucide-react";
 import { logout } from "@/app/auth/acciones";
@@ -37,10 +39,9 @@ import {
   publicSessionEventName,
 } from "@/lib/sesion-publica";
 import { useCartStore } from "@/store/tienda-carrito";
-import type { CatalogNode } from "@/types/producto";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
-import { MobileCatalogTree } from "./mega-menu-catalogo";
+import { MobileFixedNavigation } from "./mega-menu-catalogo";
 
 type SessionResponse = {
   user: PublicUserSummary | null;
@@ -256,7 +257,23 @@ export function HeaderCartButton() {
   );
 }
 
-export function MobileMenu({ catalogNodes }: { catalogNodes: CatalogNode[] }) {
+export function HeaderSearch() {
+  return (
+    <form action="/productos" method="get" className="relative hidden min-w-44 flex-1 xl:block">
+      <label htmlFor="header-search" className="sr-only">Buscar productos</label>
+      <input id="header-search" name="busqueda" type="search" placeholder="Buscar productos..." className="h-10 w-full rounded-full border border-border bg-secondary/40 pl-4 pr-10 text-sm text-dark-blue outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15" />
+      <button type="submit" className="absolute right-1 top-1 flex size-8 items-center justify-center rounded-full text-dark-blue transition hover:bg-primary hover:text-white" aria-label="Buscar productos"><Search className="size-4" aria-hidden="true" /></button>
+    </form>
+  );
+}
+
+export function HeaderWishlistButton() {
+  return <Button asChild variant="dark" size="icon" className="group" aria-label="Lista de deseos">
+    <Link href="/lista-deseos"><Heart className="transition group-hover:fill-white" aria-hidden="true" /></Link>
+  </Button>;
+}
+
+export function MobileMenu() {
   const { user, setUser } = usePublicUser();
 
   return (
@@ -271,15 +288,15 @@ export function MobileMenu({ catalogNodes }: { catalogNodes: CatalogNode[] }) {
           <SheetTitle>Pesca Con Fe</SheetTitle>
         </SheetHeader>
         <nav className="mt-8 grid gap-2" aria-label="Menú móvil">
-          {navItems.map((item) =>
-            item.href === "/productos" ? (
-              <MobileCatalogTree key={item.href} nodes={catalogNodes} />
-            ) : (
-              <Button key={item.href} asChild variant="ghost" className="justify-start">
-                <Link href={item.href}>{item.label}</Link>
-              </Button>
-            ),
-          )}
+          {navItems.map((item) => (
+            <Button key={item.href} asChild variant="ghost" className="justify-start"><Link href={item.href}>{item.label}</Link></Button>
+          ))}
+          <form action="/productos" method="get" className="relative my-2">
+            <input name="busqueda" type="search" placeholder="Buscar productos..." className="h-10 w-full rounded-md border border-border pl-3 pr-10 text-sm" />
+            <button type="submit" className="absolute right-1 top-1 flex size-8 items-center justify-center" aria-label="Buscar productos"><Search className="size-4" aria-hidden="true" /></button>
+          </form>
+          <MobileFixedNavigation />
+          <Button asChild variant="outline" className="justify-start"><Link href="/lista-deseos"><Heart aria-hidden="true" />Lista de deseos</Link></Button>
           {user ? (
             <>
               <Button asChild variant="outline" className="mt-4 justify-start">

@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
-  FolderTree,
   Home,
   LogOut,
   Menu,
@@ -27,7 +26,6 @@ import { cn } from "@/lib/utilidades";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
-  { href: "/admin/catalogo", label: "Catalogo", icon: FolderTree },
   { href: "/admin/productos", label: "Productos", icon: Boxes },
   { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus },
   { href: "/admin/marcas", label: "Marcas", icon: Tags },

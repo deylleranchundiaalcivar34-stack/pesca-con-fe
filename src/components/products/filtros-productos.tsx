@@ -2,7 +2,6 @@
 
 import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -109,16 +108,6 @@ export function ProductFilters({
         <SlidersHorizontal className="size-5 text-primary" aria-hidden="true" />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="search">Buscar producto</Label>
-        <Input
-          id="search"
-          value={value.search}
-          placeholder="Carrete, cana, Rapala..."
-          onChange={(event) => update("search", event.target.value)}
-        />
-      </div>
-
       <FilterSelect
         label="Categoria"
         value={value.category}
@@ -209,7 +198,7 @@ export function ProductFilters({
         className="w-full"
         onClick={() =>
           onChange({
-            search: "",
+            search: value.search,
             category: "all",
             classification: "all",
             subclassification: "all",
