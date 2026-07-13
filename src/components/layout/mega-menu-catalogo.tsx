@@ -81,7 +81,7 @@ function FixedMegaMenu({ label, sections, wide = false }: { label: string; secti
       <button type="button" className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-sm font-semibold text-dark-blue transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {label}<ChevronDown className="size-4 transition group-hover:rotate-180" aria-hidden="true" />
       </button>
-      <div className={`invisible z-50 -translate-x-1/2 pt-3 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${wide ? "fixed left-1/2 top-16 w-[min(74rem,calc(100vw-2rem))]" : "absolute left-1/2 top-full w-[min(34rem,calc(100vw-2rem))]"}`}>
+      <div className={`invisible z-50 -translate-x-1/2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${wide ? "fixed left-1/2 top-12 w-[min(74rem,calc(100vw-2rem))] pt-4" : "absolute left-1/2 top-full w-[min(34rem,calc(100vw-2rem))] pt-3"}`}>
         <div className={`grid gap-7 rounded-lg border border-border bg-white p-6 shadow-xl ${wide ? "md:grid-cols-3 xl:grid-cols-6" : "grid-cols-2"}`}>
           {sections.map((section) => <MenuSection key={section.href} section={section} />)}
         </div>
@@ -92,7 +92,11 @@ function FixedMegaMenu({ label, sections, wide = false }: { label: string; secti
 
 function MenuSection({ section }: { section: FixedMenuSection }) {
   return <section className="min-w-0">
-    <h3 className="font-black text-dark-blue">{section.label}</h3>
+    <h3>
+      <Link href={section.href} className="font-black text-dark-blue transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {section.label}
+      </Link>
+    </h3>
     <div className="mt-3 space-y-2">
       {section.items.map((item) => <div key={item.href}>
         <Link href={item.href} className="block text-sm leading-5 text-muted-foreground hover:text-primary">{item.label}</Link>
@@ -112,8 +116,11 @@ export function MobileFixedNavigation() {
 }
 
 function MobileMenuGroup({ label, sections }: { label: string; sections: FixedMenuSection[] }) {
-  return <details className="rounded-lg border border-border p-2">
-    <summary className="cursor-pointer list-none rounded-md px-3 py-2 font-bold text-dark-blue">{label}</summary>
-    <div className="mt-2 space-y-4 border-t border-border p-3">{sections.map((section) => <MenuSection key={section.href} section={section} />)}</div>
+  return <details className="group rounded-lg border border-border bg-white">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-3 font-bold text-dark-blue transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      {label}
+      <ChevronDown className="size-5 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+    </summary>
+    <div className="mt-1 space-y-4 border-t border-border p-3">{sections.map((section) => <MenuSection key={section.href} section={section} />)}</div>
   </details>;
 }

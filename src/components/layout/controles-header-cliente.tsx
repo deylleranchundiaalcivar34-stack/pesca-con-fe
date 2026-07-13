@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
@@ -39,12 +40,23 @@ import {
   publicSessionEventName,
 } from "@/lib/sesion-publica";
 import { useCartStore } from "@/store/tienda-carrito";
+import { formatCurrency } from "@/lib/utilidades";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
 import { MobileFixedNavigation } from "./mega-menu-catalogo";
 
 type SessionResponse = {
   user: PublicUserSummary | null;
+};
+
+type ProductSearchSuggestion = {
+  name: string;
+  slug: string;
+  brand: string;
+  category: string;
+  image: string;
+  imageAlt: string;
+  price: number;
 };
 
 let sessionPromise: Promise<PublicUserSummary | null> | null = null;
@@ -258,11 +270,89 @@ export function HeaderCartButton() {
 }
 
 export function HeaderSearch() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<ProductSearchSuggestion[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+
+    if (normalizedQuery.length < 2) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/productos/buscar?q=${encodeURIComponent(normalizedQuery)}`, {
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as { results?: ProductSearchSuggestion[] };
+
+        if (response.ok) setResults(data.results ?? []);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setResults([]);
+      }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
   return (
-    <form action="/productos" method="get" className="relative hidden min-w-44 flex-1 xl:block">
+    <form
+      action="/productos"
+      method="get"
+      className="relative hidden min-w-44 flex-1 xl:block"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
+      }}
+    >
       <label htmlFor="header-search" className="sr-only">Buscar productos</label>
-      <input id="header-search" name="busqueda" type="search" placeholder="Buscar productos..." className="h-10 w-full rounded-full border border-border bg-secondary/40 pl-4 pr-10 text-sm text-dark-blue outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15" />
+      <input
+        id="header-search"
+        name="busqueda"
+        type="search"
+        value={query}
+        onChange={(event) => {
+          const nextQuery = event.target.value;
+          setQuery(nextQuery);
+          setResults([]);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        placeholder="Buscar productos..."
+        className="h-10 w-full rounded-full border border-border bg-secondary/40 pl-4 pr-10 text-sm text-dark-blue outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
+      />
       <button type="submit" className="absolute right-1 top-1 flex size-8 items-center justify-center rounded-full text-dark-blue transition hover:bg-primary hover:text-white" aria-label="Buscar productos"><Search className="size-4" aria-hidden="true" /></button>
+      {isOpen && query.trim().length >= 2 && results.length ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-lg border border-border bg-white shadow-xl">
+          <div className="max-h-[min(30rem,calc(100vh-5rem))] divide-y divide-border overflow-y-auto">
+            {results.map((product) => (
+              <Link
+                key={product.slug}
+                href={`/producto/${product.slug}`}
+                className="flex items-center gap-3 px-4 py-3 transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="relative size-12 shrink-0 overflow-hidden rounded-md bg-secondary">
+                  <Image
+                    src={product.image}
+                    alt={product.imageAlt}
+                    fill
+                    sizes="48px"
+                    className="object-cover"
+                  />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-dark-blue">{product.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{product.brand} · {product.category}</span>
+                </span>
+                <span className="shrink-0 text-sm font-bold text-dark-blue">{formatCurrency(product.price)}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -271,6 +361,48 @@ export function HeaderWishlistButton() {
   return <Button asChild variant="dark" size="icon" className="group" aria-label="Lista de deseos">
     <Link href="/lista-deseos"><Heart className="transition group-hover:fill-white" aria-hidden="true" /></Link>
   </Button>;
+}
+
+function MobileAccountNavigation({ user }: { user: PublicUserSummary }) {
+  return (
+    <details className="group rounded-lg border border-border bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-3 font-bold text-dark-blue transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <span className="flex items-center gap-2">
+          <UserRound className="size-4" aria-hidden="true" />
+          Mi perfil
+        </span>
+        <ChevronDown className="size-5 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+      </summary>
+      <div className="mt-1 grid gap-1 border-t border-border p-2">
+        <Button asChild variant="ghost" className="justify-start">
+          <Link href="/mi-cuenta?seccion=perfil">
+            <UserRound aria-hidden="true" />
+            Ver perfil
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" className="justify-start">
+          <Link href="/mi-cuenta?seccion=pedidos">
+            <PackageSearch aria-hidden="true" />
+            Mis pedidos
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" className="justify-start">
+          <Link href="/mi-cuenta?seccion=direcciones">
+            <MapPin aria-hidden="true" />
+            Direcciones
+          </Link>
+        </Button>
+        {user.isAdmin ? (
+          <Button asChild variant="ghost" className="justify-start">
+            <Link href="/admin">
+              <LayoutDashboard aria-hidden="true" />
+              Panel Administrador
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </details>
+  );
 }
 
 export function MobileMenu() {
@@ -283,11 +415,11 @@ export function MobileMenu() {
           <Menu aria-hidden="true" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right">
-        <SheetHeader>
+      <SheetContent side="right" className="flex h-[100dvh] flex-col overflow-hidden p-0">
+        <SheetHeader className="shrink-0 px-6 pb-0 pt-6 pr-14">
           <SheetTitle>Pesca Con Fe</SheetTitle>
         </SheetHeader>
-        <nav className="mt-8 grid gap-2" aria-label="Menú móvil">
+        <nav className="mt-6 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-6 pb-8 pr-4 touch-pan-y" aria-label="Menú móvil">
           {navItems.map((item) => (
             <Button key={item.href} asChild variant="ghost" className="justify-start"><Link href={item.href}>{item.label}</Link></Button>
           ))}
@@ -299,26 +431,7 @@ export function MobileMenu() {
           <Button asChild variant="outline" className="justify-start"><Link href="/lista-deseos"><Heart aria-hidden="true" />Lista de deseos</Link></Button>
           {user ? (
             <>
-              <Button asChild variant="outline" className="mt-4 justify-start">
-                <Link href="/mi-cuenta?seccion=perfil">
-                  <UserRound aria-hidden="true" />
-                  Mi perfil
-                </Link>
-              </Button>
-              <Button asChild variant="ghost" className="justify-start">
-                <Link href="/mi-cuenta?seccion=pedidos">
-                  <PackageSearch aria-hidden="true" />
-                  Mis pedidos
-                </Link>
-              </Button>
-              {user.isAdmin ? (
-                <Button asChild variant="ghost" className="justify-start">
-                  <Link href="/admin">
-                    <LayoutDashboard aria-hidden="true" />
-                    Panel Administrador
-                  </Link>
-                </Button>
-              ) : null}
+              <MobileAccountNavigation user={user} />
               <form action={logout}>
                 <Button
                   type="submit"

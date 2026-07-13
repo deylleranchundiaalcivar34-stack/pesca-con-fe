@@ -13,7 +13,7 @@ import { navItems } from "./items-navegacion";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-white/90 backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-border/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-[96rem] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex h-16 w-36 shrink-0 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Inicio - Pesca Con Fe">
           <Image src="/images/logos/logo-nuevo-negro.webp" alt="Pesca Con Fe" width={382} height={187} priority className="h-auto max-h-14 w-full object-contain" />

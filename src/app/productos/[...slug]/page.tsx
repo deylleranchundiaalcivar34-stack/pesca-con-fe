@@ -68,6 +68,9 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
   const description =
     landing.content.shortDescription ||
     `Descubre nuestra seleccion de ${landing.node.name.toLowerCase()} para tu proxima jornada de pesca.`;
+  const hideRodsLandingDetails = slug.length === 1 && landing.node.slug === "canas";
+  const landingImage = hideRodsLandingDetails ? null : landing.content.image;
+  const showTechnicalContent = Boolean(landing.content.technicalContent) && !hideRodsLandingDetails;
 
   return (
     <PublicShell>
@@ -107,10 +110,10 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
 
       <article className="bg-white">
         <header className="mx-auto max-w-7xl px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
-          {landing.content.image ? (
+          {landingImage ? (
             <div className="relative mx-auto aspect-[16/7] min-h-64 overflow-hidden rounded-2xl bg-secondary shadow-sm sm:min-h-80">
               <Image
-                src={landing.content.image}
+                src={landingImage}
                 alt={landing.content.imageAlt}
                 fill
                 priority
@@ -121,7 +124,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
             </div>
           ) : null}
 
-          <div className={`${landing.content.image ? "mt-9 sm:mt-12" : "pt-5 sm:pt-8"} mx-auto max-w-4xl text-center`}>
+          <div className={`${landingImage ? "mt-9 sm:mt-12" : "pt-5 sm:pt-8"} mx-auto max-w-4xl text-center`}>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
               {landing.node.level}
             </p>
@@ -133,7 +136,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
             </p>
           </div>
 
-          {landing.content.technicalContent ? (
+          {showTechnicalContent ? (
             <div className="mx-auto mt-9 max-w-4xl border-t border-border pt-8 sm:mt-12 sm:pt-10">
               <h2 className="text-center text-2xl font-black text-dark-blue">
                 Información para elegir mejor

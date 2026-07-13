@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Filter } from "lucide-react";
 import type { CatalogNode, Product, ProductCategory } from "@/types/producto";
@@ -172,6 +173,7 @@ function ProductCatalogInner({
   );
   const visibleStart = filteredProducts.length ? pageStartIndex + 1 : 0;
   const visibleEnd = Math.min(pageStartIndex + paginatedProducts.length, filteredProducts.length);
+  const searchTerm = filters.search.trim();
 
   const updatePage = (page: number) => {
     const nextPage = Math.min(Math.max(page, 1), totalPages);
@@ -223,6 +225,19 @@ function ProductCatalogInner({
       </aside>
 
       <div className="min-w-0">
+        {searchTerm ? (
+          <div className="mb-4 flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-dark-blue">
+              Resultados para <span className="font-bold">“{searchTerm}”</span>
+            </p>
+            <Link
+              href="/productos"
+              className="w-fit text-sm font-semibold text-primary underline-offset-4 transition hover:text-dark-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Ver todos los productos
+            </Link>
+          </div>
+        ) : null}
         <div className="mb-5 flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-dark-blue">
