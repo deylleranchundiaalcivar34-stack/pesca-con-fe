@@ -11,6 +11,9 @@
 !.yarn/releases
 !.yarn/versions
 /docs/
+/docs/*
+/supabase/*
+/supabase/
 
 # testing
 /coverage
