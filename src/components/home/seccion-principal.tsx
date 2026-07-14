@@ -10,16 +10,19 @@ const HERO_SLIDES = [
     src: "/images/banners/banner_canas1.webp",
     alt: "Pescador realizando pesca deportiva desde una lancha",
     href: "/productos?categoria=canas",
+    imageClassName: "object-cover object-center",
   },
   {
     src: "/images/banners/banner_carretes1.webp",
     alt: "Selección de cañas, carretes y señuelos para pesca",
     href: "/productos?categoria=carrete",
+    imageClassName: "object-cover object-center",
   },
   {
     src: "/images/banners/banner_senuelos.webp",
     alt: "Equipamiento de pesca disponible en Pesca Con Fe",
     href: "/productos?categoria=senuelos",
+    imageClassName: "object-cover object-left",
   },
 ] as const;
 
@@ -77,7 +80,7 @@ export function HeroSection() {
               fill
               preload={index === 0}
               sizes="100vw"
-              className="object-cover object-center"
+              className={slide.imageClassName}
             />
           </Link>
         ))}
