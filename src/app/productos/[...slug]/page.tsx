@@ -7,19 +7,13 @@ import { BenefitsSection } from "@/components/home/seccion-beneficios";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { PaginatedProductGrid } from "@/components/products/listado-productos-paginado";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
+import { getCatalogBanner } from "@/data/imagenes-catalogo";
 import { getCatalogAttributes, getCatalogLanding, getProductBySlug } from "@/lib/supabase/data";
 import { SITE_URL } from "@/lib/constantes";
 
 interface CatalogLandingPageProps {
   params: Promise<{ slug: string[] }>;
 }
-
-const fallbackCategoryBackgrounds: Record<string, string> = {
-  canas: "/images/categorias/canas.webp",
-  carretes: "/images/categorias/carretes.webp",
-  senuelos: "/images/categorias/senuelos.webp",
-  indumentaria: "/images/categorias/indumentaria.webp",
-};
 
 export async function generateMetadata({
   params,
@@ -71,8 +65,9 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
   const description =
     landing.content.shortDescription ||
     `Descubre nuestra seleccion de ${landing.node.name.toLowerCase()} para tu proxima jornada de pesca.`;
-  const backgroundImage =
-    landing.content.image ?? fallbackCategoryBackgrounds[landing.breadcrumbs[0]?.slug ?? ""];
+  const catalogBanner = getCatalogBanner(slug);
+  const backgroundImage = catalogBanner?.src ?? landing.content.image;
+  const backgroundAlt = catalogBanner?.alt ?? landing.content.imageAlt ?? "";
 
   return (
     <PublicShell>
@@ -115,7 +110,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
           {backgroundImage ? (
             <Image
               src={backgroundImage}
-              alt=""
+              alt={backgroundAlt}
               fill
               priority
               sizes="100vw"

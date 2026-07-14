@@ -7,21 +7,21 @@ const elfsightAppClass = "elfsight-app-e2ead818-0c3f-41bb-a2ee-32fe52a21a53";
 
 const featuredPlaylists = [
   {
-    image: "/images/categorias/canas.webp",
+    image: "/images/categorias/pesca_rios.webp",
     alt: "Cañas de pesca frente al mar",
     href: "https://www.youtube.com/playlist?list=PLXQi65Q0L6DwxkF-9vvzMwC235KVCAdNF",
     label: "Ver playlist de cañas",
   },
   {
-    image: "/images/categorias/carretes.webp",
+    image: "/images/categorias/pesca_altamar.webp",
     alt: "Carretes de pesca frente al mar",
     href: "https://www.youtube.com/playlist?list=PLXQi65Q0L6DwPis4k7F0GKPys9f9Q_OfP",
     label: "Ver playlist de carretes",
   },
   {
-    image: "/images/categorias/senuelos.webp",
+    image: "/images/categorias/visita_facebook.webp",
     alt: "Señuelos de pesca frente al mar",
-    href: "https://www.youtube.com/playlist?list=PLXQi65Q0L6Dxjg7eH79Xilc9vmEXObmDi",
+    href: "https://www.facebook.com/pescaconfe1",
     label: "Ver playlist de señuelos",
   },
 ] as const;

@@ -23,7 +23,8 @@ export function WishlistContent({ products }: { products: Product[] }) {
         </div>
         <h1 className="mt-6 text-3xl font-black text-dark-blue">Lista de deseos</h1>
         <p className="mt-3 leading-7 text-muted-foreground">
-          Guarda productos con el coraz\u00f3n para encontrarlos r\u00e1pidamente aqu\u00ed.
+          Guarda productos con el {"coraz\u00f3n"} para encontrarlos {"r\u00e1pidamente"}{" "}
+          {"aqu\u00ed"}.
         </p>
         <Button asChild className="mt-7">
           <Link href="/productos">Explorar productos</Link>

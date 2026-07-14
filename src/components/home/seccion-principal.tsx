@@ -7,17 +7,17 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const HERO_SLIDES = [
   {
-    src: "/images/banners/banner-inicio.webp",
+    src: "/images/banners/banner_canas1.webp",
     alt: "Pescador realizando pesca deportiva desde una lancha",
     href: "/productos?categoria=canas",
   },
   {
-    src: "/images/banners/banner-1.webp",
+    src: "/images/banners/banner_carretes1.webp",
     alt: "Selección de cañas, carretes y señuelos para pesca",
     href: "/productos?categoria=carrete",
   },
   {
-    src: "/images/banners/banner-2.webp",
+    src: "/images/banners/banner_senuelos.webp",
     alt: "Equipamiento de pesca disponible en Pesca Con Fe",
     href: "/productos?categoria=senuelos",
   },
@@ -77,13 +77,13 @@ export function HeroSection() {
               fill
               preload={index === 0}
               sizes="100vw"
-              className="object-cover"
+              className="object-cover object-center"
             />
           </Link>
         ))}
       </div>
 
-      <div className="min-h-[22rem] sm:min-h-[28rem] lg:min-h-[32rem]" />
+      <div className="min-h-[28rem] sm:min-h-[36rem] lg:min-h-[42rem]" />
 
       <div className="absolute inset-x-0 bottom-5 z-30 flex justify-center px-4 sm:bottom-7">
         <div className="flex items-center gap-3 rounded-full border border-white/80 bg-white/80 px-2 py-2 shadow-lg shadow-black/15 backdrop-blur-md">

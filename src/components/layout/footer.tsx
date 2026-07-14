@@ -46,7 +46,7 @@ export function Footer() {
             <span className="whitespace-nowrap text-xl font-black text-white xl:text-2xl">Pesca Con Fe</span>
           </Link>
           <p className="mt-4 max-w-md text-sm leading-7 text-white/75">
-            Tienda especializada en pesca deportiva, camping y aventura en la Amazon\u00eda ecuatoriana.
+            Tienda especializada en pesca deportiva, camping y aventura en la {"Amazon\u00eda"} ecuatoriana.
           </p>
         </div>
 
