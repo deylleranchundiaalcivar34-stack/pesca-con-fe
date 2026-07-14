@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import type { CatalogAttribute, Product } from "@/types/producto";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { formatCurrency } from "@/lib/utilidades";
+import { getProductPricingSummary } from "@/lib/precios-producto";
 import { ProductGrid } from "./cuadricula-productos";
 
 const productsPerPage = 15;
@@ -40,6 +44,16 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 export function PaginatedProductGrid({ products, attributes }: PaginatedProductGridProps) {
   const [selectedPage, setSelectedPage] = useState(1);
   const [selectedFeatures, setSelectedFeatures] = useState<Record<string, string[]>>({});
+  const maxProductPrice = useMemo(
+    () => Math.max(0, ...products.map((product) => getProductPricingSummary(product).minimumEffectivePrice)),
+    [products],
+  );
+  const [maxPrice, setMaxPrice] = useState(maxProductPrice);
+  const [onSale, setOnSale] = useState(false);
+  const saleCount = useMemo(
+    () => products.filter((product) => getProductPricingSummary(product).hasOffer).length,
+    [products],
+  );
   const facetDefinitions = useMemo<FacetDefinition[]>(
     () => [
       {
@@ -101,12 +115,19 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
       ),
     [facets, products, selectedFeatures],
   );
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
+  const priceFilteredProducts = useMemo(
+    () => filteredProducts.filter((product) => {
+      const pricing = getProductPricingSummary(product);
+      return pricing.minimumEffectivePrice <= maxPrice && (!onSale || pricing.hasOffer);
+    }),
+    [filteredProducts, maxPrice, onSale],
+  );
+  const totalPages = Math.max(1, Math.ceil(priceFilteredProducts.length / productsPerPage));
   const currentPage = Math.min(selectedPage, totalPages);
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * productsPerPage;
-    return filteredProducts.slice(start, start + productsPerPage);
-  }, [currentPage, filteredProducts]);
+    return priceFilteredProducts.slice(start, start + productsPerPage);
+  }, [currentPage, priceFilteredProducts]);
 
   const changePage = (page: number) => {
     setSelectedPage(Math.min(Math.max(page, 1), totalPages));
@@ -132,22 +153,30 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
 
   const visiblePages = getVisiblePages(currentPage, totalPages);
   const visibleStart = (currentPage - 1) * productsPerPage + 1;
-  const visibleEnd = Math.min(currentPage * productsPerPage, filteredProducts.length);
+  const visibleEnd = Math.min(currentPage * productsPerPage, priceFilteredProducts.length);
+  const priceFillPercentage =
+    maxProductPrice > 0 ? Math.min(100, Math.max(0, (maxPrice / maxProductPrice) * 100)) : 0;
+  const hasActiveFilters =
+    Object.values(selectedFeatures).some((values) => values.length) ||
+    maxPrice < maxProductPrice ||
+    onSale;
 
   return (
-    <div className={facets.length ? "grid gap-8 lg:grid-cols-[minmax(250px,280px)_minmax(0,1fr)]" : undefined}>
-      {facets.length ? (
+    <div className={products.length ? "grid gap-8 lg:grid-cols-[minmax(250px,280px)_minmax(0,1fr)]" : undefined}>
+      {products.length ? (
         <aside className="min-w-0 rounded-lg border border-border bg-secondary/30 p-5 lg:sticky lg:top-20 lg:h-fit">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="font-black text-dark-blue">Características</h3>
               <p className="mt-1 text-sm text-muted-foreground">Refina los productos que quieres ver.</p>
             </div>
-            {Object.values(selectedFeatures).some((values) => values.length) ? (
+            {hasActiveFilters ? (
               <button
                 type="button"
                 onClick={() => {
                   setSelectedFeatures({});
+                  setMaxPrice(maxProductPrice);
+                  setOnSale(false);
                   setSelectedPage(1);
                 }}
                 className="text-xs font-bold text-primary hover:underline"
@@ -157,6 +186,45 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
             ) : null}
           </div>
           <div className="mt-5 space-y-6">
+            <fieldset>
+              <legend className="text-sm font-black text-dark-blue">
+                Precio máximo: {formatCurrency(maxPrice)}
+              </legend>
+              <div className="mt-3">
+                <Label htmlFor="categoryMaxPrice" className="sr-only">
+                  Precio máximo
+                </Label>
+                <input
+                  id="categoryMaxPrice"
+                  type="range"
+                  min={0}
+                  max={maxProductPrice}
+                  step={1}
+                  value={maxPrice}
+                  className="h-3 w-full cursor-pointer appearance-none rounded-full border border-input shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:shadow-sm [&::-moz-range-track]:h-3 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-3 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm"
+                  style={{
+                    background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${priceFillPercentage}%, var(--secondary) ${priceFillPercentage}%, var(--secondary) 100%)`,
+                  }}
+                  onChange={(event) => {
+                    setMaxPrice(Number(event.target.value));
+                    setSelectedPage(1);
+                  }}
+                />
+              </div>
+            </fieldset>
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-white/70 px-3 py-2.5">
+              <Label htmlFor="categoryOnSale" className="cursor-pointer text-sm font-bold text-dark-blue">
+                En oferta ({saleCount})
+              </Label>
+              <Switch
+                id="categoryOnSale"
+                checked={onSale}
+                onCheckedChange={(checked) => {
+                  setOnSale(checked);
+                  setSelectedPage(1);
+                }}
+              />
+            </div>
             {facets.map((facet) => (
               <fieldset key={facet.key}>
                 <legend className="text-sm font-black text-dark-blue">{facet.label}</legend>
@@ -189,9 +257,9 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
       <div className="min-w-0">
         <div className="mb-5 flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Mostrando {filteredProducts.length ? visibleStart : 0}-{visibleEnd} de {filteredProducts.length} productos.
+            Mostrando {priceFilteredProducts.length ? visibleStart : 0}-{visibleEnd} de {priceFilteredProducts.length} productos.
           </p>
-          {filteredProducts.length > productsPerPage ? (
+          {priceFilteredProducts.length > productsPerPage ? (
             <nav className="flex flex-wrap gap-2" aria-label="Paginación de productos">
               <Button type="button" variant="outline" size="sm" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>
                 Anterior

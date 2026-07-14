@@ -83,6 +83,7 @@ export interface ProductVariant {
   description: string;
   sku: string;
   price: number;
+  offerPrice?: number;
   additionalPrice?: number;
   stock: number;
   image?: string;
@@ -116,6 +117,7 @@ export interface Product {
   catalogNodeId?: string;
   catalogPath: CatalogPathItem[];
   price: number;
+  offerPrice?: number;
   stock: number;
   description: string;
   features: string[];

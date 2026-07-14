@@ -4,25 +4,42 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import infoPesca from "../../../public/images/banners/info_pesca.webp";
+import infoPescaPortada from "../../../public/images/banners/info_pesca_portada.webp";
 
 const HERO_SLIDES = [
   {
+    id: "info-pesca-portada",
+    src: infoPescaPortada,
+    alt: "Información de Pesca Con Fe",
+    imageClassName: "object-cover object-center",
+  },
+  {
+    id: "canas",
     src: "/images/banners/banner_canas1.webp",
     alt: "Pescador realizando pesca deportiva desde una lancha",
     href: "/productos?categoria=canas",
     imageClassName: "object-cover object-center",
   },
   {
+    id: "carretes",
     src: "/images/banners/banner_carretes1.webp",
     alt: "Selección de cañas, carretes y señuelos para pesca",
     href: "/productos?categoria=carrete",
     imageClassName: "object-cover object-center",
   },
   {
+    id: "senuelos",
     src: "/images/banners/banner_senuelos.webp",
     alt: "Equipamiento de pesca disponible en Pesca Con Fe",
     href: "/productos?categoria=senuelos",
     imageClassName: "object-cover object-left",
+  },
+  {
+    id: "info-pesca",
+    src: infoPesca,
+    alt: "Información de pesca",
+    imageClassName: "object-cover object-center",
   },
 ] as const;
 
@@ -64,9 +81,8 @@ export function HeroSection() {
     >
       <div className="absolute inset-0">
         {HERO_SLIDES.map((slide, index) => (
-          <Link
-            key={slide.src}
-            href={slide.href}
+          <div
+            key={slide.id}
             aria-label={`Ver productos de ${index === 0 ? "cañas" : index === 1 ? "carretes" : "señuelos"}`}
             className={`absolute inset-0 block transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none focus-visible:z-10 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold ${
               index === activeSlide
@@ -82,7 +98,14 @@ export function HeroSection() {
               sizes="100vw"
               className={slide.imageClassName}
             />
-          </Link>
+            {"href" in slide ? (
+              <Link
+                href={slide.href}
+                aria-label={`Ver productos de ${slide.alt}`}
+                className="absolute inset-0 z-20 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold"
+              />
+            ) : null}
+          </div>
         ))}
       </div>
 
@@ -101,7 +124,7 @@ export function HeroSection() {
           <div className="flex items-center gap-2" aria-label="Seleccionar banner">
             {HERO_SLIDES.map((slide, index) => (
               <button
-                key={slide.src}
+                key={slide.id}
                 type="button"
                 aria-label={`Mostrar banner ${index + 1}`}
                 aria-current={index === activeSlide ? "true" : undefined}

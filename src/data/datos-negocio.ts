@@ -78,14 +78,15 @@ export const categories: ProductCategory[] = [
     ],
   },
   {
-    name: "Equipamiento",
-    description: "Mochilas, bolsas y accesorios para tu experiencia de pesca.",
-    slug: "equipamiento",
-    image: "/images/categorias/equipamiento.webp",
+    name: "Camping",
+    description: "Carpas, mochilas, tulas y bolsos para tus aventuras al aire libre.",
+    slug: "camping",
+    image: "/images/categorias/camping.webp",
     subcategories: [
       { name: "Mochilas", slug: "mochilas" },
       { name: "Tulas", slug: "tulas" },
       { name: "Bolsos", slug: "bolsos" },
+      { name: "Carpas", slug: "carpas" },
     ],
   },
   {

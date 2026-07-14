@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITE_URL}/producto/${product.slug}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
-      priority: product.isFeatured ? 0.9 : 0.7,
+      priority: 0.7,
     }));
 
   const catalogRoutes = catalogPaths.map((path) => ({

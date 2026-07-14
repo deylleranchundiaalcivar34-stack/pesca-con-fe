@@ -10,7 +10,7 @@ interface CategoryCardProps {
 export function CategoryCard({ category }: CategoryCardProps) {
   return (
     <Link
-      href={`/productos?categoria=${category.slug}`}
+      href={`/productos/${category.slug}`}
       aria-label={`Ver productos de ${category.name}`}
       className="group relative block aspect-[1400/933] overflow-hidden rounded-lg bg-dark-blue shadow-[0_12px_28px_rgb(5_44_101_/_0.14)] ring-1 ring-dark-blue/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_54px_rgb(5_44_101_/_0.24)] hover:ring-gold/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:shadow-[0_18px_38px_rgb(5_44_101_/_0.16)] lg:aspect-[1.55/1]"
     >

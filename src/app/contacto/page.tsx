@@ -65,7 +65,7 @@ export default function ContactPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Información del negocio</CardTitle>
+                <CardTitle>Información</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-muted-foreground">
                 <p className="flex gap-3">
@@ -80,7 +80,7 @@ export default function ContactPage() {
                   <MapPin className="size-5 text-primary" aria-hidden="true" />
                   <span className="text-sm leading-6 text-muted-foreground">
                     <span className="block">Mega Mercado Municipal</span>
-                    <span className="block">Local N° 145 - Planta Alta</span>
+                    <span className="block">Local N° 145 y 146, Planta Alta</span>
                     <span className="block">Shushufindi, Ecuador</span>
                   </span>
                 </p>

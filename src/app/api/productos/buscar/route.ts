@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getProducts } from "@/lib/supabase/data";
+import { getProductPricingSummary } from "@/lib/precios-producto";
 
 const relatedTerms = [
   ["cana", "canas", "vara", "varas"],
@@ -9,7 +10,7 @@ const relatedTerms = [
   ["anzuelo", "anzuelos", "hook", "hooks"],
   ["combo", "combos", "kit", "kits", "set"],
   ["indumentaria", "ropa", "jersey", "gorra", "gorras", "pantalon", "pantalones", "buff", "mascara", "mascaras"],
-  ["equipamiento", "mochila", "mochilas", "tula", "tulas", "bolso", "bolsos"],
+  ["camping", "carpa", "carpas", "equipamiento", "mochila", "mochilas", "tula", "tulas", "bolso", "bolsos"],
   ["herramienta", "herramientas", "alicate", "alicates", "pinza", "pinzas", "tijera", "tijeras", "bascula", "basculas"],
 ];
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
       category: product.category,
       image: product.mainImage,
       imageAlt: product.imageAlt,
-      price: product.price,
+      price: getProductPricingSummary(product).minimumEffectivePrice,
     }));
 
   return NextResponse.json({ results });

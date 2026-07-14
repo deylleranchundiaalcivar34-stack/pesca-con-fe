@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product, ProductVariant } from "@/types/producto";
 import { calculateShipping } from "@/lib/envio";
+import { getEffectivePrice } from "@/lib/precios-producto";
 
 export interface CartItem {
   lineId: string;
@@ -91,7 +92,7 @@ export const useCartStore = create<CartState>()(
       // Calcula subtotal, envio, total y contador desde el estado actual.
       subtotal: () =>
         get().items.reduce(
-          (sum, item) => sum + (item.variant?.price ?? item.product.price) * item.quantity,
+          (sum, item) => sum + getEffectivePrice(item.variant ?? item.product) * item.quantity,
           0,
         ),
       shipping: () =>

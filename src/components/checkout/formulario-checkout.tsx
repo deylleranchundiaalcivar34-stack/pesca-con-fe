@@ -21,6 +21,7 @@ import { useIsClient } from "@/hooks/use-es-cliente";
 import { DELIVERY_TYPE_LABELS } from "@/lib/constantes";
 import { isValidEcuadorianCedula } from "@/lib/ecuador";
 import { formatCurrency } from "@/lib/utilidades";
+import { getEffectivePrice } from "@/lib/precios-producto";
 import {
   buildCheckoutWhatsAppMessage,
   getWhatsAppPrefilledUrl,
@@ -571,7 +572,7 @@ export function CheckoutForm({
                     {item.product.name} x{item.quantity}
                   </span>
                   <span className="font-semibold">
-                    {formatCurrency((item.variant?.price ?? item.product.price) * item.quantity)}
+                    {formatCurrency(getEffectivePrice(item.variant ?? item.product) * item.quantity)}
                   </span>
                 </div>
               ))}

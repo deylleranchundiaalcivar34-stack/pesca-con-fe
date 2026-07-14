@@ -7,6 +7,7 @@ import type { CartItem } from "@/store/tienda-carrito";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utilidades";
 import { useCartStore } from "@/store/tienda-carrito";
+import { getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
 
 interface CartLineItemProps {
   item: CartItem;
@@ -17,6 +18,8 @@ interface CartLineItemProps {
 export function CartLineItem({ item, compact = false }: CartLineItemProps) {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
+  const priceSource = item.variant ?? item.product;
+  const effectivePrice = getEffectivePrice(priceSource);
 
   return (
     <div className="grid grid-cols-[80px_1fr] gap-4 rounded-lg border border-border bg-white p-3">
@@ -43,7 +46,10 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
               <p className="mt-1 text-sm font-semibold text-primary">Opción: {item.variant.name}</p>
             ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
-              {formatCurrency(item.variant?.price ?? item.product.price)} · {item.product.brand}
+              {hasActiveOffer(priceSource) ? (
+                <span className="mr-1 line-through">{formatCurrency(priceSource.price)}</span>
+              ) : null}
+              {formatCurrency(effectivePrice)} · {item.product.brand}
             </p>
           </div>
           <Button
@@ -92,7 +98,7 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
 
           {!compact ? (
             <p className="text-right font-bold text-dark-blue">
-              {formatCurrency((item.variant?.price ?? item.product.price) * item.quantity)}
+              {formatCurrency(effectivePrice * item.quantity)}
             </p>
           ) : null}
         </div>

@@ -28,9 +28,39 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utilidades";
+import { getProductPricingSummary } from "@/lib/precios-producto";
 
 interface AdminProductTableProps {
   products: Product[];
+}
+
+function AdminProductPrice({ product }: { product: Product }) {
+  const pricing = getProductPricingSummary(product);
+
+  if (!pricing.hasOffer) {
+    return (
+      <span className="font-bold text-dark-blue">
+        {pricing.hasVariants ? "Desde " : ""}
+        {formatCurrency(pricing.minimumEffectivePrice)}
+      </span>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <p className="text-xs text-muted-foreground line-through">
+        {pricing.hasVariants ? "Normal desde " : ""}
+        {formatCurrency(pricing.minimumRegularPrice)}
+      </p>
+      <p className="font-bold text-primary">
+        {pricing.hasVariants ? "Desde " : ""}
+        {formatCurrency(pricing.minimumEffectivePrice)}
+      </p>
+      {pricing.hasVariants ? (
+        <Badge variant="premium">Hasta -{pricing.maximumDiscountPercentage}%</Badge>
+      ) : null}
+    </div>
+  );
 }
 
 // Muestra productos del panel admin con busqueda, filtros y acciones rapidas.
@@ -215,7 +245,10 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 font-semibold text-dark-blue">{product.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="line-clamp-2 font-semibold text-dark-blue">{product.name}</p>
+                  {product.isFeatured ? <Badge variant="premium">En inicio</Badge> : null}
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">{product.sku}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{product.brand}</p>
               </div>
@@ -228,7 +261,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Precio</p>
-                <p className="font-bold text-dark-blue">{formatCurrency(product.price)}</p>
+                <AdminProductPrice product={product} />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Stock</p>
@@ -311,14 +344,17 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                       />
                     </div>
                     <div>
-                      <p className="font-semibold text-dark-blue">{product.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-dark-blue">{product.name}</p>
+                        {product.isFeatured ? <Badge variant="premium">En inicio</Badge> : null}
+                      </div>
                       <p className="text-xs text-muted-foreground">{product.sku}</p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>{product.brand}</TableCell>
                 <TableCell>{product.category}</TableCell>
-                <TableCell>{formatCurrency(product.price)}</TableCell>
+                <TableCell><AdminProductPrice product={product} /></TableCell>
                 <TableCell>
                   <Badge variant={product.stock === 0 ? "destructive" : product.stock <= 4 ? "warning" : "success"}>
                     {product.stock}

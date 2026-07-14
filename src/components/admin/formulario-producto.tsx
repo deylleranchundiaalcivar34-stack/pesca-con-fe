@@ -31,6 +31,7 @@ type ProductFormValues = {
   brand: string;
   catalogNodeId: string;
   price: number;
+  offerPrice?: number;
   stock: number;
   description: string;
   features: string;
@@ -162,6 +163,7 @@ export function ProductForm({
       brand: product?.brand ?? brands[0] ?? "",
       catalogNodeId: initialCatalogPathIds.at(-1) ?? "",
       price: product?.price ?? 0,
+      offerPrice: variants.length ? undefined : product?.offerPrice,
       stock: product?.stock ?? 0,
       description: product?.description ?? "",
       features: product?.features.join("\n") ?? "",
@@ -173,6 +175,7 @@ export function ProductForm({
 
   const name = useWatch({ control, name: "name" });
   const brand = useWatch({ control, name: "brand" });
+  const price = useWatch({ control, name: "price" });
   const isActive = useWatch({ control, name: "isActive" });
   const isFeatured = useWatch({ control, name: "isFeatured" });
   const selectedCatalogPath = getCatalogPathByIds(catalogNodes, selectedCatalogPathIds);
@@ -349,11 +352,35 @@ export function ProductForm({
               <Input
                 id="price"
                 type="number"
+                min="0"
                 step="0.01"
                 {...register("price", { valueAsNumber: true })}
                 name="price"
                 required
               />
+            </Field>
+            <Field id="offerPrice" label="Precio de oferta (opcional)" error={errors.offerPrice?.message}>
+              <Input
+                id="offerPrice"
+                type="number"
+                min="0.01"
+                max={price > 0.01 ? price - 0.01 : 0}
+                step="0.01"
+                disabled={productVariants.length > 0}
+                {...register("offerPrice", {
+                  setValueAs: (value) => (value === "" ? undefined : Number(value)),
+                  validate: (value) =>
+                    value === undefined ||
+                    (Number.isFinite(value) && value > 0 && value < price) ||
+                    "Debe ser mayor que cero y menor que el precio normal.",
+                })}
+                name="offerPrice"
+              />
+              {productVariants.length ? (
+                <p className="text-xs text-muted-foreground">
+                  Las ofertas se configuran individualmente en cada opciÃ³n.
+                </p>
+              ) : null}
             </Field>
             <Field id="stock" label="Stock" error={errors.stock?.message}>
               <Input
@@ -444,20 +471,24 @@ export function ProductForm({
               variant="outline"
               size="sm"
               onClick={() =>
-                setProductVariants((current) => [
-                  ...current,
-                  {
-                    id: `new-${crypto.randomUUID()}`,
-                    productId: product?.id ?? "",
-                    name: "",
-                    description: "",
-                    sku: "",
-                    price: product?.price ?? 0,
-                    stock: 0,
-                    isActive: true,
-                    sortOrder: current.length + 1,
-                  },
-                ])
+                setProductVariants((current) => {
+                  if (!current.length) setValue("offerPrice", undefined);
+                  return [
+                    ...current,
+                    {
+                      id: `new-${crypto.randomUUID()}`,
+                      productId: product?.id ?? "",
+                      name: "",
+                      description: "",
+                      sku: "",
+                      price: price ?? product?.price ?? 0,
+                      offerPrice: undefined,
+                      stock: 0,
+                      isActive: true,
+                      sortOrder: current.length + 1,
+                    },
+                  ];
+                })
               }
             >
               <Plus aria-hidden="true" />
@@ -568,6 +599,40 @@ export function ProductForm({
                             )
                           }
                         />
+                      </Field>
+                      <Field id={`variant-offer-price-${index}`} label="Precio de oferta (opcional)">
+                        <Input
+                          id={`variant-offer-price-${index}`}
+                          type="number"
+                          min="0.01"
+                          max={variant.price > 0.01 ? variant.price - 0.01 : 0}
+                          step="0.01"
+                          value={variant.offerPrice ?? ""}
+                          aria-invalid={
+                            variant.offerPrice !== undefined &&
+                            (variant.offerPrice <= 0 || variant.offerPrice >= variant.price)
+                          }
+                          onChange={(event) =>
+                            setProductVariants((current) =>
+                              current.map((item) =>
+                                item.id === variant.id
+                                  ? {
+                                      ...item,
+                                      offerPrice: event.target.value
+                                        ? Number(event.target.value)
+                                        : undefined,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        {variant.offerPrice !== undefined &&
+                        (variant.offerPrice <= 0 || variant.offerPrice >= variant.price) ? (
+                          <p className="text-xs text-destructive">
+                            Debe ser mayor que cero y menor que el precio normal.
+                          </p>
+                        ) : null}
                       </Field>
                       <Field id={`variant-stock-${index}`} label="Stock">
                         <Input

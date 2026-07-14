@@ -219,21 +219,25 @@ const catalogBanners: Record<string, CatalogBanner> = {
     alt: "Banner de Buff y Mascaras",
   },
 
-  equipamiento: {
-    src: "/images/catalogo/banner_nuevo_equipamiento.webp",
-    alt: "Banner de la categoria Equipamiento",
+  camping: {
+    src: "/images/catalogo/banner_nuevo_camping.webp",
+    alt: "Banner de la categoria Camping",
   },
-  "equipamiento/mochilas": {
-    src: "/images/catalogo/banner_nuevo_equipamiento.webp",
+  "camping/mochilas": {
+    src: "/images/catalogo/banner_nuevo_camping.webp",
     alt: "Banner de Mochilas",
   },
-  "equipamiento/tulas": {
-    src: "/images/catalogo/banner_nuevo_equipamiento.webp",
+  "camping/tulas": {
+    src: "/images/catalogo/banner_nuevo_camping.webp",
     alt: "Banner de Tulas",
   },
-  "equipamiento/bolsos": {
-    src: "/images/catalogo/banner_nuevo_equipamiento.webp",
+  "camping/bolsos": {
+    src: "/images/catalogo/banner_nuevo_camping.webp",
     alt: "Banner de Bolsos",
+  },
+  "camping/carpas": {
+    src: "/images/catalogo/banner_nuevo_camping.webp",
+    alt: "Banner de Carpas",
   },
 };
 

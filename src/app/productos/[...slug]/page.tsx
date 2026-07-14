@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { BenefitsSection } from "@/components/home/seccion-beneficios";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { PaginatedProductGrid } from "@/components/products/listado-productos-paginado";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
@@ -173,7 +172,6 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
           </div>
         </div>
       </section>
-      <BenefitsSection />
     </PublicShell>
   );
 }

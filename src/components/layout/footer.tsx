@@ -12,7 +12,7 @@ const informationLinks = [
 const categoryLinks = [
   { label: "Art\u00edculos de pesca", href: "/productos" },
   { label: "Indumentaria", href: "/productos/indumentaria" },
-  { label: "Equipamiento", href: "/productos/equipamiento" },
+  { label: "Camping", href: "/productos/camping" },
 ] as const;
 
 const socialLinks = [
@@ -96,7 +96,7 @@ export function Footer() {
             </li>
             <li className="flex items-start gap-2">
               <MapPin className="mt-1 size-4 shrink-0 text-gold-light" aria-hidden="true" />
-              <span>Mega Mercado Municipal, Local N\u00b0 145 y 146, Planta Alta, Shushufindi</span>
+              <span>Mega Mercado Municipal, Local N° 145 y 146, Planta Alta, Shushufindi</span>
             </li>
             <li className="flex items-start gap-2">
               <Clock3 className="mt-1 size-4 shrink-0 text-gold-light" aria-hidden="true" />

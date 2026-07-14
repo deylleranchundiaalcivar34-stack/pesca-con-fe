@@ -3,7 +3,7 @@ import { ProductCard } from "./tarjeta-producto";
 
 interface ProductGridProps {
   products: Product[];
-  variant?: "default" | "catalog";
+  variant?: "default" | "catalog" | "home";
   compactPrice?: boolean;
 }
 
@@ -30,7 +30,9 @@ export function ProductGrid({
     <div
       className={
         variant === "catalog"
-          ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+          : variant === "home"
+            ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
           : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
       }
     >
@@ -38,7 +40,7 @@ export function ProductGrid({
         <ProductCard
           key={product.id}
           product={product}
-          priority={index < 3 && product.isFeatured}
+          priority={index < (variant === "home" ? 4 : 3)}
           compactPrice={compactPrice}
         />
       ))}

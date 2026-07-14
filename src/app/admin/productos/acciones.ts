@@ -241,10 +241,28 @@ type VariantInput = {
   description?: string;
   sku?: string;
   price?: number;
+  offerPrice?: number | null;
   stock?: number;
   isActive?: boolean;
   sortOrder?: number;
 };
+
+function parseOfferPrice(
+  value: number | string | null | undefined,
+  regularPrice: number,
+  label: string,
+) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+
+  const offerPrice = Number(value);
+  if (!Number.isFinite(offerPrice) || offerPrice <= 0 || offerPrice >= regularPrice) {
+    throw new Error(`${label} debe ser mayor que cero y menor que el precio normal.`);
+  }
+
+  return offerPrice;
+}
 
 type ProductAttributeInput = {
   attributeId?: string;
@@ -364,6 +382,11 @@ async function saveProductVariants(productId: string, formData: FormData) {
     if (!Number.isFinite(price) || price < 0) {
       throw new Error(`El precio de la opción ${index + 1} no es válido.`);
     }
+    const offerPrice = parseOfferPrice(
+      variant.offerPrice,
+      price,
+      `El precio de oferta de la opciÃ³n ${index + 1}`,
+    );
     if (!Number.isInteger(stock) || stock < 0) {
       throw new Error(`El stock de la opción ${index + 1} no es válido.`);
     }
@@ -375,6 +398,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
       descripcion: String(variant.description ?? "").trim() || null,
       sku: String(variant.sku ?? "").trim() || null,
       precio: price,
+      precio_oferta: offerPrice,
       stock,
       activo: variant.isActive !== false,
       orden: index + 1,
@@ -421,6 +445,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
         descripcion: variant.descripcion,
         sku: variant.sku,
         precio: variant.precio,
+        precio_oferta: variant.precio_oferta,
         stock: variant.stock,
         activo: variant.activo,
         orden: variant.orden,
@@ -439,6 +464,28 @@ export async function saveProduct(formData: FormData) {
     .split("\n")
     .map((feature) => feature.trim())
     .filter(Boolean);
+  const price = Number(getText(formData, "price"));
+  const stock = Number(getText(formData, "stock"));
+  const rawVariants = getText(formData, "variants");
+  let submittedVariants: unknown = [];
+
+  try {
+    submittedVariants = rawVariants ? JSON.parse(rawVariants) : [];
+  } catch {
+    throw new Error("Las opciones del producto no tienen un formato vÃ¡lido.");
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("El precio del producto no es vÃ¡lido.");
+  }
+  if (!Number.isInteger(stock) || stock < 0) {
+    throw new Error("El stock del producto no es vÃ¡lido.");
+  }
+
+  const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
+  const offerPrice = hasVariants
+    ? null
+    : parseOfferPrice(getText(formData, "offerPrice"), price, "El precio de oferta");
 
   const payload = {
     categoria_id: relations.categoryId,
@@ -447,8 +494,9 @@ export async function saveProduct(formData: FormData) {
     slug: getText(formData, "slug"),
     nombre: getText(formData, "name"),
     sku: getText(formData, "sku"),
-    precio: Number(getText(formData, "price")),
-    stock: Number(getText(formData, "stock")),
+    precio: price,
+    precio_oferta: offerPrice,
+    stock,
     descripcion: getText(formData, "description"),
     caracteristicas: features,
     youtube_video_id: getYouTubeVideoId(getText(formData, "youtubeVideoId")),

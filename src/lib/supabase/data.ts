@@ -34,6 +34,7 @@ type DbProduct = {
   catalogo_ruta_slugs?: string[] | null;
   catalogo_ruta_niveles?: string[] | null;
   precio: number | string;
+  precio_oferta: number | string | null;
   stock: number;
   descripcion: string;
   caracteristicas: string[] | null;
@@ -99,6 +100,7 @@ type DbProductVariant = {
   descripcion: string | null;
   sku: string | null;
   precio: number | string;
+  precio_oferta: number | string | null;
   precio_adicional: number | string | null;
   stock: number;
   imagen: string | null;
@@ -342,6 +344,7 @@ function mapProduct(
     catalogNodeId: row.catalogo_nodo_id ?? undefined,
     catalogPath: buildCatalogPath(row),
     price: toNumber(row.precio),
+    offerPrice: row.precio_oferta == null ? undefined : toNumber(row.precio_oferta),
     stock: row.stock,
     description: row.descripcion,
     features: row.caracteristicas ?? [],
@@ -368,6 +371,7 @@ function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
     description: variant.descripcion ?? "",
     sku: variant.sku ?? "",
     price: toNumber(variant.precio),
+    offerPrice: variant.precio_oferta == null ? undefined : toNumber(variant.precio_oferta),
     additionalPrice:
       variant.precio_adicional == null ? undefined : toNumber(variant.precio_adicional),
     stock: variant.stock,
@@ -380,12 +384,44 @@ function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
 async function getPublicProductVariants(supabase: SupabaseClient, productId: string) {
   const { data } = await supabase
     .from("producto_variantes")
-    .select("id, producto_id, nombre, descripcion, sku, precio, precio_adicional, stock, imagen, activo, orden")
+    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .eq("producto_id", productId)
     .eq("activo", true)
     .order("orden", { ascending: true });
 
   return mapProductVariants((data ?? []) as DbProductVariant[]);
+}
+
+async function getProductVariantsByProductIds(
+  supabase: SupabaseClient,
+  productIds: string[],
+  includeInactive = false,
+) {
+  if (!productIds.length) return new Map<string, ProductVariant[]>();
+
+  let query = supabase
+    .from("producto_variantes")
+    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
+    .in("producto_id", productIds)
+    .order("orden", { ascending: true });
+
+  if (!includeInactive) {
+    query = query.eq("activo", true);
+  }
+
+  const { data } = await query;
+  const grouped = new Map<string, DbProductVariant[]>();
+
+  for (const variant of (data ?? []) as DbProductVariant[]) {
+    grouped.set(variant.producto_id, [...(grouped.get(variant.producto_id) ?? []), variant]);
+  }
+
+  return new Map(
+    Array.from(grouped.entries()).map(([productId, variants]) => [
+      productId,
+      mapProductVariants(variants),
+    ]),
+  );
 }
 
 // Ordena y adapta las imagenes activas de un producto.
@@ -435,7 +471,6 @@ const getCachedProducts = unstable_cache(
     const { data, error } = await supabase
       .from("productos_publicos")
       .select("*")
-      .order("destacado", { ascending: false })
       .order("nombre", { ascending: true });
 
     if (error || !data) {
@@ -447,8 +482,14 @@ const getCachedProducts = unstable_cache(
       supabase,
       rows.map((row) => row.id),
     );
+    const variantsByProduct = await getProductVariantsByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
 
-    return rows.map((row) => mapProduct(row, imagesByProduct.get(row.id)));
+    return rows.map((row) =>
+      mapProduct(row, imagesByProduct.get(row.id), variantsByProduct.get(row.id)),
+    );
   },
   ["public-products"],
   {
@@ -855,6 +896,11 @@ export async function getAdminProducts() {
     supabase,
     products.map((row) => row.id),
   );
+  const variantsByProduct = await getProductVariantsByProductIds(
+    supabase,
+    products.map((row) => row.id),
+    true,
+  );
 
   return products.map((row) => {
     const category = categoryById.get(row.categoria_id);
@@ -881,6 +927,7 @@ export async function getAdminProducts() {
         catalogo_ruta_slugs: catalogPath?.map((item) => item.slug) ?? null,
         catalogo_ruta_niveles: catalogPath?.map((item) => item.level) ?? null,
         precio: row.precio,
+        precio_oferta: row.precio_oferta,
         stock: row.stock,
         descripcion: row.descripcion,
         caracteristicas: row.caracteristicas,
@@ -891,6 +938,7 @@ export async function getAdminProducts() {
         imagen_alt: null,
       },
       imagesByProduct.get(row.id),
+      variantsByProduct.get(row.id),
     );
   });
 }
@@ -906,7 +954,7 @@ export async function getAdminProductVariants(productId: string): Promise<Produc
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("producto_variantes")
-    .select("id, producto_id, nombre, descripcion, sku, precio, precio_adicional, stock, imagen, activo, orden")
+    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .eq("producto_id", productId)
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
@@ -922,6 +970,7 @@ export async function getAdminProductVariants(productId: string): Promise<Produc
     description: variant.descripcion ?? "",
     sku: variant.sku ?? "",
     price: toNumber(variant.precio),
+    offerPrice: variant.precio_oferta == null ? undefined : toNumber(variant.precio_oferta),
     additionalPrice: variant.precio_adicional == null ? undefined : toNumber(variant.precio_adicional),
     stock: variant.stock,
     image: variant.imagen ?? undefined,

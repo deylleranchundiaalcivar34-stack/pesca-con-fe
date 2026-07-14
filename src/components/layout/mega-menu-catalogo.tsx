@@ -60,10 +60,11 @@ const equipmentSections: FixedMenuSection[] = [
     { label: "Pantalones", href: "/productos/indumentaria/pantalones" },
     { label: "Buff / Máscaras", href: "/productos/indumentaria/buff-mascaras" },
   ] },
-  { label: "Equipamiento", href: "/productos/equipamiento", items: [
-    { label: "Mochilas", href: "/productos/equipamiento/mochilas" },
-    { label: "Tulas", href: "/productos/equipamiento/tulas" },
-    { label: "Bolsos", href: "/productos/equipamiento/bolsos" },
+  { label: "Camping", href: "/productos/camping", items: [
+    { label: "Mochilas", href: "/productos/camping/mochilas" },
+    { label: "Tulas", href: "/productos/camping/tulas" },
+    { label: "Bolsos", href: "/productos/camping/bolsos" },
+    { label: "Carpas", href: "/productos/camping/carpas" },
   ] },
 ];
 
@@ -72,7 +73,7 @@ export function FishingArticlesMenu() {
 }
 
 export function EquipmentMenu() {
-  return <FixedMegaMenu label="Indumentaria y Equipamiento" sections={equipmentSections} />;
+  return <FixedMegaMenu label="Indumentaria y Camping" sections={equipmentSections} />;
 }
 
 function FixedMegaMenu({ label, sections, wide = false }: { label: string; sections: FixedMenuSection[]; wide?: boolean }) {
@@ -111,7 +112,7 @@ function MenuSection({ section }: { section: FixedMenuSection }) {
 export function MobileFixedNavigation() {
   return <div className="space-y-3">
     <MobileMenuGroup label="Artículos de Pesca" sections={fishingSections} />
-    <MobileMenuGroup label="Indumentaria y Equipamiento" sections={equipmentSections} />
+    <MobileMenuGroup label="Indumentaria y Camping" sections={equipmentSections} />
   </div>;
 }
 

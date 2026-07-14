@@ -10,6 +10,7 @@ import { useCartStore } from "@/store/tienda-carrito";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { formatCurrency } from "@/lib/utilidades";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
+import { getDiscountPercentage, getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
 
 interface ProductDetailActionsProps {
   product: Product;
@@ -19,7 +20,9 @@ interface ProductDetailActionsProps {
 export function ProductDetailActions({ product }: ProductDetailActionsProps) {
   const [selectedVariantId, setSelectedVariantId] = useState(product.variants[0]?.id ?? "");
   const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId);
-  const currentPrice = selectedVariant?.price ?? product.price;
+  const currentSource = selectedVariant ?? product;
+  const currentPrice = getEffectivePrice(currentSource);
+  const currentHasOffer = hasActiveOffer(currentSource);
   const currentStock = selectedVariant?.stock ?? product.stock;
   const [quantity, setQuantity] = useState(currentStock > 0 ? 1 : 0);
   const addItem = useCartStore((state) => state.addItem);
@@ -32,7 +35,19 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-4xl font-black text-dark-blue">{formatCurrency(currentPrice)}</p>
+        <div>
+          {currentHasOffer ? (
+            <div className="mb-1 flex items-center gap-2">
+              <p className="text-lg text-muted-foreground line-through">
+                {formatCurrency(currentSource.price)}
+              </p>
+              <Badge variant="destructive">-{getDiscountPercentage(currentSource)}%</Badge>
+            </div>
+          ) : null}
+          <p className={`text-4xl font-black ${currentHasOffer ? "text-primary" : "text-dark-blue"}`}>
+            {formatCurrency(currentPrice)}
+          </p>
+        </div>
         <Badge variant={outOfStock ? "destructive" : "success"}>
           {outOfStock ? "Agotado" : `${currentStock} disponibles`}
         </Badge>
@@ -57,7 +72,7 @@ export function ProductDetailActions({ product }: ProductDetailActionsProps) {
           >
             {product.variants.map((variant) => (
               <option key={variant.id} value={variant.id} disabled={variant.stock === 0}>
-                {variant.name} · {formatCurrency(variant.price)}
+                {variant.name} · {formatCurrency(getEffectivePrice(variant))}
                 {variant.stock === 0 ? " · Agotado" : ""}
               </option>
             ))}

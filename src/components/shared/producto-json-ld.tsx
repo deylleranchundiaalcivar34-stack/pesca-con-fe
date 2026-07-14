@@ -1,5 +1,6 @@
 import type { Product } from "@/types/producto";
 import { SITE_URL } from "@/lib/constantes";
+import { getProductPricingSummary } from "@/lib/precios-producto";
 
 interface ProductJsonLdProps {
   product: Product;
@@ -7,6 +8,7 @@ interface ProductJsonLdProps {
 
 // Inserta datos estructurados de producto para SEO.
 export function ProductJsonLd({ product }: ProductJsonLdProps) {
+  const pricing = getProductPricingSummary(product);
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -18,7 +20,7 @@ export function ProductJsonLd({ product }: ProductJsonLdProps) {
     offers: {
       "@type": "Offer",
       priceCurrency: "USD",
-      price: product.price,
+      price: pricing.minimumEffectivePrice,
       availability:
         product.stock > 0
           ? "https://schema.org/InStock"

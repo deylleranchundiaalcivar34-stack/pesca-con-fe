@@ -11,6 +11,7 @@ import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { BackToTopButton } from "@/components/shared/boton-volver-arriba";
 import { ProductGrid } from "@/components/products/cuadricula-productos";
 import { Button } from "@/components/ui/button";
+import { getProductPricingSummary } from "@/lib/precios-producto";
 import { getCategories, getProducts } from "@/lib/supabase/data";
 
 const categoryOrder = ["canas", "carrete", "senuelos", "indumentaria"];
@@ -21,15 +22,27 @@ function getCategoryPosition(slug: string) {
   return position === -1 ? categoryOrder.length : position;
 }
 
-// Pagina principal: carga categorias y productos destacados.
+// Pagina principal: prioriza ofertas y usa destacados cuando no existen promociones.
 export default async function HomePage() {
   const [categories, products] = await Promise.all([getCategories(), getProducts()]);
   const homeCategories = [...categories].sort(
     (first, second) => getCategoryPosition(first.slug) - getCategoryPosition(second.slug),
   );
+  const saleProducts = products
+    .filter((product) => product.isActive && getProductPricingSummary(product).hasOffer)
+    .sort((first, second) => {
+      const discountDifference =
+        getProductPricingSummary(second).maximumDiscountPercentage -
+        getProductPricingSummary(first).maximumDiscountPercentage;
+
+      return discountDifference || first.name.localeCompare(second.name, "es");
+    })
+    .slice(0, 8);
   const featuredProducts = products
     .filter((product) => product.isFeatured && product.isActive)
-    .slice(0, 6);
+    .slice(0, 8);
+  const hasSaleProducts = saleProducts.length > 0;
+  const homeProducts = hasSaleProducts ? saleProducts : featuredProducts;
 
   return (
     <PublicShell>
@@ -64,17 +77,21 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeading
-              title="Recomendados para pescadores"
-              description="Una selección de productos confiables para quienes buscan buen desempeño en cada salida."
+              title={hasSaleProducts ? "Productos en oferta" : "Recomendados para pescadores"}
+              description={
+                hasSaleProducts
+                  ? "Aprovecha precios especiales en productos seleccionados para tu próxima jornada."
+                  : "Una selección de productos confiables para quienes buscan buen desempeño en cada salida."
+              }
             />
             <Button asChild variant="outline">
-              <Link href="/productos">
-                Ver catálogo
+              <Link href={hasSaleProducts ? "/productos?oferta=1" : "/productos"}>
+                {hasSaleProducts ? "Ver todas las ofertas" : "Ver catálogo"}
                 <ArrowRight aria-hidden="true" />
               </Link>
             </Button>
           </div>
-          <ProductGrid products={featuredProducts} />
+          <ProductGrid products={homeProducts} variant="home" />
         </div>
       </section>
 
