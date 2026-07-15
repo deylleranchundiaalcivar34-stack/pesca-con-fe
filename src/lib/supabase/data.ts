@@ -1042,6 +1042,9 @@ export async function getAdminOrders(): Promise<Order[]> {
     shipping: toNumber(order.envio),
     total: toNumber(order.total),
     status: order.estado,
+    paymentMethod: order.metodo_pago ?? "transferencia",
+    paymentStatus: order.estado_pago ?? "pendiente",
+    paidAt: order.pagado_en ?? undefined,
     deliveryType: order.tipo_entrega,
     createdAt: order.creado_en,
   }));
@@ -1100,6 +1103,9 @@ export async function getCustomerOrders(userId: string): Promise<Order[]> {
     shipping: toNumber(order.envio),
     total: toNumber(order.total),
     status: order.estado,
+    paymentMethod: order.metodo_pago ?? "transferencia",
+    paymentStatus: order.estado_pago ?? "pendiente",
+    paidAt: order.pagado_en ?? undefined,
     deliveryType: order.tipo_entrega,
     createdAt: order.creado_en,
   }));

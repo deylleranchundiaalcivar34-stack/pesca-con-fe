@@ -10,6 +10,15 @@ export type OrderStatus =
   | "cancelado";
 
 export type DeliveryType = "envio_servientrega" | "retiro_local";
+export type PaymentMethod = "transferencia" | "payphone";
+export type PaymentStatus =
+  | "pendiente"
+  | "preparando"
+  | "preparado"
+  | "aprobado"
+  | "cancelado"
+  | "fallido"
+  | "expirado";
 
 export interface CustomerInfo {
   fullName: string;
@@ -45,6 +54,9 @@ export interface Order {
   shipping: number;
   total: number;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paidAt?: string;
   deliveryType: DeliveryType;
   createdAt: string;
 }
