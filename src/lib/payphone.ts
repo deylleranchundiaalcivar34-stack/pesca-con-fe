@@ -61,6 +61,10 @@ function requiredEnv(name: string) {
   return value;
 }
 
+function normalizeBearerToken(token: string) {
+  return token.replace(/^Bearer\s+/i, "");
+}
+
 export function getPayPhoneConfig(): PayPhoneConfig {
   const taxMode = requiredEnv("PAYPHONE_TAX_MODE") as PayPhoneTaxMode;
 
@@ -79,7 +83,9 @@ export function getPayPhoneConfig(): PayPhoneConfig {
   }
 
   return {
-    token: requiredEnv("PAYPHONE_TOKEN"),
+    // PayPhone normalmente entrega el valor sin prefijo, pero aceptar
+    // opcionalmente "Bearer " evita enviar "Bearer Bearer <token>".
+    token: normalizeBearerToken(requiredEnv("PAYPHONE_TOKEN")),
     storeId: requiredEnv("PAYPHONE_STORE_ID"),
     responseUrl: requiredEnv("PAYPHONE_RESPONSE_URL"),
     cancellationUrl: requiredEnv("PAYPHONE_CANCELLATION_URL"),
@@ -114,12 +120,27 @@ function calculateTaxBreakdown(
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
+  const contentType = response.headers.get("content-type") ?? "sin content-type";
+  const rawBody = await response.text();
+
   try {
-    return (await response.json()) as Record<string, unknown>;
+    const parsed: unknown = JSON.parse(rawBody.replace(/^\uFEFF/, ""));
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("La respuesta JSON no es un objeto.");
+    }
+
+    return parsed as Record<string, unknown>;
   } catch {
+    console.error("PayPhone returned a non-JSON response", {
+      status: response.status,
+      contentType,
+      bodyPreview: rawBody.replace(/\s+/g, " ").slice(0, 240),
+    });
+
     throw new PayPhoneError(
-      "PayPhone devolvió una respuesta que no se pudo interpretar.",
-      String(response.status),
+      `PayPhone no pudo iniciar el pago (respuesta HTTP ${response.status}).`,
+      `HTTP_${response.status}`,
     );
   }
 }
@@ -161,6 +182,7 @@ export async function preparePayPhonePayment(input: {
     headers: {
       Authorization: `Bearer ${config.token}`,
       "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify(body),
     cache: "no-store",
@@ -194,6 +216,7 @@ export async function confirmPayPhonePayment(input: {
     headers: {
       Authorization: `Bearer ${config.token}`,
       "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify({
       id: input.id,
