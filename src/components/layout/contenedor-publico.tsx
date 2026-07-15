@@ -7,7 +7,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Header />
-      <main className="flex-1 pt-16">{children}</main>
+      <main className="public-page-canvas flex-1 bg-secondary pt-16">{children}</main>
       <Footer />
     </>
   );

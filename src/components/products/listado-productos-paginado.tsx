@@ -66,8 +66,13 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
         key: attribute.key,
         label: `${attribute.label}${attribute.unit ? ` (${attribute.unit})` : ""}`,
         getValues: (product: Product) => {
-          const value = product.attributes[attribute.key]?.trim();
-          return value ? [value] : [];
+          const values = product.variants.length
+            ? product.variants.map((variant) => variant.attributes[attribute.key])
+            : [product.attributes[attribute.key]];
+
+          return values
+            .map((value) => value?.trim())
+            .filter((value): value is string => Boolean(value));
         },
       })),
     ],
@@ -164,7 +169,7 @@ export function PaginatedProductGrid({ products, attributes }: PaginatedProductG
   return (
     <div className={products.length ? "grid gap-8 lg:grid-cols-[minmax(250px,280px)_minmax(0,1fr)]" : undefined}>
       {products.length ? (
-        <aside className="min-w-0 rounded-lg border border-border bg-secondary/30 p-5 lg:sticky lg:top-20 lg:h-fit">
+        <aside className="min-w-0 rounded-xl border border-border bg-white p-5 shadow-sm lg:sticky lg:top-20 lg:h-fit">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="font-black text-dark-blue">Características</h3>

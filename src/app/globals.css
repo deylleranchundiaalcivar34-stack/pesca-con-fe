@@ -80,6 +80,12 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Las paginas publicas comparten el azul claro del catalogo; las tarjetas siguen blancas. */
+.public-page-canvas > section.bg-white,
+.public-page-canvas > article.bg-white {
+  background-color: var(--secondary);
+}
+
 button,
 a,
 input,

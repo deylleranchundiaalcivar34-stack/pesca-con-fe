@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type PointerEvent } from "react";
+import { useState } from "react";
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ProductImageLightbox } from "@/components/products/visor-imagen-producto";
 import type { Product, ProductImage } from "@/types/producto";
 import { cn } from "@/lib/utilidades";
 
@@ -10,19 +12,6 @@ interface ProductGalleryProps {
 }
 
 const fallbackImage = "/images/products/product-placeholder.png";
-const lensSize = 180;
-const zoomFactor = 2.5;
-
-interface ZoomPosition {
-  cursorX: number;
-  cursorY: number;
-  lensLeft: number;
-  lensTop: number;
-  size: number;
-  containerWidth: number;
-  containerHeight: number;
-}
-
 // Muestra imagen principal y miniaturas del producto.
 export function ProductGallery({ product }: ProductGalleryProps) {
   const images: ProductImage[] = product.images.length
@@ -36,115 +25,98 @@ export function ProductGallery({ product }: ProductGalleryProps) {
         },
       ];
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [zoomPosition, setZoomPosition] = useState<ZoomPosition | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const selected = images[selectedIndex] ?? images[0];
 
-  const updateZoomPosition = (event: PointerEvent<HTMLDivElement>) => {
-    if (
-      event.pointerType !== "mouse" ||
-      !window.matchMedia("(hover: hover) and (pointer: fine)").matches
-    ) {
-      setZoomPosition(null);
-      return;
-    }
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const cursorX = Math.min(Math.max(event.clientX - bounds.left, 0), bounds.width);
-    const cursorY = Math.min(Math.max(event.clientY - bounds.top, 0), bounds.height);
-    const size = Math.min(lensSize, bounds.width, bounds.height);
-
-    setZoomPosition({
-      cursorX,
-      cursorY,
-      lensLeft: Math.min(Math.max(cursorX - size / 2, 0), bounds.width - size),
-      lensTop: Math.min(Math.max(cursorY - size / 2, 0), bounds.height - size),
-      size,
-      containerWidth: bounds.width,
-      containerHeight: bounds.height,
-    });
-  };
-
   const selectImage = (index: number) => {
-    setZoomPosition(null);
     setSelectedIndex(index);
   };
 
-  return (
-    <div className="space-y-4">
-      <div
-        onPointerEnter={updateZoomPosition}
-        onPointerMove={updateZoomPosition}
-        onPointerLeave={() => setZoomPosition(null)}
-        className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition hover:border-primary/40 [@media(hover:hover)_and_(pointer:fine)]:cursor-zoom-in"
-      >
-        <Image
-          src={selected.url}
-          alt={selected.alt}
-          fill
-          priority
-          sizes="(min-width: 1024px) 48vw, 100vw"
-          className="object-contain p-4 sm:p-6"
-        />
+  const selectPreviousImage = () => {
+    selectImage((selectedIndex - 1 + images.length) % images.length);
+  };
 
-        {zoomPosition ? (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute z-10 overflow-hidden rounded-md border-2 border-white bg-white shadow-[0_10px_30px_rgb(5_44_101_/_0.32)] ring-1 ring-primary/35"
-            style={{
-              left: zoomPosition.lensLeft,
-              top: zoomPosition.lensTop,
-              width: zoomPosition.size,
-              height: zoomPosition.size,
-            }}
-          >
-            <div
-              className="relative max-w-none"
-              style={{
-                width: zoomPosition.containerWidth,
-                height: zoomPosition.containerHeight,
-                transformOrigin: "top left",
-                transform: `matrix(${zoomFactor}, 0, 0, ${zoomFactor}, ${
-                  zoomPosition.size / 2 - zoomPosition.cursorX * zoomFactor
-                }, ${zoomPosition.size / 2 - zoomPosition.cursorY * zoomFactor})`,
-              }}
-            >
-              <Image
-                src={selected.url}
-                alt=""
-                fill
-                sizes="100vw"
-                className="object-contain p-4 sm:p-6"
-              />
-            </div>
+  const selectNextImage = () => {
+    selectImage((selectedIndex + 1) % images.length);
+  };
+
+  return (
+    <div className="lg:h-[540px] xl:h-[560px]">
+      <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
+        {images.length > 1 ? (
+          <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
+            {images.map((image, index) => (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() => selectImage(index)}
+                className={cn(
+                  "relative aspect-square w-20 shrink-0 overflow-hidden rounded-md border-2 bg-white shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-16",
+                  selected.id === image.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/60",
+                )}
+                aria-label={`Ver imagen: ${image.alt}`}
+              >
+                <Image
+                  src={image.url}
+                  alt={image.alt}
+                  fill
+                  sizes="96px"
+                  className="object-contain p-2"
+                />
+              </button>
+            ))}
           </div>
         ) : null}
-      </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {images.map((image, index) => (
+        <div className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition hover:border-primary/40 sm:order-2 lg:aspect-auto lg:h-full">
+          <Image
+            src={selected.url}
+            alt={selected.alt}
+            fill
+            priority
+            sizes="(min-width: 1024px) 48vw, 100vw"
+            className="object-contain p-3 sm:p-4"
+          />
           <button
-            key={image.id}
             type="button"
-            onClick={() => selectImage(index)}
-            className={cn(
-              "relative aspect-square w-20 shrink-0 overflow-hidden rounded-md border bg-white shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-24",
-              selected.id === image.id
-                ? "border-primary ring-2 ring-primary/25"
-                : "border-border hover:border-primary/60",
-            )}
-            aria-label={`Ver imagen: ${image.alt}`}
-          >
-            <Image
-              src={image.url}
-              alt={image.alt}
-              fill
-              sizes="120px"
-              className="object-contain p-2"
-            />
-          </button>
-        ))}
+            onClick={() => setIsLightboxOpen(true)}
+            className="absolute inset-0 z-10 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            aria-label={`Ampliar imagen: ${selected.alt}`}
+          />
+
+          {images.length > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={selectPreviousImage}
+                className="absolute left-3 top-1/2 z-20 grid size-11 -translate-y-1/2 place-items-center rounded-full border border-primary/20 bg-white/90 text-dark-blue shadow-md transition hover:scale-105 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:left-4"
+                aria-label="Ver imagen anterior"
+              >
+                <ChevronLeft className="size-5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={selectNextImage}
+                className="absolute right-3 top-1/2 z-20 grid size-11 -translate-y-1/2 place-items-center rounded-full border border-primary/20 bg-white/90 text-dark-blue shadow-md transition hover:scale-105 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:right-4"
+                aria-label="Ver imagen siguiente"
+              >
+                <ChevronRight className="size-5" aria-hidden="true" />
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
 
+      {isLightboxOpen ? (
+        <ProductImageLightbox
+          images={images}
+          selectedIndex={selectedIndex}
+          onSelectedIndexChange={selectImage}
+          onClose={() => setIsLightboxOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

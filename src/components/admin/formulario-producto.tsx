@@ -147,6 +147,7 @@ export function ProductForm({
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>(variants);
+  const hasProductVariants = productVariants.length > 0;
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>(
     initialAttributes ?? product?.attributes ?? {},
   );
@@ -400,18 +401,25 @@ export function ProductForm({
                 name="youtubeVideoId"
               />
             </Field>
-            <Field id="description" label="Descripcion" error={errors.description?.message} className="sm:col-span-2">
-              <Textarea id="description" {...register("description")} name="description" required />
+            <Field id="description" label="Descripción comercial" error={errors.description?.message} className="sm:col-span-2">
+              <div className="space-y-2">
+                <Textarea id="description" {...register("description")} name="description" required />
+                <p className="text-xs text-muted-foreground">
+                  Usa este espacio para el texto oficial de la marca, beneficios y contenido editorial del producto.
+                </p>
+              </div>
             </Field>
             {categoryAttributes.length ? (
               <div className="sm:col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <div className="mb-4">
-                  <h3 className="font-semibold text-dark-blue">Características para filtros</h3>
+                  <h3 className="font-semibold text-dark-blue">Especificaciones base para filtros</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Estos datos se mostrarán como filtros en la categoría seleccionada.
+                    {hasProductVariants
+                      ? "Este producto usa opciones. Sus especificaciones, selectores y filtros se toman de cada opción más abajo."
+                      : "Completa los datos técnicos del modelo general para los filtros de esta categoría."}
                   </p>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <fieldset disabled={hasProductVariants} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
                   {categoryAttributes.map((attribute) => {
                     const inputId = `attribute-${attribute.id}`;
                     const value = attributeValues[attribute.key] ?? "";
@@ -430,7 +438,7 @@ export function ProductForm({
                           type={attribute.type === "numero" ? "number" : "text"}
                           value={value}
                           list={dataListId}
-                          required={attribute.isRequired}
+                          required={attribute.isRequired && !hasProductVariants}
                           onChange={(event) =>
                             setAttributeValues((current) => ({
                               ...current,
@@ -448,11 +456,27 @@ export function ProductForm({
                       </Field>
                     );
                   })}
-                </div>
+                </fieldset>
               </div>
             ) : null}
-            <Field id="features" label="Características técnicas adicionales (una por línea)" error={errors.features?.message} className="sm:col-span-2">
-              <Textarea id="features" {...register("features")} name="features" />
+            <Field
+              id="features"
+              label={
+                hasProductVariants
+                  ? "Construcción y materiales (una por línea)"
+                  : "Características (una por línea)"
+              }
+              error={errors.features?.message}
+              className="sm:col-span-2"
+            >
+              <div className="space-y-2">
+                <Textarea id="features" {...register("features")} name="features" />
+                <p className="text-xs text-muted-foreground">
+                  {hasProductVariants
+                    ? "Ejemplo: blank de grafito, mango de EVA, portacarrete o acabado del producto. No repitas medidas de una opción."
+                    : "Agrega información útil del modelo: componentes, referencia, materiales o detalles técnicos que no estén en los filtros."}
+                </p>
+              </div>
             </Field>
           </CardContent>
         </Card>
@@ -480,6 +504,7 @@ export function ProductForm({
                       productId: product?.id ?? "",
                       name: "",
                       description: "",
+                      attributes: {},
                       sku: "",
                       price: price ?? product?.price ?? 0,
                       offerPrice: undefined,
@@ -650,23 +675,60 @@ export function ProductForm({
                           }
                         />
                       </Field>
-                      <Field id={`variant-description-${index}`} label="Características o descripción" className="sm:col-span-2">
-                        <Textarea
-                          id={`variant-description-${index}`}
-                          value={variant.description}
-                          placeholder="Longitud, poder, libraje, color, aparejo, freno máximo u otros detalles."
-                          rows={3}
-                          onChange={(event) =>
-                            setProductVariants((current) =>
-                              current.map((item) =>
-                                item.id === variant.id
-                                  ? { ...item, description: event.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      </Field>
+                      {categoryAttributes.length ? (
+                        <div className="sm:col-span-2 rounded-md border border-primary/20 bg-white p-3">
+                          <p className="text-sm font-bold text-dark-blue">Especificaciones del modelo u opción</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Estos valores alimentan los selectores, filtros y la tabla comparativa pública cuando corresponda.
+                          </p>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            {categoryAttributes.map((attribute) => {
+                              const inputId = `variant-attribute-${variant.id}-${attribute.id}`;
+                              const dataListId = attribute.options.length
+                                ? `variant-attribute-options-${variant.id}-${attribute.id}`
+                                : undefined;
+
+                              return (
+                                <Field
+                                  key={attribute.id}
+                                  id={inputId}
+                                  label={`${attribute.label}${attribute.unit ? ` (${attribute.unit})` : ""}`}
+                                >
+                                  <Input
+                                    id={inputId}
+                                    type={attribute.type === "numero" ? "number" : "text"}
+                                    list={dataListId}
+                                    value={variant.attributes[attribute.key] ?? ""}
+                                    required={attribute.isRequired && variant.isActive}
+                                    onChange={(event) =>
+                                      setProductVariants((current) =>
+                                        current.map((item) =>
+                                          item.id === variant.id
+                                            ? {
+                                                ...item,
+                                                attributes: {
+                                                  ...item.attributes,
+                                                  [attribute.key]: event.target.value,
+                                                },
+                                              }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                  {dataListId ? (
+                                    <datalist id={dataListId}>
+                                      {attribute.options.map((option) => (
+                                        <option key={option} value={option} />
+                                      ))}
+                                    </datalist>
+                                  ) : null}
+                                </Field>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     <label className="mt-4 flex items-center justify-between rounded-md border border-border bg-white p-3">

@@ -98,6 +98,7 @@ type DbProductVariant = {
   producto_id: string;
   nombre: string;
   descripcion: string | null;
+  atributos?: Record<string, unknown> | null;
   sku: string | null;
   precio: number | string;
   precio_oferta: number | string | null;
@@ -369,6 +370,11 @@ function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
     productId: variant.producto_id,
     name: variant.nombre,
     description: variant.descripcion ?? "",
+    attributes: Object.fromEntries(
+      Object.entries(variant.atributos ?? {}).flatMap(([key, value]) =>
+        typeof value === "string" && value.trim() ? [[key, value]] : [],
+      ),
+    ),
     sku: variant.sku ?? "",
     price: toNumber(variant.precio),
     offerPrice: variant.precio_oferta == null ? undefined : toNumber(variant.precio_oferta),
@@ -384,7 +390,7 @@ function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
 async function getPublicProductVariants(supabase: SupabaseClient, productId: string) {
   const { data } = await supabase
     .from("producto_variantes")
-    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
+    .select("id, producto_id, nombre, descripcion, atributos, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .eq("producto_id", productId)
     .eq("activo", true)
     .order("orden", { ascending: true });
@@ -401,7 +407,7 @@ async function getProductVariantsByProductIds(
 
   let query = supabase
     .from("producto_variantes")
-    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
+    .select("id, producto_id, nombre, descripcion, atributos, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .in("producto_id", productIds)
     .order("orden", { ascending: true });
 
@@ -954,7 +960,7 @@ export async function getAdminProductVariants(productId: string): Promise<Produc
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("producto_variantes")
-    .select("id, producto_id, nombre, descripcion, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
+    .select("id, producto_id, nombre, descripcion, atributos, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .eq("producto_id", productId)
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
@@ -968,6 +974,11 @@ export async function getAdminProductVariants(productId: string): Promise<Produc
     productId: variant.producto_id,
     name: variant.nombre,
     description: variant.descripcion ?? "",
+    attributes: Object.fromEntries(
+      Object.entries(variant.atributos ?? {}).flatMap(([key, value]) =>
+        typeof value === "string" && value.trim() ? [[key, value]] : [],
+      ),
+    ),
     sku: variant.sku ?? "",
     price: toNumber(variant.precio),
     offerPrice: variant.precio_oferta == null ? undefined : toNumber(variant.precio_oferta),

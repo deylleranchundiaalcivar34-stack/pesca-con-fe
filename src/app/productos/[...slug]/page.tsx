@@ -70,7 +70,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
 
   return (
     <PublicShell>
-      <nav className="border-b border-border bg-white py-4" aria-label="Migas de pan">
+      <nav className="border-b border-border bg-secondary py-4" aria-label="Migas de pan">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
           <Link href="/" className="font-medium transition-colors hover:text-primary">
             Inicio
@@ -104,8 +104,8 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
         </div>
       </nav>
 
-      <article className="bg-white">
-        <header className="relative isolate overflow-hidden border-b border-border bg-secondary/30">
+      <article className="bg-secondary">
+        <header className="relative isolate overflow-hidden border-b border-dark-blue/20 bg-dark-blue">
           {backgroundImage ? (
             <Image
               src={backgroundImage}
@@ -116,17 +116,17 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
               className="-z-20 object-cover opacity-50"
             />
           ) : null}
-          <div className="absolute inset-0 -z-10 bg-white/70" />
+          <div className="absolute inset-0 -z-10 bg-dark-blue/75" />
 
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(280px,390px)] lg:items-center lg:gap-16 lg:px-8">
             <div className="max-w-3xl">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
                 {landing.node.level}
               </p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-dark-blue sm:text-5xl lg:text-6xl">
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
                 {landing.content.title.toLocaleUpperCase("es")}
               </h1>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-dark-blue/80 sm:text-xl">
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-white/80 sm:text-xl">
                 {description}
               </p>
             </div>
@@ -155,7 +155,7 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
 
       </article>
 
-      <section id="productos-disponibles" className="scroll-mt-20 bg-white py-14 sm:py-16">
+      <section id="productos-disponibles" className="scroll-mt-20 bg-secondary py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             title="Productos disponibles"

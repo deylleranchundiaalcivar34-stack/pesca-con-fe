@@ -38,7 +38,7 @@ export function BenefitsSection() {
           {benefits.map((benefit) => (
             <div
               key={benefit.title}
-              className="rounded-lg border border-border bg-secondary p-5"
+              className="rounded-lg border border-border bg-white p-5 shadow-sm"
             >
               <benefit.icon className="size-8 text-primary" aria-hidden="true" />
               <h3 className="mt-4 text-lg font-bold text-dark-blue">

@@ -41,6 +41,7 @@ function revalidatePublicProducts() {
   revalidatePath("/");
   revalidatePath("/productos");
   revalidatePath("/productos/[slug]", "page");
+  revalidatePath("/producto/[slug]", "page");
 }
 
 // Extrae el ID de YouTube desde un ID directo o desde URLs comunes.
@@ -239,6 +240,8 @@ type VariantInput = {
   id?: string;
   name?: string;
   description?: string;
+  attributes?: Record<string, unknown>;
+  image?: string;
   sku?: string;
   price?: number;
   offerPrice?: number | null;
@@ -277,6 +280,25 @@ async function saveProductAttributes(
   formData: FormData,
 ) {
   const { supabase } = await requireAdmin();
+  const rawVariants = getText(formData, "variants");
+  let submittedVariants: unknown = [];
+
+  try {
+    submittedVariants = rawVariants ? JSON.parse(rawVariants) : [];
+  } catch {
+    throw new Error("Las opciones del producto no tienen un formato válido.");
+  }
+
+  // Cuando existen opciones, sus atributos son la única fuente técnica del producto.
+  if (Array.isArray(submittedVariants) && submittedVariants.length > 0) {
+    const { error } = await supabase
+      .from("producto_atributos")
+      .delete()
+      .eq("producto_id", productId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
   const rawAttributes = getText(formData, "attributes");
   let submitted: ProductAttributeInput[] = [];
 
@@ -396,6 +418,13 @@ async function saveProductVariants(productId: string, formData: FormData) {
       producto_id: productId,
       nombre: name,
       descripcion: String(variant.description ?? "").trim() || null,
+      atributos: Object.fromEntries(
+        Object.entries(variant.attributes ?? {}).flatMap(([key, value]) => {
+          const normalizedValue = typeof value === "string" ? value.trim() : "";
+          return normalizedValue ? [[key, normalizedValue]] : [];
+        }),
+      ),
+      imagen: String(variant.image ?? "").trim() || null,
       sku: String(variant.sku ?? "").trim() || null,
       precio: price,
       precio_oferta: offerPrice,
@@ -443,6 +472,8 @@ async function saveProductVariants(productId: string, formData: FormData) {
         producto_id: variant.producto_id,
         nombre: variant.nombre,
         descripcion: variant.descripcion,
+        atributos: variant.atributos,
+        imagen: variant.imagen,
         sku: variant.sku,
         precio: variant.precio,
         precio_oferta: variant.precio_oferta,

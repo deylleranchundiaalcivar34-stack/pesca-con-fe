@@ -74,7 +74,7 @@ export function ProductFilters({
     });
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/30 p-5">
+    <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-black text-dark-blue">Filtros</h3>

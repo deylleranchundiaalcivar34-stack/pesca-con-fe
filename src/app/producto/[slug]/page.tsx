@@ -3,15 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { PublicShell } from "@/components/layout/contenedor-publico";
-import { Badge } from "@/components/ui/badge";
 import { ProductGallery } from "@/components/products/galeria-producto";
 import { ProductDetailActions } from "@/components/products/acciones-detalle-producto";
+import { VariantComparison } from "@/components/products/comparador-variantes";
 import { RelatedProducts } from "@/components/products/productos-relacionados";
 import { ProductJsonLd } from "@/components/shared/producto-json-ld";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { YouTubeEmbed } from "@/components/shared/video-youtube";
 import {
   getProductBySlug,
+  getCatalogAttributes,
   getProductSlugs,
   getRelatedProducts,
 } from "@/lib/supabase/data";
@@ -57,17 +58,68 @@ export default async function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const [product, catalogAttributes] = await Promise.all([
+    getProductBySlug(slug),
+    getCatalogAttributes(),
+  ]);
 
   if (!product) notFound();
 
   const related = await getRelatedProducts(product);
+  const variantAttributes = catalogAttributes.filter(
+    (attribute) => attribute.catalogNodeId === product.catalogPath[0]?.id,
+  );
+  const supportsVariantComparison = ["canas", "carrete", "carretes", "combos"].includes(
+    product.categorySlug,
+  );
+  const hasProductOptions = product.variants.length > 0;
+  const hasVariantComparison = product.variants.length > 1 && supportsVariantComparison;
+  const descriptionPanel = (
+    <div className="rounded-xl border border-border bg-secondary p-5 shadow-sm sm:p-6">
+      <h2 className="text-2xl font-black text-dark-blue">Descripción</h2>
+      <p className="mt-4 whitespace-pre-line text-base leading-8 text-muted-foreground">
+        {product.description}
+      </p>
+    </div>
+  );
+  const plainDescriptionPanel = (
+    <div className="rounded-xl border border-border bg-secondary p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Detalles del producto</p>
+      <h2 className="mt-3 text-3xl font-black text-dark-blue">Descripción</h2>
+      <p className="mt-5 whitespace-pre-line text-base leading-8 text-muted-foreground">
+        {product.description}
+      </p>
+    </div>
+  );
+  const constructionPanel = (
+    <div className="rounded-xl border border-border bg-secondary p-5 shadow-sm sm:p-6">
+      <h2 className="text-2xl font-black text-dark-blue">
+        {hasProductOptions ? "Construcción y materiales" : "Especificaciones"}
+      </h2>
+      {product.features.length ? (
+        <ul className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
+          {product.features.map((feature) => (
+            <li key={feature} className="flex gap-3">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-gold" />
+              <span className="leading-6">{feature}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {hasProductOptions
+            ? "Consulta con nuestro equipo para conocer materiales y detalles de construcción."
+            : "Consulta con nuestro equipo para conocer las especificaciones de este producto."}
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <PublicShell>
       <ProductJsonLd product={product} />
 
-      <nav className="border-b border-border bg-secondary/35 py-4" aria-label="Migas de pan">
+      <nav className="border-b border-border bg-white py-4" aria-label="Migas de pan">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
             <Link href="/" className="shrink-0 hover:text-primary">
@@ -97,73 +149,47 @@ export default async function ProductDetailPage({
         </div>
       </nav>
 
-      <section className="bg-white pb-12 pt-7 sm:pb-16 sm:pt-10">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-12 lg:px-8">
+      <section className="bg-white pb-10 pt-5 sm:pb-12 sm:pt-6">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
           <ProductGallery product={product} />
 
-          <div className="rounded-xl border border-border bg-white p-5 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-7 lg:sticky lg:top-24">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Badge variant="premium">{product.brand}</Badge>
-            </div>
-
-            <h1 className="mt-5 text-3xl font-black tracking-tight text-dark-blue sm:text-4xl xl:text-5xl">
+          <div className="rounded-xl border border-border bg-white p-4 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-5 lg:sticky lg:top-24">
+            <h1 className="text-[1.75rem] font-black leading-[1.1] tracking-tight text-dark-blue">
               {product.name}
             </h1>
-            <p className="mt-3 text-sm font-semibold text-primary">
+            <p className="mt-2 text-sm font-semibold text-primary">
               {product.catalogPath.map((item) => item.name).join(" / ")}
             </p>
-            <p className="mt-5 line-clamp-4 text-base leading-7 text-muted-foreground">
-              {product.description}
-            </p>
 
-            <div className="mt-7 border-t border-border pt-6">
-              <ProductDetailActions product={product} />
+            <div className="mt-5 border-t border-border pt-4">
+              <ProductDetailActions product={product} variantAttributes={variantAttributes} />
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-5 text-sm">
-              <div>
-                <p className="text-muted-foreground">SKU</p>
-                <p className="mt-1 font-bold text-dark-blue">{product.sku}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Marca</p>
-                <p className="mt-1 font-bold text-dark-blue">{product.brand}</p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-border bg-secondary/25 py-12 sm:py-16">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:px-8">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-              Detalles del producto
-            </p>
-            <h2 className="mt-3 text-3xl font-black text-dark-blue">Descripción</h2>
-            <p className="mt-5 whitespace-pre-line text-base leading-8 text-muted-foreground">
-              {product.description}
-            </p>
+      <section className="border-y border-border !bg-white py-8 sm:py-10">
+        {hasVariantComparison ? (
+          <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            {descriptionPanel}
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+              <div className="overflow-hidden rounded-xl border border-border bg-secondary shadow-sm">
+                <div className="border-b border-border px-5 py-4 sm:px-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Opciones disponibles</p>
+                  <h2 className="mt-1 text-lg font-black text-dark-blue">Comparar especificaciones</h2>
+                </div>
+                <VariantComparison product={product} attributes={variantAttributes} />
+              </div>
+              {constructionPanel}
+            </div>
           </div>
-
-          <div className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-2xl font-black text-dark-blue">Características</h2>
-            {product.features.length ? (
-              <ul className="mt-5 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
-                {product.features.map((feature) => (
-                  <li key={feature} className="flex gap-3">
-                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-gold" />
-                    <span className="leading-6">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Consulta con nuestro equipo para conocer especificaciones adicionales.
-              </p>
-            )}
+        ) : (
+          <div className="mx-auto grid max-w-7xl items-start gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:px-8">
+            {plainDescriptionPanel}
+            {constructionPanel}
           </div>
-        </div>
+        )}
       </section>
 
       {product.youtubeVideoId ? (
