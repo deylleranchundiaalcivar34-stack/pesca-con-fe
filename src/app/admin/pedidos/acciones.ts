@@ -18,7 +18,23 @@ async function callOrderFunction(name: string, orderId: string) {
 
 // Confirma que el cliente pago el pedido.
 export async function confirmOrderPayment(formData: FormData) {
-  await callOrderFunction("confirmar_pago_pedido", String(formData.get("id")));
+  const orderId = String(formData.get("id"));
+  const supabase = await createClient();
+  const { data: order, error } = await supabase
+    .from("pedidos")
+    .select("metodo_pago")
+    .eq("id", orderId)
+    .single<{ metodo_pago: string }>();
+
+  if (error || !order) {
+    throw new Error("No se pudo validar el método de pago del pedido.");
+  }
+
+  if (order.metodo_pago !== "transferencia") {
+    throw new Error("Los pagos PayPhone solo se confirman mediante PayPhone.");
+  }
+
+  await callOrderFunction("confirmar_pago_pedido", orderId);
 }
 
 // Marca un pedido como listo para retirar.

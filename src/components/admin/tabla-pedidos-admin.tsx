@@ -39,6 +39,11 @@ interface AdminOrderTableProps {
   orders: Order[];
 }
 
+const PAYMENT_METHOD_LABELS = {
+  transferencia: "Transferencia",
+  payphone: "PayPhone",
+} as const;
+
 // Lista pedidos admin con filtros, detalle y botones de cambio de estado.
 export function AdminOrderTable({ orders }: AdminOrderTableProps) {
   const [status, setStatus] = useState<OrderStatus | "all">("all");
@@ -109,6 +114,7 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <Info label="Fecha" value={formatDate(order.createdAt)} />
                 <Info label="Entrega" value={DELIVERY_TYPE_LABELS[order.deliveryType]} />
+                <Info label="Pago" value={PAYMENT_METHOD_LABELS[order.paymentMethod]} />
                 <Info label="Total" value={formatCurrency(order.total)} strong />
               </div>
 
@@ -138,6 +144,7 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
                 <TableHead>Pedido</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Entrega</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
               <TableHead>Fecha</TableHead>
@@ -160,6 +167,11 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
                       <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
                     </TableCell>
                     <TableCell>{DELIVERY_TYPE_LABELS[order.deliveryType]}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.paymentMethod === "payphone" ? "premium" : "outline"}>
+                        {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{formatCurrency(order.total)}</TableCell>
                     <TableCell>
                       <StatusBadge status={order.status} />
@@ -182,7 +194,7 @@ export function AdminOrderTable({ orders }: AdminOrderTableProps) {
                   </TableRow>
                   {isExpanded ? (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={7} className="bg-secondary/45 p-0">
+                      <TableCell colSpan={8} className="bg-secondary/45 p-0">
                         <div className="border-t border-primary/20 p-4">
                           <OrderDetail order={order} />
                         </div>
@@ -208,18 +220,20 @@ function OrderActionButtons({ order }: { order: Order }) {
 
   return (
     <>
-      <form action={confirmOrderPayment}>
-        <input type="hidden" name="id" value={order.id} />
-        <Button
-          size="icon"
-          variant="ghost"
-          disabled={order.status !== "pendiente_pago"}
-          aria-label={`Confirmar pago de ${order.code}`}
-          title={`Confirmar pago de ${order.code}`}
-        >
-          <CheckCircle2 aria-hidden="true" />
-        </Button>
-      </form>
+      {order.paymentMethod === "transferencia" ? (
+        <form action={confirmOrderPayment}>
+          <input type="hidden" name="id" value={order.id} />
+          <Button
+            size="icon"
+            variant="ghost"
+            disabled={order.status !== "pendiente_pago"}
+            aria-label={`Confirmar pago de ${order.code}`}
+            title={`Confirmar pago de ${order.code}`}
+          >
+            <CheckCircle2 aria-hidden="true" />
+          </Button>
+        </form>
+      ) : null}
       {order.deliveryType === "retiro_local" ? (
         <form action={markOrderReadyForPickup}>
           <input type="hidden" name="id" value={order.id} />
@@ -293,6 +307,9 @@ function OrderDetail({ order, compact = false }: { order: Order; compact?: boole
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Badge variant="premium">{DELIVERY_TYPE_LABELS[order.deliveryType]}</Badge>
+        <Badge variant={order.paymentMethod === "payphone" ? "premium" : "outline"}>
+          {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+        </Badge>
         {order.deliveryType === "retiro_local" ? (
           <Badge variant="success">Envío $0.00</Badge>
         ) : null}

@@ -4,7 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, MapPin, MessageCircle, Store, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  CreditCard,
+  MapPin,
+  MessageCircle,
+  Store,
+  Truck,
+} from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -26,7 +33,7 @@ import {
   buildCheckoutWhatsAppMessage,
   getWhatsAppPrefilledUrl,
 } from "@/lib/whatsapp";
-import type { DeliveryType } from "@/types/pedido";
+import type { DeliveryType, PaymentMethod } from "@/types/pedido";
 import type { CheckoutCustomerDefaults, CustomerAddress } from "@/types/cliente";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import { BankAccountCard } from "./tarjeta-cuenta-bancaria";
@@ -46,6 +53,7 @@ const checkoutSchema = z
     contactPhone: z.string().optional(),
     saveAddress: z.boolean().optional(),
     deliveryType: z.enum(["envio_servientrega", "retiro_local"]),
+    paymentMethod: z.enum(["transferencia", "payphone"]),
     province: z.string().optional(),
     city: z.string().optional(),
     address: z.string().optional(),
@@ -154,6 +162,7 @@ export function CheckoutForm({
       contactPhone: customerDefaults.contactPhone ?? customerDefaults.phone ?? "",
       saveAddress: false,
       deliveryType: "envio_servientrega",
+      paymentMethod: "transferencia",
       province: customerDefaults.province ?? "Sucumbíos",
       city: customerDefaults.city ?? "Shushufindi",
       address: customerDefaults.address ?? "",
@@ -162,6 +171,7 @@ export function CheckoutForm({
   });
 
   const deliveryType = useWatch({ control, name: "deliveryType" });
+  const paymentMethod = useWatch({ control, name: "paymentMethod" });
   const selectedAddressId = useWatch({ control, name: "addressId" });
   const saveAddress = useWatch({ control, name: "saveAddress" });
   const displayShipping = isClient && deliveryType === "envio_servientrega" ? shipping : 0;
@@ -215,7 +225,7 @@ export function CheckoutForm({
       return;
     }
 
-    if (!selectedBank) {
+    if (values.paymentMethod === "transferencia" && !selectedBank) {
       toast.error("Configura una cuenta bancaria antes de generar pedidos.");
       return;
     }
@@ -224,6 +234,7 @@ export function CheckoutForm({
       customer: values,
       items: checkoutItems,
       deliveryType: values.deliveryType,
+      paymentMethod: values.paymentMethod,
     });
 
     if ("requiresAuth" in createdOrder && createdOrder.requiresAuth) {
@@ -239,6 +250,21 @@ export function CheckoutForm({
 
     if (!createdOrder.ok || !createdOrder.code) {
       toast.error(createdOrder.message);
+      return;
+    }
+
+    if (values.paymentMethod === "payphone") {
+      if (!("redirectUrl" in createdOrder) || !createdOrder.redirectUrl) {
+        toast.error("No pudimos abrir el pago seguro. Intenta nuevamente.");
+        return;
+      }
+
+      window.location.assign(createdOrder.redirectUrl);
+      return;
+    }
+
+    if (!("order" in createdOrder) || !createdOrder.order || !selectedBank) {
+      toast.error("No pudimos preparar el comprobante de transferencia.");
       return;
     }
 
@@ -541,20 +567,50 @@ export function CheckoutForm({
             <CardTitle>Método de pago</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Transferencias nacionales Ecuador. Elige una cuenta y envía el
-              comprobante por WhatsApp.
-            </p>
-            <div className="grid gap-3">
-              {bankAccounts.map((account) => (
-                <BankAccountCard
-                  key={account.id}
-                  account={account}
-                  selected={selectedBankId === account.id}
-                  onSelect={() => setSelectedBankId(account.id)}
-                />
-              ))}
+            <input type="hidden" {...register("paymentMethod")} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PaymentMethodButton
+                value="transferencia"
+                selected={paymentMethod === "transferencia"}
+                title="Transferencia bancaria"
+                description="Genera el pedido y envía el comprobante por WhatsApp."
+                icon={MessageCircle}
+                onSelect={(value) =>
+                  setValue("paymentMethod", value, { shouldDirty: true })
+                }
+              />
+              <PaymentMethodButton
+                value="payphone"
+                selected={paymentMethod === "payphone"}
+                title="Tarjeta con PayPhone"
+                description="Paga en la plataforma segura de PayPhone."
+                icon={CreditCard}
+                onSelect={(value) =>
+                  setValue("paymentMethod", value, { shouldDirty: true })
+                }
+              />
             </div>
+
+            {paymentMethod === "transferencia" ? (
+              <div className="mt-5 grid gap-3">
+                {bankAccounts.map((account) => (
+                  <BankAccountCard
+                    key={account.id}
+                    account={account}
+                    selected={selectedBankId === account.id}
+                    onSelect={() => setSelectedBankId(account.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-lg border border-primary/20 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
+                <p className="font-semibold text-dark-blue">Pago protegido por PayPhone</p>
+                <p className="mt-1">
+                  Te enviaremos a PayPhone para ingresar los datos de tu tarjeta. Pesca
+                  Con Fe no almacena esa información.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -598,17 +654,61 @@ export function CheckoutForm({
               size="lg"
               disabled={isSubmitting || !visibleItems.length}
             >
-              <MessageCircle aria-hidden="true" />
-              Generar pedido y enviar comprobante por WhatsApp
+              {paymentMethod === "payphone" ? (
+                <CreditCard aria-hidden="true" />
+              ) : (
+                <MessageCircle aria-hidden="true" />
+              )}
+              {paymentMethod === "payphone"
+                ? "Continuar al pago seguro"
+                : "Generar pedido y enviar comprobante por WhatsApp"}
             </Button>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Te contactaremos por WhatsApp para confirmar tu pedido y coordinar la
-              entrega.
+              {paymentMethod === "payphone"
+                ? "El pedido se confirmará automáticamente cuando PayPhone apruebe el pago."
+                : "Te contactaremos por WhatsApp para confirmar tu pedido y coordinar la entrega."}
             </p>
           </CardContent>
         </Card>
       </aside>
     </form>
+  );
+}
+
+function PaymentMethodButton({
+  value,
+  selected,
+  title,
+  description,
+  icon: Icon,
+  onSelect,
+}: {
+  value: PaymentMethod;
+  selected: boolean;
+  title: string;
+  description: string;
+  icon: typeof CreditCard;
+  onSelect: (value: PaymentMethod) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={`rounded-lg border p-4 text-left transition hover:border-primary hover:bg-secondary ${
+        selected
+          ? "border-primary bg-secondary ring-2 ring-primary/20"
+          : "border-border bg-white"
+      }`}
+      aria-pressed={selected}
+    >
+      <span className="flex items-center gap-3 font-semibold text-dark-blue">
+        <Icon className="size-5 text-primary" aria-hidden="true" />
+        {title}
+      </span>
+      <span className="mt-2 block text-sm leading-6 text-muted-foreground">
+        {description}
+      </span>
+    </button>
   );
 }
 

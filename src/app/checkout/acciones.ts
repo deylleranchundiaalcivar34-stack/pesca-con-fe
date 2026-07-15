@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { PayPhoneError, getPayPhoneConfig, preparePayPhonePayment } from "@/lib/payphone";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCustomerProfile } from "@/lib/usuario";
-import type { DeliveryType, OrderItem } from "@/types/pedido";
+import type { DeliveryType, OrderItem, PaymentMethod } from "@/types/pedido";
 
 type CreateCheckoutOrderInput = {
   customer: {
@@ -18,11 +20,18 @@ type CreateCheckoutOrderInput = {
   };
   items: Array<Pick<OrderItem, "productId" | "variantId" | "quantity">>;
   deliveryType: DeliveryType;
+  paymentMethod: PaymentMethod;
 };
 
 type CheckoutOrderRpcRow = {
   id: string;
   codigo: string;
+};
+
+type PayPhoneOrderRpcRow = CheckoutOrderRpcRow & {
+  client_transaction_id: string;
+  amount_cents: number;
+  expires_at: string;
 };
 
 type PersistedCheckoutItem = {
@@ -82,6 +91,25 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     };
   }
 
+  let payPhoneAdmin: ReturnType<typeof createAdminClient> | null = null;
+
+  if (input.paymentMethod === "payphone") {
+    try {
+      getPayPhoneConfig();
+      payPhoneAdmin = createAdminClient();
+    } catch (error) {
+      console.error(
+        "PayPhone checkout configuration is incomplete",
+        error instanceof Error ? error.message : "Unknown configuration error",
+      );
+      return {
+        ok: false,
+        message: "El pago con tarjeta todavía no está disponible. Intenta por transferencia.",
+        code: null,
+      };
+    }
+  }
+
   let addressId = input.customer.addressId || null;
 
   if (
@@ -139,6 +167,70 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       cantidad: item.quantity,
     })),
   };
+
+  if (input.paymentMethod === "payphone" && payPhoneAdmin) {
+    const { data: rpcOrder, error } = await supabase
+      .rpc("crear_pedido_payphone", { payload })
+      .single<PayPhoneOrderRpcRow>();
+
+    if (error || !rpcOrder) {
+      console.error("PayPhone order creation failed", error);
+      return {
+        ok: false,
+        message: checkoutOrderErrorMessage,
+        code: null,
+      };
+    }
+
+    try {
+      const preparedPayment = await preparePayPhonePayment({
+        amount: Number(rpcOrder.amount_cents),
+        clientTransactionId: rpcOrder.client_transaction_id,
+        orderCode: rpcOrder.codigo,
+      });
+      const { error: preparationError } = await payPhoneAdmin.rpc(
+        "registrar_preparacion_payphone",
+        {
+          client_transaction_id_input: rpcOrder.client_transaction_id,
+          provider_prepare_id_input: preparedPayment.paymentId,
+        },
+      );
+
+      if (preparationError) {
+        throw new Error("No se pudo registrar la preparación del pago.");
+      }
+
+      revalidatePath("/mi-cuenta");
+      revalidatePath("/admin/pedidos");
+
+      return {
+        ok: true,
+        message: "Pago preparado.",
+        code: rpcOrder.codigo,
+        redirectUrl: preparedPayment.payWithCard,
+      };
+    } catch (error) {
+      const safeCode = error instanceof PayPhoneError ? error.code : "PREPARE_FAILED";
+      const safeMessage =
+        error instanceof PayPhoneError
+          ? error.message
+          : "No se pudo iniciar el pago con PayPhone.";
+
+      console.error("PayPhone preparation failed", safeCode ?? "UNKNOWN");
+      await payPhoneAdmin.rpc("cancelar_intento_payphone", {
+        client_transaction_id_input: rpcOrder.client_transaction_id,
+        estado_input: "fallido",
+        codigo_error_input: safeCode ?? null,
+        mensaje_error_input: safeMessage,
+      });
+
+      return {
+        ok: false,
+        message: `${safeMessage} Puedes intentar nuevamente o pagar por transferencia.`,
+        code: null,
+      };
+    }
+  }
 
   const { data: rpcOrder, error } = await supabase
     .rpc("crear_pedido_web", { payload })
