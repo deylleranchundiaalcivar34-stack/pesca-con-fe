@@ -10,6 +10,7 @@ type PayPhoneTaxMode = "without_tax" | "tax_included";
 
 type PayPhoneConfig = {
   token: string;
+  storeId: string;
   responseUrl: string;
   cancellationUrl: string;
   taxMode: PayPhoneTaxMode;
@@ -79,6 +80,7 @@ export function getPayPhoneConfig(): PayPhoneConfig {
 
   return {
     token: requiredEnv("PAYPHONE_TOKEN"),
+    storeId: requiredEnv("PAYPHONE_STORE_ID"),
     responseUrl: requiredEnv("PAYPHONE_RESPONSE_URL"),
     cancellationUrl: requiredEnv("PAYPHONE_CANCELLATION_URL"),
     taxMode,
@@ -146,6 +148,7 @@ export async function preparePayPhonePayment(input: {
     tip: 0,
     clientTransactionId: input.clientTransactionId,
     reference: `Pedido ${input.orderCode} - Pesca Con Fe`,
+    storeId: config.storeId,
     currency: "USD",
     responseUrl: config.responseUrl,
     cancellationUrl: config.cancellationUrl,
