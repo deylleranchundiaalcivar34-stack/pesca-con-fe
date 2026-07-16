@@ -51,6 +51,7 @@ async function getAuthenticatedCheckoutData(): Promise<{
       isAuthenticated: true,
       addressId: primaryAddress?.id,
       fullName: profile.fullName,
+      cedula: profile.cedula,
       phone: profile.phone,
       email: profile.email,
       province: primaryAddress?.province,

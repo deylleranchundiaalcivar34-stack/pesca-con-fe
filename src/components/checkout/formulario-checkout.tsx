@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  AlertTriangle,
   CheckCircle2,
   CreditCard,
   MapPin,
@@ -22,10 +23,23 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCartStore } from "@/store/tienda-carrito";
 import { useIsClient } from "@/hooks/use-es-cliente";
 import { DELIVERY_TYPE_LABELS } from "@/lib/constantes";
+import {
+  ECUADOR_PROVINCIAS,
+  ECUADOR_UBICACIONES,
+  isGalapagosDestination,
+  isValidEcuadorianCedula,
+} from "@/lib/checkout-envio";
 import { formatCurrency } from "@/lib/utilidades";
 import { getEffectivePrice } from "@/lib/precios-producto";
 import {
@@ -45,6 +59,7 @@ const checkoutSchema = z
     email: z.string().email("Correo inválido.").optional().or(z.literal("")),
     addressId: z.string().optional(),
     addressAlias: z.string().optional(),
+    cedula: z.string().optional(),
     contactPhone: z.string().optional(),
     saveAddress: z.boolean().optional(),
     deliveryType: z.enum(["envio_servientrega", "retiro_local"]),
@@ -64,6 +79,14 @@ const checkoutSchema = z
     }
 
     if (values.deliveryType !== "envio_servientrega") return;
+
+    if (!isValidEcuadorianCedula(values.cedula)) {
+      context.addIssue({
+        code: "custom",
+        path: ["cedula"],
+        message: "Ingresa una cédula ecuatoriana válida de 10 dígitos.",
+      });
+    }
 
     if (!values.province || values.province.trim().length < 2) {
       context.addIssue({
@@ -154,6 +177,7 @@ export function CheckoutForm({
       email: customerDefaults.email ?? "",
       addressId: customerDefaults.addressId ?? "",
       addressAlias: "Principal",
+      cedula: customerDefaults.cedula ?? "",
       contactPhone: customerDefaults.contactPhone ?? customerDefaults.phone ?? "",
       saveAddress: false,
       deliveryType: "envio_servientrega",
@@ -167,10 +191,10 @@ export function CheckoutForm({
 
   const deliveryType = useWatch({ control, name: "deliveryType" });
   const paymentMethod = useWatch({ control, name: "paymentMethod" });
+  const selectedProvince = useWatch({ control, name: "province" });
+  const selectedCity = useWatch({ control, name: "city" });
   const selectedAddressId = useWatch({ control, name: "addressId" });
   const saveAddress = useWatch({ control, name: "saveAddress" });
-  const displayShipping = isClient && deliveryType === "envio_servientrega" ? shipping : 0;
-  const displayTotal = displaySubtotal + displayShipping;
   const visibleItems = isClient ? items : [];
   const checkoutItems = visibleItems.map((item) => ({
     productId: item.product.id,
@@ -180,13 +204,41 @@ export function CheckoutForm({
   const canSaveAddresses = Boolean(customerDefaults.isAuthenticated);
   const hasSavedAddresses = checkoutAddresses.length > 0;
   const isManualAddress = !selectedAddressId;
+  const isGalapagosDelivery =
+    deliveryType === "envio_servientrega" &&
+    isGalapagosDestination(selectedProvince, selectedCity);
+  const displayShipping =
+    isClient && deliveryType === "envio_servientrega" && !isGalapagosDelivery ? shipping : 0;
+  const displayTotal = displaySubtotal + displayShipping;
+  const cityOptions = useMemo(() => {
+    const cities = [
+      ...(ECUADOR_UBICACIONES[selectedProvince as keyof typeof ECUADOR_UBICACIONES] ?? []),
+    ] as string[];
+
+    return selectedCity && !cities.includes(selectedCity)
+      ? [selectedCity, ...cities]
+      : cities;
+  }, [selectedCity, selectedProvince]);
+
+  useEffect(() => {
+    if (isGalapagosDelivery && paymentMethod === "payphone") {
+      setValue("paymentMethod", "transferencia", { shouldDirty: true, shouldValidate: true });
+    }
+  }, [isGalapagosDelivery, paymentMethod, setValue]);
   const clearSelectedAddress = () => {
     if (selectedAddressId) {
       setValue("addressId", "", { shouldDirty: true });
     }
   };
-  const provinceField = register("province", { onChange: clearSelectedAddress });
-  const cityField = register("city", { onChange: clearSelectedAddress });
+  const selectProvince = (province: string) => {
+    clearSelectedAddress();
+    setValue("province", province, { shouldDirty: true, shouldValidate: true });
+    setValue("city", "", { shouldDirty: true, shouldValidate: true });
+  };
+  const selectCity = (city: string) => {
+    clearSelectedAddress();
+    setValue("city", city, { shouldDirty: true, shouldValidate: true });
+  };
   const addressField = register("address", { onChange: clearSelectedAddress });
   const deliveryReferenceField = register("deliveryReference", {
     onChange: clearSelectedAddress,
@@ -220,7 +272,11 @@ export function CheckoutForm({
       return;
     }
 
-    if (values.paymentMethod === "transferencia" && !selectedBank) {
+    const isGalapagosOrder =
+      values.deliveryType === "envio_servientrega" &&
+      isGalapagosDestination(values.province, values.city);
+
+    if (values.paymentMethod === "transferencia" && !selectedBank && !isGalapagosOrder) {
       toast.error("Configura una cuenta bancaria antes de generar pedidos.");
       return;
     }
@@ -258,7 +314,11 @@ export function CheckoutForm({
       return;
     }
 
-    if (!("order" in createdOrder) || !createdOrder.order || !selectedBank) {
+    if (
+      !("order" in createdOrder) ||
+      !createdOrder.order ||
+      (!selectedBank && !isGalapagosOrder)
+    ) {
       toast.error("No pudimos preparar el comprobante de transferencia.");
       return;
     }
@@ -272,7 +332,7 @@ export function CheckoutForm({
       subtotal: createdOrder.order.subtotal,
       shipping: createdOrder.order.shipping,
       total: createdOrder.order.total,
-      bankAccount: selectedBank,
+      bankAccount: isGalapagosOrder ? undefined : selectedBank,
       deliveryType: values.deliveryType,
       orderCode: createdOrder.code,
       business: businessConfig,
@@ -310,45 +370,11 @@ export function CheckoutForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_390px]">
+      <input type="hidden" {...register("addressId")} />
+      <input type="hidden" {...register("fullName")} />
+      <input type="hidden" {...register("phone")} />
+      <input type="hidden" {...register("email")} />
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Datos del cliente</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Estos datos se toman de tu perfil. Puedes modificarlos desde{" "}
-              <Link
-                href="/mi-cuenta?seccion=perfil"
-                className="font-semibold text-primary hover:underline"
-              >
-                Mi cuenta
-              </Link>
-              .
-            </p>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <input type="hidden" {...register("addressId")} />
-            <Field id="fullName" label="Nombre completo" error={errors.fullName?.message}>
-              <Input
-                id="fullName"
-                {...register("fullName")}
-                autoComplete="name"
-                readOnly
-                className="bg-muted"
-              />
-            </Field>
-            <Field id="email" label="Correo" error={errors.email?.message}>
-              <Input
-                id="email"
-                {...register("email")}
-                type="email"
-                autoComplete="email"
-                readOnly
-                className="bg-muted"
-              />
-            </Field>
-          </CardContent>
-        </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Modalidad de entrega</CardTitle>
@@ -433,6 +459,25 @@ export function CheckoutForm({
                     </p>
                   </div>
                 </div>
+                {isGalapagosDelivery ? (
+                  <div
+                    className="mt-4 rounded-lg border border-gold/50 bg-gold/10 p-4 text-sm leading-6 text-dark-blue"
+                    role="alert"
+                  >
+                    <p className="flex gap-2 font-semibold">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden="true" />
+                      Envíos a Galápagos: tarifa por confirmar
+                    </p>
+                    <p className="mt-2 text-muted-foreground">
+                      Servientrega calcula este envío según peso y tamaño. Te contactaremos por
+                      WhatsApp para confirmar el valor antes de solicitar el pago.
+                    </p>
+                    <p className="mt-1 font-medium text-dark-blue">
+                      Para este destino solo está disponible transferencia por WhatsApp; el pago
+                      con PayPhone se habilitará cuando confirmemos la tarifa.
+                    </p>
+                  </div>
+                ) : null}
                 {hasSavedAddresses ? (
                   <div className="mt-5">
                     <Label>Direcciones guardadas</Label>
@@ -481,10 +526,60 @@ export function CheckoutForm({
                 ) : null}
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field id="province" label="Provincia" error={errors.province?.message}>
-                    <Input id="province" {...provinceField} />
+                    <Select value={selectedProvince ?? ""} onValueChange={selectProvince}>
+                      <SelectTrigger id="province" aria-label="Selecciona una provincia">
+                        <SelectValue placeholder="Selecciona una provincia" />
+                      </SelectTrigger>
+                      <SelectContent>
+                      {selectedProvince && !ECUADOR_PROVINCIAS.includes(selectedProvince) ? (
+                        <SelectItem value={selectedProvince}>{selectedProvince}</SelectItem>
+                      ) : null}
+                      {ECUADOR_PROVINCIAS.map((province) => (
+                        <SelectItem key={province} value={province}>
+                          {province}
+                        </SelectItem>
+                      ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                   <Field id="city" label="Ciudad" error={errors.city?.message}>
-                    <Input id="city" {...cityField} />
+                    <Select
+                      value={selectedCity ?? ""}
+                      onValueChange={selectCity}
+                      disabled={!selectedProvince || !cityOptions.length}
+                    >
+                      <SelectTrigger id="city" aria-label="Selecciona una ciudad">
+                        <SelectValue placeholder="Selecciona una ciudad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                      {cityOptions.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field
+                    id="cedula"
+                    className="sm:col-span-2"
+                    label="Cédula ecuatoriana"
+                    error={errors.cedula?.message}
+                  >
+                    <Input
+                      id="cedula"
+                      {...register("cedula", {
+                        onChange: (event) => {
+                          event.target.value = event.target.value.replace(/\D/g, "").slice(0, 10);
+                        },
+                      })}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      title="Ingresa una cédula ecuatoriana válida de 10 dígitos."
+                      placeholder="Ejemplo: 1710034065"
+                    />
                   </Field>
                   <Field
                     id="address"
@@ -571,8 +666,13 @@ export function CheckoutForm({
                 value="payphone"
                 selected={paymentMethod === "payphone"}
                 title="Tarjeta con PayPhone"
-                description="Paga en la plataforma segura de PayPhone."
+                description={
+                  isGalapagosDelivery
+                    ? "Disponible después de confirmar la tarifa de envío por WhatsApp."
+                    : "Paga en la plataforma segura de PayPhone."
+                }
                 icon={CreditCard}
+                disabled={isGalapagosDelivery}
                 onSelect={(value) =>
                   setValue("paymentMethod", value, { shouldDirty: true })
                 }
@@ -580,16 +680,26 @@ export function CheckoutForm({
             </div>
 
             {paymentMethod === "transferencia" ? (
-              <div className="mt-5 grid gap-3">
-                {bankAccounts.map((account) => (
-                  <BankAccountCard
-                    key={account.id}
-                    account={account}
-                    selected={selectedBankId === account.id}
-                    onSelect={() => setSelectedBankId(account.id)}
-                  />
-                ))}
-              </div>
+              isGalapagosDelivery ? (
+                <div className="mt-5 rounded-lg border border-gold/50 bg-gold/10 p-4 text-sm leading-6 text-muted-foreground">
+                  <p className="font-semibold text-dark-blue">Cotización pendiente por WhatsApp</p>
+                  <p className="mt-1">
+                    Primero confirmaremos el costo de Servientrega según el peso y tamaño
+                    del pedido. No realices la transferencia hasta recibir esa cotización.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-3">
+                  {bankAccounts.map((account) => (
+                    <BankAccountCard
+                      key={account.id}
+                      account={account}
+                      selected={selectedBankId === account.id}
+                      onSelect={() => setSelectedBankId(account.id)}
+                    />
+                  ))}
+                </div>
+              )
             ) : (
               <div className="mt-5 rounded-lg border border-primary/20 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
                 <p className="font-semibold text-dark-blue">Pago protegido por PayPhone</p>
@@ -629,7 +739,7 @@ export function CheckoutForm({
               </div>
               <div className="flex justify-between">
                 <span>{DELIVERY_TYPE_LABELS[deliveryType]}</span>
-                <span>{formatCurrency(displayShipping)}</span>
+                <span>{isGalapagosDelivery ? "Por cotizar" : formatCurrency(displayShipping)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold text-dark-blue">
                 <span>Total</span>
@@ -649,12 +759,16 @@ export function CheckoutForm({
               )}
               {paymentMethod === "payphone"
                 ? "Continuar al pago seguro"
-                : "Generar pedido y enviar comprobante por WhatsApp"}
+                : isGalapagosDelivery
+                  ? "Solicitar cotización por WhatsApp"
+                  : "Generar pedido y enviar comprobante por WhatsApp"}
             </Button>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
               {paymentMethod === "payphone"
                 ? "El pedido se confirmará automáticamente cuando PayPhone apruebe el pago."
-                : "Te contactaremos por WhatsApp para confirmar tu pedido y coordinar la entrega."}
+                : isGalapagosDelivery
+                  ? "Confirmaremos por WhatsApp la tarifa de Galápagos antes de solicitar el pago."
+                  : "Te contactaremos por WhatsApp para confirmar tu pedido y coordinar la entrega."}
             </p>
           </CardContent>
         </Card>
@@ -669,6 +783,7 @@ function PaymentMethodButton({
   title,
   description,
   icon: Icon,
+  disabled = false,
   onSelect,
 }: {
   value: PaymentMethod;
@@ -676,16 +791,20 @@ function PaymentMethodButton({
   title: string;
   description: string;
   icon: typeof CreditCard;
+  disabled?: boolean;
   onSelect: (value: PaymentMethod) => void;
 }) {
   return (
     <button
       type="button"
       onClick={() => onSelect(value)}
-      className={`rounded-lg border p-4 text-left transition hover:border-primary hover:bg-secondary ${
+      disabled={disabled}
+      className={`rounded-lg border p-4 text-left transition ${
         selected
           ? "border-primary bg-secondary ring-2 ring-primary/20"
           : "border-border bg-white"
+      } ${
+        disabled ? "cursor-not-allowed opacity-55" : "hover:border-primary hover:bg-secondary"
       }`}
       aria-pressed={selected}
     >
@@ -717,7 +836,7 @@ function Field({
   return (
     <div className={className}>
       <Label htmlFor={id}>{label}</Label>
-      <div className="mt-2 [&>input]:w-full [&>textarea]:w-full">
+      <div className="mt-2 [&>input]:w-full [&>select]:w-full [&>textarea]:w-full">
         {children}
       </div>
       {error ? (

@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { PayPhoneError, getPayPhoneConfig, preparePayPhonePayment } from "@/lib/payphone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  isGalapagosDestination,
+  isValidEcuadorianCedula,
+  normalizeEcuadorianCedula,
+} from "@/lib/checkout-envio";
 import { getCustomerProfile } from "@/lib/usuario";
 import type { DeliveryType, OrderItem, PaymentMethod } from "@/types/pedido";
 
@@ -11,6 +16,7 @@ type CreateCheckoutOrderInput = {
   customer: {
     addressId?: string;
     addressAlias?: string;
+    cedula?: string;
     contactPhone?: string;
     saveAddress?: boolean;
     province?: string;
@@ -89,6 +95,45 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     };
   }
 
+  const isServientrega = input.deliveryType === "envio_servientrega";
+  const isGalapagosDelivery =
+    isServientrega && isGalapagosDestination(input.customer.province, input.customer.city);
+  const cedula = normalizeEcuadorianCedula(input.customer.cedula ?? "");
+
+  if (isServientrega && !isValidEcuadorianCedula(cedula)) {
+    return {
+      ok: false,
+      message: "Para envío por Servientrega ingresa una cédula ecuatoriana válida.",
+      code: null,
+    };
+  }
+
+  if (isGalapagosDelivery && input.paymentMethod === "payphone") {
+    return {
+      ok: false,
+      message: "Los envíos a Galápagos se cotizan por WhatsApp antes de pagar.",
+      code: null,
+    };
+  }
+
+  if (isServientrega) {
+    const { data: updatedProfile, error: cedulaError } = await supabase
+      .from("perfiles_cliente")
+      .update({ cedula })
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (cedulaError || !updatedProfile) {
+      console.error("Checkout cedula registration failed", cedulaError);
+      return {
+        ok: false,
+        message: "No pudimos validar la cédula para el envío. Intenta nuevamente.",
+        code: null,
+      };
+    }
+  }
+
   let payPhoneAdmin: ReturnType<typeof createAdminClient> | null = null;
 
   if (input.paymentMethod === "payphone") {
@@ -153,6 +198,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   }
 
   const payload = {
+    cliente_cedula: isServientrega ? cedula : null,
     cliente_provincia: input.customer.province || null,
     cliente_ciudad: input.customer.city || null,
     cliente_direccion: input.customer.address || null,

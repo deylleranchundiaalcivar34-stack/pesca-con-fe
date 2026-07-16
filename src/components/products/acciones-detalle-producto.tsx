@@ -7,6 +7,13 @@ import { toast } from "sonner";
 import type { CatalogAttribute, Product, ProductVariant } from "@/types/producto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCartStore } from "@/store/tienda-carrito";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { formatCurrency } from "@/lib/utilidades";
@@ -162,25 +169,31 @@ export function ProductDetailActions({ product, variantAttributes }: ProductDeta
               Selecciona una opción
             </label>
           )}
-          <select
-            id="product-option"
+          <Select
             value={selectedVariantId}
-            onChange={(event) => {
+            onValueChange={(value) => {
               const nextVariant = product.variants.find(
-                (variant) => variant.id === event.target.value,
+                (variant) => variant.id === value,
               );
-              setSelectedVariantId(event.target.value);
+              setSelectedVariantId(value);
               setQuantity(nextVariant && nextVariant.stock > 0 ? 1 : 0);
             }}
-            className={selectableAttributes.length ? "hidden" : "mt-1 h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-dark-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"}
           >
+            <SelectTrigger
+              id="product-option"
+              className={selectableAttributes.length ? "hidden" : "mt-1 text-xs"}
+            >
+              <SelectValue placeholder="Selecciona una opción" />
+            </SelectTrigger>
+            <SelectContent>
             {product.variants.map((variant) => (
-              <option key={variant.id} value={variant.id} disabled={variant.stock === 0}>
+              <SelectItem key={variant.id} value={variant.id} disabled={variant.stock === 0}>
                 {variant.name} · {formatCurrency(getEffectivePrice(variant))}
                 {variant.stock === 0 ? " · Agotado" : ""}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+            </SelectContent>
+          </Select>
           {selectedVariant?.description ? (
             <p className="mt-2 whitespace-pre-line text-sm leading-5 text-muted-foreground">
               {selectedVariant.description}

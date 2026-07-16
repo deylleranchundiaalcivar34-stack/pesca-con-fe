@@ -1,6 +1,7 @@
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { CustomerInfo, DeliveryType, OrderItem } from "@/types/pedido";
 import { businessConfig } from "@/data/datos-negocio";
+import { isGalapagosDestination } from "./checkout-envio";
 import { formatCurrency } from "./utilidades";
 
 interface CheckoutMessageInput {
@@ -9,7 +10,7 @@ interface CheckoutMessageInput {
   subtotal: number;
   shipping: number;
   total: number;
-  bankAccount: BankAccount;
+  bankAccount?: BankAccount;
   deliveryType: DeliveryType;
   orderCode?: string;
   business?: BusinessConfig;
@@ -22,6 +23,9 @@ interface CustomerQuestionMessageInput {
 
 // Arma el mensaje que se envia al WhatsApp de la tienda al finalizar checkout.
 export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
+  const isGalapagosDelivery =
+    input.deliveryType === "envio_servientrega" &&
+    isGalapagosDestination(input.customer.province, input.customer.city);
   const productLines = input.items
     .map(
       (item) =>
@@ -45,13 +49,19 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     `Subtotal: ${formatCurrency(input.subtotal)}`,
     input.deliveryType === "retiro_local"
       ? "Retiro en local: sin costo de envío"
-      : `Envío Servientrega: ${formatCurrency(input.shipping)}`,
-    `*Total: ${formatCurrency(input.total)}*`,
+      : isGalapagosDelivery
+        ? "Envío a Galápagos: tarifa pendiente de cotización"
+        : `Envío Servientrega: ${formatCurrency(input.shipping)}`,
+    isGalapagosDelivery
+      ? `*Total de productos: ${formatCurrency(input.total)}*`
+      : `*Total: ${formatCurrency(input.total)}*`,
     "",
-    "*CUENTA BANCARIA*",
-    `Banco: ${input.bankAccount.bank}`,
-    `Cuenta: ${input.bankAccount.accountType} ${input.bankAccount.accountNumber}`,
-    `Titular: ${input.bankAccount.owner}`,
+    input.bankAccount ? "*CUENTA BANCARIA*" : undefined,
+    input.bankAccount ? `Banco: ${input.bankAccount.bank}` : undefined,
+    input.bankAccount
+      ? `Cuenta: ${input.bankAccount.accountType} ${input.bankAccount.accountNumber}`
+      : undefined,
+    input.bankAccount ? `Titular: ${input.bankAccount.owner}` : undefined,
     "",
     "*ENTREGA*",
     input.deliveryType === "retiro_local"
@@ -69,8 +79,13 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     input.deliveryType === "envio_servientrega" && input.customer.contactPhone
       ? `Celular de contacto: ${input.customer.contactPhone}`
       : undefined,
+    isGalapagosDelivery
+      ? "La tarifa de envío a Galápagos se confirmará por WhatsApp según peso y tamaño."
+      : undefined,
     "",
-    "Adjunto el comprobante de transferencia para confirmar el pago.",
+    isGalapagosDelivery
+      ? "Solicito la cotización del envío antes de realizar la transferencia."
+      : "Adjunto el comprobante de transferencia para confirmar el pago.",
   ]
     .filter(Boolean)
     .join("\n");

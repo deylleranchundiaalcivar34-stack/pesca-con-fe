@@ -7,6 +7,13 @@ import { Filter } from "lucide-react";
 import type { Product, ProductCategory } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -305,16 +312,19 @@ function ProductCatalogInner({
               </SheetContent>
             </Sheet>
 
-            <select
+            <Select
               value={filters.sort}
-              onChange={(event) => updateSort(event.target.value)}
-              className="h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              aria-label="Ordenar productos"
+              onValueChange={updateSort}
             >
-              <option value="name">Nombre A-Z</option>
-              <option value="price-asc">Precio menor</option>
-              <option value="price-desc">Precio mayor</option>
-            </select>
+              <SelectTrigger className="w-48" aria-label="Ordenar productos">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nombre A-Z</SelectItem>
+                <SelectItem value="price-asc">Precio menor</SelectItem>
+                <SelectItem value="price-desc">Precio mayor</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
