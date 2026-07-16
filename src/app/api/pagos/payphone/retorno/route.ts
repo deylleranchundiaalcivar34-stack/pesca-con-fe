@@ -110,12 +110,8 @@ export async function GET(request: NextRequest) {
 
     const canceled =
       confirmation.statusCode === 2 || confirmation.transactionStatus === "Canceled";
-    await admin.rpc("cancelar_intento_payphone", {
+    await admin.rpc("descartar_intento_payphone_servidor", {
       client_transaction_id_input: clientTransactionId,
-      estado_input: canceled ? "cancelado" : "fallido",
-      codigo_error_input:
-        confirmation.messageCode == null ? null : String(confirmation.messageCode),
-      mensaje_error_input: confirmation.message ?? "Pago no aprobado por PayPhone.",
     });
 
     return resultRedirect(

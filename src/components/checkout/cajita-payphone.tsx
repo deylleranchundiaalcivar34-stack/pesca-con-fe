@@ -46,9 +46,26 @@ function loadPayPhoneBox() {
   });
 }
 
-export function PayPhoneBox({ payment, onClose }: { payment: PayPhoneBoxPayment; onClose: () => void }) {
+export function PayPhoneBox({
+  payment,
+  onClose,
+}: {
+  payment: PayPhoneBoxPayment;
+  onClose: () => Promise<void>;
+}) {
   const containerId = `payphone-box-${payment.clientTransactionId}`;
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [isClosing, setIsClosing] = useState(false);
+
+  const closePayment = async () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    try {
+      await onClose();
+    } finally {
+      setIsClosing(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -92,7 +109,9 @@ export function PayPhoneBox({ payment, onClose }: { payment: PayPhoneBoxPayment;
             <h2 id="payphone-box-title" className="mt-1 text-xl font-bold text-dark-blue">Paga con tarjeta</h2>
             <p className="mt-1 text-sm text-muted-foreground">Completa tu pago sin salir de Pesca Con Fe.</p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar pago"><X /></Button>
+          <Button type="button" variant="ghost" size="icon" onClick={closePayment} disabled={isClosing} aria-label="Cancelar pago">
+            {isClosing ? <LoaderCircle className="animate-spin" /> : <X />}
+          </Button>
         </div>
         <div className="px-5 py-6 sm:px-7">
           {status === "loading" ? <div className="flex min-h-36 items-center justify-center gap-3 text-sm text-muted-foreground"><LoaderCircle className="size-5 animate-spin text-primary" /> Cargando pago seguro…</div> : null}

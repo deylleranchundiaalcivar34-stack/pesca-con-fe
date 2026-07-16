@@ -18,7 +18,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { createCheckoutOrder } from "@/app/checkout/acciones";
+import { createCheckoutOrder, discardPayPhoneCheckout } from "@/app/checkout/acciones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -375,6 +375,19 @@ export function CheckoutForm({
     setSuccessOrder(createdOrder.code);
     window.open(getWhatsAppPrefilledUrl(message, businessConfig), "_blank", "noopener,noreferrer");
     clearCart();
+  };
+
+  const closePayPhonePayment = async () => {
+    if (!payPhonePayment) return;
+
+    const discarded = await discardPayPhoneCheckout(payPhonePayment.clientTransactionId);
+    if (!discarded.ok) {
+      toast.error("No pudimos cancelar este intento. Espera un momento y vuelve a intentar.");
+      return;
+    }
+
+    setPayPhonePayment(null);
+    toast.message("Pago cancelado. El pedido no se registró y el stock quedó disponible.");
   };
 
   if (successOrder) {
@@ -867,7 +880,7 @@ export function CheckoutForm({
         </Card>
       </aside>
     </form>
-    {payPhonePayment ? <PayPhoneBox payment={payPhonePayment} onClose={() => setPayPhonePayment(null)} /> : null}
+    {payPhonePayment ? <PayPhoneBox payment={payPhonePayment} onClose={closePayPhonePayment} /> : null}
     </>
   );
 }

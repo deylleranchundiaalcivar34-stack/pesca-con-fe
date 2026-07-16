@@ -295,11 +295,8 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       const safeMessage = "No se pudo preparar el pago con PayPhone.";
 
       console.error("PayPhone box preparation failed", safeCode);
-      await payPhoneAdmin.rpc("cancelar_intento_payphone", {
+      await payPhoneAdmin.rpc("descartar_intento_payphone_servidor", {
         client_transaction_id_input: rpcOrder.client_transaction_id,
-        estado_input: "fallido",
-        codigo_error_input: safeCode,
-        mensaje_error_input: safeMessage,
       });
 
       return {
@@ -365,4 +362,39 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       total: Number(persistedOrder.total),
     },
   };
+}
+
+// El pedido de PayPhone es temporal hasta que el callback confirme el cobro.
+// Al cerrar la Cajita se borra junto con sus reservas de inventario.
+export async function discardPayPhoneCheckout(clientTransactionId: string) {
+  if (!/^PCF-[a-f0-9]{32}$/i.test(clientTransactionId)) {
+    return { ok: false };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false };
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("descartar_intento_payphone_servidor", {
+    client_transaction_id_input: clientTransactionId,
+    cliente_id_input: user.id,
+  });
+
+  if (error) {
+    console.error("PayPhone checkout discard failed", error);
+    return { ok: false };
+  }
+
+  if (data) {
+    revalidatePath("/mi-cuenta");
+    revalidatePath("/admin/pedidos");
+  }
+
+  return { ok: Boolean(data) };
 }
