@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     "Revisa tus datos, elige envío o retiro en local y envía el comprobante por WhatsApp a Pesca Con Fe.",
 };
 
-// Exige una cuenta con perfil completo y precarga los datos del checkout.
+// Exige una cuenta con nombre y correo, y deja el contacto para el pedido.
 async function getAuthenticatedCheckoutData(): Promise<{
   customerDefaults: CheckoutCustomerDefaults;
   checkoutAddresses: Awaited<ReturnType<typeof getCustomerAddresses>>;
@@ -39,8 +39,6 @@ async function getAuthenticatedCheckoutData(): Promise<{
   ]);
   if (
     !profile?.fullName.trim() ||
-    !profile.cedula.trim() ||
-    !profile.phone.trim() ||
     !profile.email.trim()
   ) {
     redirect("/mi-cuenta?seccion=perfil&checkout=1");
@@ -53,14 +51,13 @@ async function getAuthenticatedCheckoutData(): Promise<{
       isAuthenticated: true,
       addressId: primaryAddress?.id,
       fullName: profile.fullName,
-      cedula: profile.cedula,
       phone: profile.phone,
       email: profile.email,
       province: primaryAddress?.province,
       city: primaryAddress?.city,
       address: primaryAddress?.address,
       deliveryReference: primaryAddress?.deliveryReference,
-      contactPhone: primaryAddress?.contactPhone ?? profile.phone,
+      contactPhone: primaryAddress?.contactPhone ?? profile.phone ?? "",
     },
     checkoutAddresses: addresses,
   };

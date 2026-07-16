@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isValidEcuadorianCedula } from "@/lib/ecuador";
+import { HCaptchaControl, isHCaptchaConfigured } from "@/components/shared/captcha-hcaptcha";
 import { notifyPublicSessionChange } from "@/lib/sesion-publica";
+import { getPasswordValidationError, passwordPolicyHint } from "@/lib/seguridad-contrasena";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utilidades";
 
@@ -48,7 +49,7 @@ function getAuthErrorMessage(message?: string) {
   }
 
   if (normalized.includes("database error saving new user")) {
-    return "No pudimos crear la cuenta. Es posible que el correo o la cédula ya estén registrados.";
+    return "No pudimos crear la cuenta. Intenta nuevamente.";
   }
 
   return message;
@@ -91,6 +92,10 @@ export function LoginPanel({
 }: LoginPanelProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [loginCaptchaToken, setLoginCaptchaToken] = useState<string | null>(null);
+  const [registerCaptchaToken, setRegisterCaptchaToken] = useState<string | null>(null);
+  const [loginCaptchaVersion, setLoginCaptchaVersion] = useState(0);
+  const [registerCaptchaVersion, setRegisterCaptchaVersion] = useState(0);
   const routeErrorMessage = getRouteErrorMessage(error);
   const initialStatusMessage = confirmed
     ? ["Correo confirmado. Ya puedes iniciar sesión.", accessMessage]
@@ -110,6 +115,7 @@ export function LoginPanel({
   };
   const redirectQuery =
     redirectTo === "/" ? "" : `&redirect=${encodeURIComponent(redirectTo)}`;
+  const captchaIsRequired = isHCaptchaConfigured();
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -119,6 +125,13 @@ export function LoginPanel({
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
+
+    if (captchaIsRequired && !loginCaptchaToken) {
+      setIsPending(false);
+      showStatus("Completa la verificacion de seguridad para continuar.");
+      return;
+    }
+
     const { supabase, error: configError } = getSupabaseClientOrMessage();
 
     if (!supabase) {
@@ -130,8 +143,13 @@ export function LoginPanel({
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken: loginCaptchaToken ?? undefined },
     });
 
+    if (captchaIsRequired) {
+      setLoginCaptchaToken(null);
+      setLoginCaptchaVersion((version) => version + 1);
+    }
     setIsPending(false);
 
     if (signInError) {
@@ -153,14 +171,33 @@ export function LoginPanel({
     const formData = new FormData(event.currentTarget);
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const cedula = String(formData.get("cedula") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
+    const confirmPassword = String(formData.get("confirmPassword") ?? "");
+    const honeypot = String(formData.get("website") ?? "").trim();
 
-    if (!isValidEcuadorianCedula(cedula)) {
+    if (honeypot) {
       setIsPending(false);
-      showStatus("Ingresa una cédula ecuatoriana válida.");
+      showStatus("No pudimos completar el registro. Intenta nuevamente.");
+      return;
+    }
+
+    if (captchaIsRequired && !registerCaptchaToken) {
+      setIsPending(false);
+      showStatus("Completa la verificacion de seguridad para continuar.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setIsPending(false);
+      showStatus("Las contraseñas no coinciden.");
+      return;
+    }
+
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) {
+      setIsPending(false);
+      showStatus(passwordError);
       return;
     }
 
@@ -176,17 +213,20 @@ export function LoginPanel({
       email,
       password,
       options: {
+        captchaToken: registerCaptchaToken ?? undefined,
         emailRedirectTo: `${window.location.origin}/login?confirmed=1${redirectQuery}`,
         data: {
           first_name: firstName,
           last_name: lastName,
           full_name: `${firstName} ${lastName}`.trim(),
-          phone,
-          cedula,
         },
       },
     });
 
+    if (captchaIsRequired) {
+      setRegisterCaptchaToken(null);
+      setRegisterCaptchaVersion((version) => version + 1);
+    }
     setIsPending(false);
 
     if (signUpError) {
@@ -200,26 +240,6 @@ export function LoginPanel({
     }
 
     if (data.session) {
-      const { error: profileError } = await supabase
-        .from("perfiles_cliente")
-        .upsert(
-          {
-            id: data.session.user.id,
-            nombres: firstName,
-            apellidos: lastName,
-            cedula,
-            celular: phone,
-            correo: email,
-          },
-          { onConflict: "id" },
-        );
-
-      if (profileError) {
-        setIsPending(false);
-        showStatus(profileError.message);
-        return;
-      }
-
       toast.success("Cuenta creada");
       notifyPublicSessionChange();
       router.push(redirectTo);
@@ -228,7 +248,7 @@ export function LoginPanel({
     }
 
     showStatus(
-      "Registro creado. Revisa tu correo para confirmar la cuenta. Tus datos se usarán para agilizar tus pedidos.",
+      "Registro creado. Revisa tu correo para confirmar tu cuenta.",
       "info",
     );
   };
@@ -291,12 +311,26 @@ export function LoginPanel({
                   required
                 />
               </div>
+              <HCaptchaControl key={loginCaptchaVersion} onTokenChange={setLoginCaptchaToken} />
+              <Button asChild variant="link" className="h-auto justify-start px-0 text-sm">
+                <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
+              </Button>
               <Button type="submit" className="w-full" size="lg" disabled={isPending}>
                 Ingresar
               </Button>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
+              <div className="absolute -left-[10000px] h-px w-px overflow-hidden opacity-0" aria-hidden="true">
+                <Label htmlFor="register-website">Sitio web</Label>
+                <Input
+                  id="register-website"
+                  name="website"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="register-first-name">Nombre</Label>
@@ -320,32 +354,6 @@ export function LoginPanel({
                 </div>
               </div>
               <div>
-                <Label htmlFor="register-cedula">Cédula</Label>
-                <Input
-                  id="register-cedula"
-                  name="cedula"
-                  className="mt-2"
-                  autoComplete="off"
-                  inputMode="numeric"
-                  minLength={10}
-                  maxLength={10}
-                  pattern="[0-9]{10}"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="register-phone">Celular</Label>
-                <Input
-                  id="register-phone"
-                  name="phone"
-                  type="tel"
-                  className="mt-2"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  required
-                />
-              </div>
-              <div>
                 <Label htmlFor="register-email">Correo</Label>
                 <Input
                   id="register-email"
@@ -364,10 +372,27 @@ export function LoginPanel({
                   type="password"
                   className="mt-2"
                   autoComplete="new-password"
-                  minLength={6}
+                  minLength={8}
+                  aria-describedby="register-password-help"
+                  required
+                />
+                <p id="register-password-help" className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {passwordPolicyHint}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="register-confirm-password">Confirmar contraseña</Label>
+                <Input
+                  id="register-confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  className="mt-2"
+                  autoComplete="new-password"
+                  minLength={8}
                   required
                 />
               </div>
+              <HCaptchaControl key={registerCaptchaVersion} onTokenChange={setRegisterCaptchaToken} />
               <Button type="submit" className="w-full" size="lg" disabled={isPending}>
                 <UserPlus aria-hidden="true" />
                 Crear cuenta

@@ -14,8 +14,8 @@ type DbCustomerProfile = {
   nombres: string;
   apellidos: string;
   nombre_completo: string | null;
-  cedula: string;
-  celular: string;
+  cedula: string | null;
+  celular: string | null;
   correo: string;
 };
 
@@ -41,8 +41,8 @@ function mapCustomerProfile(row: DbCustomerProfile): CustomerProfile {
     firstName: row.nombres,
     lastName: row.apellidos,
     fullName,
-    cedula: row.cedula,
-    phone: row.celular,
+    cedula: row.cedula ?? undefined,
+    phone: row.celular ?? undefined,
     email: row.correo,
   };
 }

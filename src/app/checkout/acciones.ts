@@ -79,8 +79,6 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
 
   if (
     !profile?.fullName.trim() ||
-    !profile.cedula.trim() ||
-    !profile.phone.trim() ||
     !profile.email.trim()
   ) {
     return {
@@ -159,6 +157,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     cliente_ciudad: input.customer.city || null,
     cliente_direccion: input.customer.address || null,
     cliente_referencia_entrega: input.customer.deliveryReference || null,
+    cliente_celular: input.customer.contactPhone || null,
     direccion_cliente_id: addressId,
     tipo_entrega: input.deliveryType,
     items: input.items.map((item) => ({

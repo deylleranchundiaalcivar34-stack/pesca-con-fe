@@ -26,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCartStore } from "@/store/tienda-carrito";
 import { useIsClient } from "@/hooks/use-es-cliente";
 import { DELIVERY_TYPE_LABELS } from "@/lib/constantes";
-import { isValidEcuadorianCedula } from "@/lib/ecuador";
 import { formatCurrency } from "@/lib/utilidades";
 import { getEffectivePrice } from "@/lib/precios-producto";
 import {
@@ -42,11 +41,7 @@ import { BankAccountCard } from "./tarjeta-cuenta-bancaria";
 const checkoutSchema = z
   .object({
     fullName: z.string().min(3, "Escribe tu nombre completo."),
-    cedula: z
-      .string()
-      .min(10, "Escribe tu cédula ecuatoriana.")
-      .refine(isValidEcuadorianCedula, "Ingresa una cédula ecuatoriana válida."),
-    phone: z.string().min(9, "Escribe un celular válido."),
+    phone: z.string().optional(),
     email: z.string().email("Correo inválido.").optional().or(z.literal("")),
     addressId: z.string().optional(),
     addressAlias: z.string().optional(),
@@ -60,6 +55,14 @@ const checkoutSchema = z
     deliveryReference: z.string().optional(),
   })
   .superRefine((values, context) => {
+    if (!values.contactPhone || values.contactPhone.trim().length < 9) {
+      context.addIssue({
+        code: "custom",
+        path: ["contactPhone"],
+        message: "Escribe un celular de contacto válido.",
+      });
+    }
+
     if (values.deliveryType !== "envio_servientrega") return;
 
     if (!values.province || values.province.trim().length < 2) {
@@ -86,13 +89,6 @@ const checkoutSchema = z
       });
     }
 
-    if (!values.contactPhone || values.contactPhone.trim().length < 9) {
-      context.addIssue({
-        code: "custom",
-        path: ["contactPhone"],
-        message: "Escribe un celular de contacto válido.",
-      });
-    }
   });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
@@ -154,7 +150,6 @@ export function CheckoutForm({
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       fullName: customerDefaults.fullName ?? "",
-      cedula: customerDefaults.cedula ?? "",
       phone: customerDefaults.phone ?? "",
       email: customerDefaults.email ?? "",
       addressId: customerDefaults.addressId ?? "",
@@ -269,7 +264,10 @@ export function CheckoutForm({
     }
 
     const message = buildCheckoutWhatsAppMessage({
-      customer: values,
+      customer: {
+        ...values,
+        phone: values.contactPhone ?? "",
+      },
       items: createdOrder.order.items,
       subtotal: createdOrder.order.subtotal,
       shipping: createdOrder.order.shipping,
@@ -338,27 +336,6 @@ export function CheckoutForm({
                 className="bg-muted"
               />
             </Field>
-            <Field id="cedula" label="Cédula ecuatoriana" error={errors.cedula?.message}>
-              <Input
-                id="cedula"
-                {...register("cedula")}
-                autoComplete="off"
-                inputMode="numeric"
-                maxLength={10}
-                readOnly
-                className="bg-muted"
-              />
-            </Field>
-            <Field id="phone" label="Celular" error={errors.phone?.message}>
-              <Input
-                id="phone"
-                {...register("phone")}
-                inputMode="tel"
-                autoComplete="tel"
-                readOnly
-                className="bg-muted"
-              />
-            </Field>
             <Field id="email" label="Correo" error={errors.email?.message}>
               <Input
                 id="email"
@@ -413,15 +390,26 @@ export function CheckoutForm({
             </div>
 
             {deliveryType === "retiro_local" ? (
-              <div className="mt-4 rounded-lg border border-gold/40 bg-gold/10 p-4 text-sm leading-6 text-dark-blue">
-                <p className="flex gap-2 font-semibold">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                  {businessConfig.location}, {businessConfig.city}
-                </p>
-                <p className="mt-2 text-muted-foreground">{businessConfig.schedule}</p>
-                <p className="mt-2 text-muted-foreground">
-                  Espera la confirmación por WhatsApp antes de acercarte.
-                </p>
+              <div className="mt-4 space-y-4">
+                <div className="rounded-lg border border-gold/40 bg-gold/10 p-4 text-sm leading-6 text-dark-blue">
+                  <p className="flex gap-2 font-semibold">
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                    {businessConfig.location}, {businessConfig.city}
+                  </p>
+                  <p className="mt-2 text-muted-foreground">{businessConfig.schedule}</p>
+                  <p className="mt-2 text-muted-foreground">
+                    Espera la confirmación por WhatsApp antes de acercarte.
+                  </p>
+                </div>
+                <Field id="contactPhone" label="Celular de contacto" error={errors.contactPhone?.message}>
+                  <Input
+                    id="contactPhone"
+                    {...contactPhoneField}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="Ejemplo: 0991234567"
+                  />
+                </Field>
               </div>
             ) : (
               <>

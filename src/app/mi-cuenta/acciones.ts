@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isValidEcuadorianCedula } from "@/lib/ecuador";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfileFormState = {
@@ -36,19 +35,10 @@ export async function updateProfile(
 ): Promise<ProfileFormState> {
   const firstName = getText(formData, "firstName");
   const lastName = getText(formData, "lastName");
-  const cedula = getText(formData, "cedula");
-  const phone = getText(formData, "phone");
 
-  if (!firstName || !lastName || !phone) {
+  if (!firstName || !lastName) {
     return {
-      message: "Completa nombre, apellido y celular.",
-      success: false,
-    };
-  }
-
-  if (!isValidEcuadorianCedula(cedula)) {
-    return {
-      message: "Ingresa una cédula ecuatoriana válida.",
+      message: "Completa nombre y apellido.",
       success: false,
     };
   }
@@ -67,8 +57,6 @@ export async function updateProfile(
       first_name: firstName,
       last_name: lastName,
       full_name: `${firstName} ${lastName}`.trim(),
-      phone,
-      cedula,
     },
   });
 
@@ -86,8 +74,6 @@ export async function updateProfile(
         id: user.id,
         nombres: firstName,
         apellidos: lastName,
-        cedula,
-        celular: phone,
         correo: user.email ?? "",
       },
       { onConflict: "id" },

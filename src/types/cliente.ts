@@ -2,7 +2,6 @@ export type CheckoutCustomerDefaults = {
   isAuthenticated?: boolean;
   addressId?: string;
   fullName?: string;
-  cedula?: string;
   phone?: string;
   email?: string;
   province?: string;
@@ -18,8 +17,8 @@ export type CustomerProfile = {
   firstName: string;
   lastName: string;
   fullName: string;
-  cedula: string;
-  phone: string;
+  cedula?: string;
+  phone?: string;
   email: string;
 };
 

@@ -69,33 +69,6 @@ export function ProfileForm({ user }: { user: PublicUserSummary }) {
               required
             />
           </div>
-          <div>
-            <Label htmlFor="cedula">Cédula ecuatoriana</Label>
-            <Input
-              id="cedula"
-              name="cedula"
-              className="mt-2"
-              defaultValue={user.cedula ?? ""}
-              autoComplete="off"
-              inputMode="numeric"
-              maxLength={10}
-              minLength={10}
-              pattern="[0-9]{10}"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="phone">Celular</Label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              className="mt-2"
-              defaultValue={user.phone ?? ""}
-              autoComplete="tel"
-              required
-            />
-          </div>
           <div className="sm:col-span-2">
             <Label htmlFor="email">Correo</Label>
             <Input
