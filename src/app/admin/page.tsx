@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, Boxes, DollarSign, PackagePlus, ShoppingBag } from "lucide-react";
-import { AdminMetricCard } from "@/components/admin/tarjeta-metrica-admin";
+import { PackagePlus } from "lucide-react";
+import { AdminSalesSummary } from "@/components/admin/resumen-ventas-admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,18 +15,12 @@ import { StatusBadge } from "@/components/shared/insignia-estado";
 import { getAdminOrders, getAdminProducts } from "@/lib/supabase/data";
 import { formatCurrency, formatDate } from "@/lib/utilidades";
 
-// Dashboard admin con metricas, pedidos recientes y bajo stock.
+// Dashboard operativo: ventas filtrables, pedidos recientes e inventario a vigilar.
 export default async function AdminDashboardPage() {
   const [orders, products] = await Promise.all([getAdminOrders(), getAdminProducts()]);
-  const confirmedOrders = orders.filter(
-    (order) => order.status === "pagado_confirmado" || order.status === "enviado",
-  );
-  const pendingOrders = orders.filter((order) => order.status === "pendiente_pago");
-  const activeProducts = products.filter((product) => product.isActive);
   const lowStockProducts = products.filter(
     (product) => product.stock > 0 && product.stock <= 4,
   );
-  const salesTotal = confirmedOrders.reduce((sum, order) => sum + order.total, 0);
 
   return (
     <div className="space-y-6">
@@ -34,7 +28,7 @@ export default async function AdminDashboardPage() {
         <div>
           <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Dashboard</h1>
           <p className="mt-1 text-muted-foreground">
-            Resumen visual de ventas, pedidos pendientes e inventario.
+            Controla ventas, pagos e inventario desde un solo lugar.
           </p>
         </div>
         <Button asChild className="w-full sm:w-auto">
@@ -45,32 +39,7 @@ export default async function AdminDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminMetricCard
-          title="Total de ventas"
-          value={formatCurrency(salesTotal)}
-          helper="Total confirmado"
-          icon={DollarSign}
-        />
-        <AdminMetricCard
-          title="Pedidos pendientes"
-          value={String(pendingOrders.length)}
-          helper="Esperan comprobante o confirmación"
-          icon={ShoppingBag}
-        />
-        <AdminMetricCard
-          title="Productos activos"
-          value={String(activeProducts.length)}
-          helper="Visibles en catálogo"
-          icon={Boxes}
-        />
-        <AdminMetricCard
-          title="Bajo stock"
-          value={String(lowStockProducts.length)}
-          helper="Igual o menor a 4 unidades"
-          icon={AlertTriangle}
-        />
-      </div>
+      <AdminSalesSummary orders={orders} />
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <Card>
@@ -84,9 +53,7 @@ export default async function AdminDashboardPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold text-dark-blue">{order.code}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer.fullName}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{order.customer.fullName}</p>
                     </div>
                     <StatusBadge status={order.status} />
                   </div>
@@ -98,24 +65,14 @@ export default async function AdminDashboardPage() {
               ))}
             </div>
             <Table className="hidden sm:table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pedido</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Cliente</TableHead><TableHead>Total</TableHead><TableHead>Estado</TableHead><TableHead>Fecha</TableHead></TableRow></TableHeader>
               <TableBody>
                 {orders.slice(0, 5).map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-semibold text-dark-blue">{order.code}</TableCell>
                     <TableCell>{order.customer.fullName}</TableCell>
                     <TableCell>{formatCurrency(order.total)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={order.status} />
-                    </TableCell>
+                    <TableCell><StatusBadge status={order.status} /></TableCell>
                     <TableCell>{formatDate(order.createdAt)}</TableCell>
                   </TableRow>
                 ))}
@@ -125,22 +82,14 @@ export default async function AdminDashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Productos con bajo stock</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Productos con bajo stock</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {lowStockProducts.map((product) => (
-              <div
-                key={product.id}
-                className="flex items-center justify-between rounded-md bg-secondary p-3"
-              >
-                <div>
-                  <p className="font-semibold text-dark-blue">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">{product.category}</p>
-                </div>
+            {lowStockProducts.length ? lowStockProducts.map((product) => (
+              <div key={product.id} className="flex items-center justify-between rounded-md bg-secondary p-3">
+                <div><p className="font-semibold text-dark-blue">{product.name}</p><p className="text-xs text-muted-foreground">{product.category}</p></div>
                 <span className="font-bold text-primary">{product.stock}</span>
               </div>
-            ))}
+            )) : <p className="rounded-md bg-secondary p-3 text-sm text-muted-foreground">No hay productos con bajo stock.</p>}
           </CardContent>
         </Card>
       </div>
