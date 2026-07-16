@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isSameCustomerAddress } from "@/lib/direcciones-cliente";
 
 export type ProfileFormState = {
   message?: string;
@@ -133,12 +134,65 @@ export async function saveCustomerAddress(
     };
   }
 
-  const { count } = await supabase
+  const { data: activeAddresses, error: activeAddressesError } = await supabase
     .from("direcciones_cliente")
-    .select("id", { count: "exact", head: true })
+    .select("id, provincia, ciudad, direccion, referencia, celular_contacto, principal")
     .eq("cliente_id", user.id)
     .eq("activa", true);
-  const shouldBePrimary = wantsPrimary || isCurrentPrimary || !count;
+
+  if (activeAddressesError) {
+    return {
+      message: activeAddressesError.message,
+      success: false,
+    };
+  }
+
+  const matchingAddress = activeAddresses?.find(
+    (savedAddress) =>
+      savedAddress.id !== id &&
+      isSameCustomerAddress(
+        {
+          province: savedAddress.provincia,
+          city: savedAddress.ciudad,
+          address: savedAddress.direccion,
+          deliveryReference: savedAddress.referencia,
+          contactPhone: savedAddress.celular_contacto,
+        },
+        {
+          province,
+          city,
+          address,
+          deliveryReference,
+          contactPhone,
+        },
+      ),
+  );
+
+  if (matchingAddress) {
+    if (wantsPrimary && !matchingAddress.principal) {
+      const { error: clearPrimaryError } = await supabase
+        .from("direcciones_cliente")
+        .update({ principal: false })
+        .eq("cliente_id", user.id)
+        .eq("activa", true);
+
+      if (clearPrimaryError) {
+        return { message: clearPrimaryError.message, success: false };
+      }
+
+      await supabase
+        .from("direcciones_cliente")
+        .update({ principal: true })
+        .eq("id", matchingAddress.id)
+        .eq("cliente_id", user.id);
+    }
+
+    revalidatePath("/mi-cuenta");
+    revalidatePath("/checkout");
+    return { message: "Esa dirección ya estaba guardada.", success: true };
+  }
+
+  const shouldBePrimary = wantsPrimary || isCurrentPrimary || !activeAddresses?.length;
 
   if (shouldBePrimary) {
     const { error: clearPrimaryError } = await supabase

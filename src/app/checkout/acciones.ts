@@ -10,6 +10,7 @@ import {
   normalizeEcuadorianCedula,
 } from "@/lib/checkout-envio";
 import { getCustomerProfile } from "@/lib/usuario";
+import { isSameCustomerAddress } from "@/lib/direcciones-cliente";
 import type { DeliveryType, OrderItem, PaymentMethod } from "@/types/pedido";
 
 type CreateCheckoutOrderInput = {
@@ -163,11 +164,43 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     input.customer.city &&
     input.customer.address
   ) {
-    const { count } = await supabase
+    const { data: activeAddresses, error: activeAddressesError } = await supabase
       .from("direcciones_cliente")
-      .select("id", { count: "exact", head: true })
+      .select("id, provincia, ciudad, direccion, referencia, celular_contacto, principal")
       .eq("cliente_id", user.id)
       .eq("activa", true);
+
+    if (activeAddressesError) {
+      console.error("Checkout address lookup failed", activeAddressesError);
+      return {
+        ok: false,
+        message: "No pudimos revisar tus direcciones guardadas. Intenta nuevamente.",
+        code: null,
+      };
+    }
+
+    const matchingAddress = activeAddresses?.find((savedAddress) =>
+      isSameCustomerAddress(
+        {
+          province: savedAddress.provincia,
+          city: savedAddress.ciudad,
+          address: savedAddress.direccion,
+          deliveryReference: savedAddress.referencia,
+          contactPhone: savedAddress.celular_contacto,
+        },
+        {
+          province: input.customer.province!,
+          city: input.customer.city!,
+          address: input.customer.address!,
+          deliveryReference: input.customer.deliveryReference,
+          contactPhone: input.customer.contactPhone,
+        },
+      ),
+    );
+
+    if (matchingAddress) {
+      addressId = matchingAddress.id;
+    } else {
 
     const { data: savedAddress, error: savedAddressError } = await supabase
       .from("direcciones_cliente")
@@ -179,7 +212,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
         direccion: input.customer.address,
         referencia: input.customer.deliveryReference || null,
         celular_contacto: input.customer.contactPhone || null,
-        principal: !count,
+        principal: !activeAddresses?.length,
         activa: true,
       })
       .select("id")
@@ -195,6 +228,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     }
 
     addressId = savedAddress.id;
+    }
   }
 
   const payload = {
