@@ -3,11 +3,15 @@ import { PackagePlus } from "lucide-react";
 import { AdminOperationalSummary } from "@/components/admin/resumen-operativo-admin";
 import { AdminSalesSummary } from "@/components/admin/resumen-ventas-admin";
 import { Button } from "@/components/ui/button";
-import { getAdminOrders, getAdminProducts } from "@/lib/supabase/data";
+import { getAdminOrders, getAdminPhysicalSales, getAdminProducts } from "@/lib/supabase/data";
 
 // Dashboard operativo: ventas filtrables, pedidos recientes e inventario a vigilar.
 export default async function AdminDashboardPage() {
-  const [orders, products] = await Promise.all([getAdminOrders(), getAdminProducts()]);
+  const [orders, products, physicalSales] = await Promise.all([
+    getAdminOrders(),
+    getAdminProducts(),
+    getAdminPhysicalSales(),
+  ]);
   const lowStockProducts = products.filter(
     (product) => product.stock > 0 && product.stock <= 4,
   );
@@ -29,7 +33,7 @@ export default async function AdminDashboardPage() {
         </Button>
       </div>
 
-      <AdminSalesSummary orders={orders} />
+      <AdminSalesSummary orders={orders} physicalSales={physicalSales} />
 
       <AdminOperationalSummary orders={orders} lowStockProducts={lowStockProducts} />
     </div>

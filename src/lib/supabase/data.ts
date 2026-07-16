@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/datos-negocio";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { Order, OrderItem } from "@/types/pedido";
+import type { PhysicalSale, PhysicalSaleItem } from "@/types/venta-fisica";
 import type {
   CatalogLanding,
   CatalogAttribute,
@@ -1228,6 +1229,44 @@ export async function getAdminOrders(): Promise<Order[]> {
     paidAt: order.pagado_en ?? undefined,
     deliveryType: order.tipo_entrega,
     createdAt: order.creado_en,
+  }));
+}
+
+// Carga las ventas del local para el cierre diario y el historial administrativo.
+export async function getAdminPhysicalSales(): Promise<PhysicalSale[]> {
+  const supabase = await createClient();
+  const { data: sales, error } = await supabase
+    .from("ventas_fisicas")
+    .select("*")
+    .order("creado_en", { ascending: false });
+
+  if (error || !sales?.length) return [];
+
+  const { data: items } = await supabase
+    .from("venta_fisica_items")
+    .select("*")
+    .in("venta_id", sales.map((sale) => sale.id));
+
+  return sales.map((sale) => ({
+    id: sale.id,
+    code: sale.codigo,
+    note: sale.nota ?? undefined,
+    paymentMethod: sale.metodo_pago as PhysicalSale["paymentMethod"],
+    subtotal: toNumber(sale.subtotal),
+    total: toNumber(sale.total),
+    createdAt: sale.creado_en,
+    items: ((items ?? []) as Array<Record<string, unknown>>)
+      .filter((item) => item.venta_id === sale.id)
+      .map<PhysicalSaleItem>((item) => ({
+        id: String(item.id),
+        productId: String(item.producto_id),
+        variantId: typeof item.variante_id === "string" ? item.variante_id : undefined,
+        productName: String(item.producto_nombre),
+        variantName: typeof item.variante_nombre === "string" ? item.variante_nombre : undefined,
+        sku: typeof item.producto_sku === "string" ? item.producto_sku : undefined,
+        price: toNumber(item.precio as number | string | null | undefined),
+        quantity: Number(item.cantidad ?? 0),
+      })),
   }));
 }
 

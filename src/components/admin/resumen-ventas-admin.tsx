@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, CreditCard, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
 import type { Order } from "@/types/pedido";
+import type { PhysicalSale } from "@/types/venta-fisica";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,7 @@ function rangeFor(period: Period, start: string, end: string) {
 }
 
 // Analítica de ventas basada únicamente en pedidos ya cobrados.
-export function AdminSalesSummary({ orders }: { orders: Order[] }) {
+export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Order[]; physicalSales?: PhysicalSale[] }) {
   const [period, setPeriod] = useState<Period>("week");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -62,13 +63,20 @@ export function AdminSalesSummary({ orders }: { orders: Order[] }) {
     [orders, range.end, range.start],
   );
   const collected = inRangeOrders.filter(isCollected);
-  const total = collected.reduce((sum, order) => sum + order.total, 0);
-  const average = collected.length ? total / collected.length : 0;
+  const inRangePhysicalSales = physicalSales.filter((sale) => {
+    const key = localDateKey(sale.createdAt);
+    return (!range.start || key >= range.start) && (!range.end || key <= range.end);
+  });
+  const onlineTotal = collected.reduce((sum, order) => sum + order.total, 0);
+  const physicalTotal = inRangePhysicalSales.reduce((sum, sale) => sum + sale.total, 0);
+  const total = onlineTotal + physicalTotal;
+  const saleCount = collected.length + inRangePhysicalSales.length;
+  const average = saleCount ? total / saleCount : 0;
   const pending = inRangeOrders.filter((order) => order.status === "pendiente_pago");
   const payphoneTotal = collected
     .filter((order) => order.paymentMethod === "payphone")
     .reduce((sum, order) => sum + order.total, 0);
-  const transferTotal = total - payphoneTotal;
+  const otherTotal = total - payphoneTotal;
 
   const dailyRows = (() => {
     const byDay = new Map<string, { total: number; orders: number }>();
@@ -76,6 +84,13 @@ export function AdminSalesSummary({ orders }: { orders: Order[] }) {
       const key = localDateKey(order.createdAt);
       const current = byDay.get(key) ?? { total: 0, orders: 0 };
       current.total += order.total;
+      current.orders += 1;
+      byDay.set(key, current);
+    }
+    for (const sale of inRangePhysicalSales) {
+      const key = localDateKey(sale.createdAt);
+      const current = byDay.get(key) ?? { total: 0, orders: 0 };
+      current.total += sale.total;
       current.orders += 1;
       byDay.set(key, current);
     }
@@ -130,10 +145,10 @@ export function AdminSalesSummary({ orders }: { orders: Order[] }) {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={DollarSign} title="Ventas cobradas" value={formatCurrency(total)} helper={`${collected.length} pedido(s) cobrados`} />
-        <Metric icon={ReceiptText} title="Ticket promedio" value={formatCurrency(average)} helper="Promedio por pedido cobrado" />
+        <Metric icon={DollarSign} title="Ventas cobradas" value={formatCurrency(total)} helper={`${saleCount} venta(s) registradas`} />
+        <Metric icon={ReceiptText} title="Ticket promedio" value={formatCurrency(average)} helper="Promedio por venta registrada" />
         <Metric icon={CalendarDays} title="Pendientes" value={String(pending.length)} helper="Esperan confirmación de pago" />
-        <Metric icon={CreditCard} title="PayPhone" value={formatCurrency(payphoneTotal)} helper={`Transferencia: ${formatCurrency(transferTotal)}`} />
+        <Metric icon={CreditCard} title="PayPhone" value={formatCurrency(payphoneTotal)} helper={`Otros cobros: ${formatCurrency(otherTotal)}`} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
@@ -160,8 +175,8 @@ export function AdminSalesSummary({ orders }: { orders: Order[] }) {
         <Card>
           <CardHeader className="pb-3"><CardTitle>Lectura rápida</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <SummaryLine label="Pedidos en el periodo" value={String(inRangeOrders.length)} />
-            <SummaryLine label="Cobrados" value={String(collected.length)} success />
+            <SummaryLine label="Pedidos online" value={String(inRangeOrders.length)} />
+            <SummaryLine label="Ventas físicas" value={String(inRangePhysicalSales.length)} success />
             <SummaryLine label="Pendientes de pago" value={String(pending.length)} />
             <div className="rounded-lg border border-primary/15 bg-secondary/60 p-3 text-muted-foreground">
               Para preparar un envío, abre <span className="font-semibold text-dark-blue">Pedidos</span>: ahí está la ficha completa con cédula, ciudad, dirección, referencias y productos.

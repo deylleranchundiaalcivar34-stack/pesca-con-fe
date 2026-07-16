@@ -6,10 +6,12 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  FileSpreadsheet,
   Home,
   LogOut,
   Menu,
   PackagePlus,
+  ReceiptText,
   ShoppingBag,
   Tags,
 } from "lucide-react";
@@ -30,6 +32,8 @@ const adminLinks = [
   { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus },
   { href: "/admin/marcas", label: "Marcas", icon: Tags },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { href: "/admin/ventas-fisicas", label: "Venta física", icon: ReceiptText },
+  { href: "/admin/inventario", label: "Exportar inventario", icon: FileSpreadsheet },
 ];
 
 // Navegacion principal del panel administrativo.
