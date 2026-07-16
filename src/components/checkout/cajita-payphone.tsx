@@ -84,9 +84,9 @@ export function PayPhoneBox({ payment, onClose }: { payment: PayPhoneBoxPayment;
   }, [containerId, payment]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-dark-blue/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="payphone-box-title">
-      <section className="w-full max-w-xl rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-primary/10 px-5 py-5 sm:px-7">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-dark-blue/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="payphone-box-title">
+      <section className="max-h-[calc(100dvh-0.75rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-2xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-primary/10 bg-white px-5 py-5 sm:px-7">
           <div>
             <p className="flex items-center gap-2 text-sm font-semibold text-primary"><ShieldCheck className="size-4" /> Pago seguro</p>
             <h2 id="payphone-box-title" className="mt-1 text-xl font-bold text-dark-blue">Paga con tarjeta</h2>
