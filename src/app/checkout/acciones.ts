@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { PayPhoneError, getPayPhoneConfig, preparePayPhonePayment } from "@/lib/payphone";
+import { createPayPhoneBoxPayment, getPayPhoneConfig } from "@/lib/payphone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -228,7 +228,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     }
 
     try {
-      const preparedPayment = await preparePayPhonePayment({
+      const paymentBox = createPayPhoneBoxPayment({
         amount: Number(rpcOrder.amount_cents),
         clientTransactionId: rpcOrder.client_transaction_id,
         orderCode: rpcOrder.codigo,
@@ -237,7 +237,9 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
         "registrar_preparacion_payphone",
         {
           client_transaction_id_input: rpcOrder.client_transaction_id,
-          provider_prepare_id_input: preparedPayment.paymentId,
+          // La Cajita no crea un paymentId previo: este valor solo deja el
+          // intento listo para que el callback pueda confirmarlo.
+          provider_prepare_id_input: "cajita-payphone",
         },
       );
 
@@ -252,20 +254,17 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
         ok: true,
         message: "Pago preparado.",
         code: rpcOrder.codigo,
-        redirectUrl: preparedPayment.payWithCard,
+        paymentBox,
       };
-    } catch (error) {
-      const safeCode = error instanceof PayPhoneError ? error.code : "PREPARE_FAILED";
-      const safeMessage =
-        error instanceof PayPhoneError
-          ? error.message
-          : "No se pudo iniciar el pago con PayPhone.";
+    } catch {
+      const safeCode = "BOX_SETUP_FAILED";
+      const safeMessage = "No se pudo preparar el pago con PayPhone.";
 
-      console.error("PayPhone preparation failed", safeCode ?? "UNKNOWN");
+      console.error("PayPhone box preparation failed", safeCode);
       await payPhoneAdmin.rpc("cancelar_intento_payphone", {
         client_transaction_id_input: rpcOrder.client_transaction_id,
         estado_input: "fallido",
-        codigo_error_input: safeCode ?? null,
+        codigo_error_input: safeCode,
         mensaje_error_input: safeMessage,
       });
 

@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // PayPhone valida el dominio que abre la Cajita. Esta política deja
+          // viajar el origen sin exponer la ruta ni datos del checkout.
+          { key: "Referrer-Policy", value: "origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

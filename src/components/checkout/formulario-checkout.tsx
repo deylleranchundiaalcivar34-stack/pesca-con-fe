@@ -50,6 +50,8 @@ import type { DeliveryType, PaymentMethod } from "@/types/pedido";
 import type { CheckoutCustomerDefaults, CustomerAddress } from "@/types/cliente";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import { BankAccountCard } from "./tarjeta-cuenta-bancaria";
+import { PayPhoneBox } from "./cajita-payphone";
+import type { PayPhoneBoxPayment } from "@/lib/payphone";
 
 // Define reglas de validacion segun si el cliente pide envio o retiro local.
 const checkoutSchema = z
@@ -156,6 +158,7 @@ export function CheckoutForm({
   const clearCart = useCartStore((state) => state.clearCart);
   const [selectedBankId, setSelectedBankId] = useState(bankAccounts[0]?.id ?? "");
   const [successOrder, setSuccessOrder] = useState<string | null>(null);
+  const [payPhonePayment, setPayPhonePayment] = useState<PayPhoneBoxPayment | null>(null);
   const displaySubtotal = isClient ? subtotal : 0;
 
   const selectedBank = useMemo(
@@ -305,12 +308,11 @@ export function CheckoutForm({
     }
 
     if (values.paymentMethod === "payphone") {
-      if (!("redirectUrl" in createdOrder) || !createdOrder.redirectUrl) {
-        toast.error("No pudimos abrir el pago seguro. Intenta nuevamente.");
+      if (!("paymentBox" in createdOrder) || !createdOrder.paymentBox) {
+        toast.error("No pudimos preparar el pago seguro. Intenta nuevamente.");
         return;
       }
-
-      window.location.assign(createdOrder.redirectUrl);
+      setPayPhonePayment(createdOrder.paymentBox);
       return;
     }
 
@@ -369,6 +371,7 @@ export function CheckoutForm({
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_390px]">
       <input type="hidden" {...register("addressId")} />
       <input type="hidden" {...register("fullName")} />
@@ -675,7 +678,7 @@ export function CheckoutForm({
                 description={
                   isGalapagosDelivery
                     ? "Disponible después de confirmar la tarifa de envío por WhatsApp."
-                    : "Paga en la plataforma segura de PayPhone."
+                    : "Paga aquí mismo, en la cajita segura de PayPhone."
                 }
                 icon={CreditCard}
                 disabled={isGalapagosDelivery}
@@ -710,8 +713,7 @@ export function CheckoutForm({
               <div className="mt-5 rounded-lg border border-primary/20 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
                 <p className="font-semibold text-dark-blue">Pago protegido por PayPhone</p>
                 <p className="mt-1">
-                  Te enviaremos a PayPhone para ingresar los datos de tu tarjeta. Pesca
-                  Con Fe no almacena esa información.
+                  Ingresa los datos de tu tarjeta aquí mismo. Pesca Con Fe no almacena esa información.
                 </p>
               </div>
             )}
@@ -764,13 +766,13 @@ export function CheckoutForm({
                 <MessageCircle aria-hidden="true" />
               )}
               {paymentMethod === "payphone"
-                ? "Continuar al pago seguro"
+                ? "Abrir pago seguro"
                 : isGalapagosDelivery
                   ? "Solicitar cotización por WhatsApp"
                   : "Generar pedido y enviar comprobante por WhatsApp"}
             </Button>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              {paymentMethod === "payphone"
+      {paymentMethod === "payphone"
                 ? "El pedido se confirmará automáticamente cuando PayPhone apruebe el pago."
                 : isGalapagosDelivery
                   ? "Confirmaremos por WhatsApp la tarifa de Galápagos antes de solicitar el pago."
@@ -780,6 +782,8 @@ export function CheckoutForm({
         </Card>
       </aside>
     </form>
+    {payPhonePayment ? <PayPhoneBox payment={payPhonePayment} onClose={() => setPayPhonePayment(null)} /> : null}
+    </>
   );
 }
 

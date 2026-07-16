@@ -1,9 +1,10 @@
 import "server-only";
 
+// Conservado para compatibilidad interna mientras se retira el flujo anterior.
 const PAYPHONE_PREPARE_URL =
   "https://pay.payphonetodoesposible.com/api/button/Prepare";
 const PAYPHONE_CONFIRM_URL =
-  "https://pay.payphonetodoesposible.com/api/button/V2/Confirm";
+  "https://paymentbox.payphonetodoesposible.com/api/confirm";
 const REQUEST_TIMEOUT_MS = 12_000;
 
 type PayPhoneTaxMode = "without_tax" | "tax_included";
@@ -39,6 +40,15 @@ export type PayPhoneConfirmation = {
   transactionId: number;
   currency?: string | null;
   storeName?: string | null;
+};
+
+export type PayPhoneBoxPayment = {
+  token: string;
+  storeId: string;
+  amount: number;
+  amountWithoutTax: number;
+  clientTransactionId: string;
+  reference: string;
 };
 
 export class PayPhoneError extends Error {
@@ -116,6 +126,27 @@ function calculateTaxBreakdown(
     amountWithoutTax: 0,
     amountWithTax: amount - tax,
     tax,
+  };
+}
+
+// La Cajita de Pagos se renderiza en el navegador. PayPhone exige enviar estas
+// credenciales al SDK; el token no otorga acceso a la cuenta ni permite cobros
+// sin la interacción del titular de la tarjeta.
+export function createPayPhoneBoxPayment(input: {
+  amount: number;
+  clientTransactionId: string;
+  orderCode: string;
+}): PayPhoneBoxPayment {
+  const config = getPayPhoneConfig();
+  const taxBreakdown = calculateTaxBreakdown(input.amount, config);
+
+  return {
+    token: config.token,
+    storeId: config.storeId,
+    amount: input.amount,
+    amountWithoutTax: taxBreakdown.amountWithoutTax,
+    clientTransactionId: input.clientTransactionId,
+    reference: `Pedido ${input.orderCode} - Pesca Con Fe`,
   };
 }
 
