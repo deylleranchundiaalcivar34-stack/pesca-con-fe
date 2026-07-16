@@ -173,7 +173,9 @@ export async function preparePayPhonePayment(input: {
     currency: "USD",
     responseUrl: config.responseUrl,
     cancellationUrl: config.cancellationUrl,
-    timeZone: -5,
+    // PayPhone documenta este campo como texto; enviarlo como número puede
+    // provocar un error de deserialización en su API.
+    timeZone: "-5",
     lang: "es",
   };
 
