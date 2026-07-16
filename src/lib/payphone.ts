@@ -119,6 +119,26 @@ function calculateTaxBreakdown(
   };
 }
 
+function payPhoneRequestSummary(input: {
+  amount: number;
+  amountWithoutTax: number;
+  amountWithTax: number;
+  tax: number;
+  clientTransactionId: string;
+  responseUrl: string;
+  storeId: string;
+}) {
+  return {
+    amount: input.amount,
+    amountWithoutTax: input.amountWithoutTax,
+    amountWithTax: input.amountWithTax,
+    tax: input.tax,
+    clientTransactionId: input.clientTransactionId,
+    responseOrigin: new URL(input.responseUrl).origin,
+    storeIdSuffix: input.storeId.slice(-4),
+  };
+}
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   const contentType = response.headers.get("content-type") ?? "sin content-type";
   const rawBody = await response.text();
@@ -173,11 +193,15 @@ export async function preparePayPhonePayment(input: {
     currency: "USD",
     responseUrl: config.responseUrl,
     cancellationUrl: config.cancellationUrl,
-    // PayPhone documenta este campo como texto; enviarlo como número puede
-    // provocar un error de deserialización en su API.
-    timeZone: "-5",
     lang: "es",
   };
+
+  // No se envia timeZone: el endpoint Prepare devolvio HTTP 500 al recibirlo,
+  // mientras que acepta esta misma peticion completa sin ese campo opcional.
+  console.info(
+    "PayPhone Prepare request",
+    payPhoneRequestSummary({ ...body, storeId: config.storeId }),
+  );
 
   const response = await fetch(PAYPHONE_PREPARE_URL, {
     method: "POST",
@@ -193,6 +217,14 @@ export async function preparePayPhonePayment(input: {
   const data = await readJson(response);
 
   if (!response.ok) {
+    console.error("PayPhone Prepare rejected", {
+      ...payPhoneRequestSummary({ ...body, storeId: config.storeId }),
+      status: response.status,
+      providerCode:
+        typeof data.errorCode === "string" || typeof data.errorCode === "number"
+          ? String(data.errorCode)
+          : null,
+    });
     throw providerError(data, "PayPhone no pudo preparar el pago.");
   }
 

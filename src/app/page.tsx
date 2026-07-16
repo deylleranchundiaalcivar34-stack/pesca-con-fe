@@ -12,7 +12,7 @@ import { BackToTopButton } from "@/components/shared/boton-volver-arriba";
 import { ProductGrid } from "@/components/products/cuadricula-productos";
 import { Button } from "@/components/ui/button";
 import { getProductPricingSummary } from "@/lib/precios-producto";
-import { getCategories, getProducts } from "@/lib/supabase/data";
+import { getCategories, getHomeProducts } from "@/lib/supabase/data";
 
 const categoryOrder = ["canas", "carrete", "senuelos", "indumentaria"];
 
@@ -24,7 +24,10 @@ function getCategoryPosition(slug: string) {
 
 // Pagina principal: prioriza ofertas y usa destacados cuando no existen promociones.
 export default async function HomePage() {
-  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+  const [categories, products] = await Promise.all([
+    getCategories(),
+    getHomeProducts(),
+  ]);
   const homeCategories = [...categories].sort(
     (first, second) => getCategoryPosition(first.slug) - getCategoryPosition(second.slug),
   );

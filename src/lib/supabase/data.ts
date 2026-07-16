@@ -484,20 +484,135 @@ const getCachedProducts = unstable_cache(
     }
 
     const rows = data as DbProduct[];
-    const imagesByProduct = await getProductImagesByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
     const variantsByProduct = await getProductVariantsByProductIds(
       supabase,
       rows.map((row) => row.id),
     );
 
     return rows.map((row) =>
-      mapProduct(row, imagesByProduct.get(row.id), variantsByProduct.get(row.id)),
+      mapProduct(row, undefined, variantsByProduct.get(row.id)),
     );
   },
   ["public-products"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+// Carga solamente candidatos para el inicio: productos destacados o con oferta.
+const getCachedHomeProducts = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const [{ data: baseOffers }, { data: featured }, { data: variantOffers }] =
+      await Promise.all([
+        supabase
+          .from("productos_publicos")
+          .select("*")
+          .not("precio_oferta", "is", null)
+          .limit(50),
+        supabase
+          .from("productos_publicos")
+          .select("*")
+          .eq("destacado", true)
+          .limit(16),
+        supabase
+          .from("producto_variantes")
+          .select("producto_id")
+          .eq("activo", true)
+          .not("precio_oferta", "is", null)
+          .limit(100),
+      ]);
+
+    const variantOfferIds = Array.from(
+      new Set((variantOffers ?? []).map((row) => row.producto_id as string)),
+    );
+    const { data: productsWithVariantOffers } = variantOfferIds.length
+      ? await supabase
+          .from("productos_publicos")
+          .select("*")
+          .in("id", variantOfferIds)
+      : { data: [] };
+    const rowsById = new Map<string, DbProduct>();
+
+    for (const row of [
+      ...(baseOffers ?? []),
+      ...(productsWithVariantOffers ?? []),
+      ...(featured ?? []),
+    ] as DbProduct[]) {
+      rowsById.set(row.id, row);
+    }
+
+    const rows = Array.from(rowsById.values());
+    const variantsByProduct = await getProductVariantsByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) =>
+      mapProduct(row, undefined, variantsByProduct.get(row.id)),
+    );
+  },
+  ["public-home-products"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedProductsByIds = unstable_cache(
+  async (productIds: string[]) => {
+    if (!productIds.length) return [];
+
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("*")
+      .in("id", productIds);
+
+    if (error || !data) return [];
+
+    const rows = data as DbProduct[];
+    const variantsByProduct = await getProductVariantsByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) =>
+      mapProduct(row, undefined, variantsByProduct.get(row.id)),
+    );
+  },
+  ["public-products-by-ids"],
+  {
+    tags: ["products"],
+    revalidate: publicDataRevalidateSeconds,
+  },
+);
+
+const getCachedRelatedCandidates = unstable_cache(
+  async (rootCategorySlug: string, excludedProductId: string) => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("productos_publicos")
+      .select("*")
+      .eq("categoria_slug", rootCategorySlug)
+      .neq("id", excludedProductId)
+      .order("nombre", { ascending: true })
+      .limit(32);
+
+    if (error || !data) return [];
+
+    const rows = data as DbProduct[];
+    const variantsByProduct = await getProductVariantsByProductIds(
+      supabase,
+      rows.map((row) => row.id),
+    );
+
+    return rows.map((row) =>
+      mapProduct(row, undefined, variantsByProduct.get(row.id)),
+    );
+  },
+  ["public-related-products"],
   {
     tags: ["products"],
     revalidate: publicDataRevalidateSeconds,
@@ -688,6 +803,72 @@ export async function getProducts() {
   return getCachedProducts();
 }
 
+// Devuelve solamente los candidatos necesarios para las vitrinas del inicio.
+export async function getHomeProducts() {
+  return getCachedHomeProducts();
+}
+
+// Recupera una seleccion concreta, utilizada por la lista de deseos del navegador.
+export async function getProductsByIds(productIds: string[]) {
+  const normalizedIds = Array.from(
+    new Set(productIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id))),
+  )
+    .slice(0, 50)
+    .sort();
+  const products = await getCachedProductsByIds(normalizedIds);
+  const orderById = new Map(productIds.map((id, index) => [id, index]));
+
+  return products.sort(
+    (first, second) =>
+      (orderById.get(first.id) ?? Number.MAX_SAFE_INTEGER) -
+      (orderById.get(second.id) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+// Busca un conjunto acotado de candidatos sin descargar el catalogo completo.
+export async function searchProductsByTerms(terms: string[], limit = 48) {
+  const safeTerms = Array.from(
+    new Set(
+      terms
+        .map((term) => term.toLowerCase().replace(/[^a-z0-9]/g, ""))
+        .filter((term) => term.length >= 2),
+    ),
+  ).slice(0, 10);
+
+  if (!safeTerms.length) return [];
+
+  const searchableColumns = [
+    "nombre",
+    "marca",
+    "categoria",
+    "categoria_slug",
+    "subcategoria",
+    "subcategoria_slug",
+    "descripcion",
+  ];
+  const filters = safeTerms.flatMap((term) =>
+    searchableColumns.map((column) => `${column}.ilike.%${term}%`),
+  );
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("productos_publicos")
+    .select("*")
+    .or(filters.join(","))
+    .limit(Math.min(Math.max(limit, 1), 100));
+
+  if (error || !data) return [];
+
+  const rows = data as DbProduct[];
+  const variantsByProduct = await getProductVariantsByProductIds(
+    supabase,
+    rows.map((row) => row.id),
+  );
+
+  return rows.map((row) =>
+    mapProduct(row, undefined, variantsByProduct.get(row.id)),
+  );
+}
+
 // Busca un producto publico por slug.
 export async function getProductBySlug(slug: string) {
   return getCachedProductBySlug(slug);
@@ -695,7 +876,7 @@ export async function getProductBySlug(slug: string) {
 
 // Prioriza la rama mas cercana del catalogo y luego sube hacia su categoria raiz.
 export async function getRelatedProducts(product: Product, limit = 8) {
-  const products = await getCachedProducts();
+  const products = await getCachedRelatedCandidates(product.categorySlug, product.id);
   const productPath = product.catalogPath.map((item) => item.id ?? item.slug);
 
   return products

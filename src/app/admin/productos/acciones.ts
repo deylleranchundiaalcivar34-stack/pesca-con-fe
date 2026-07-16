@@ -40,7 +40,7 @@ function revalidatePublicProducts() {
   updateTag("products");
   revalidatePath("/");
   revalidatePath("/productos");
-  revalidatePath("/productos/[slug]", "page");
+  revalidatePath("/productos/[...slug]", "page");
   revalidatePath("/producto/[slug]", "page");
 }
 
@@ -407,7 +407,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
     const offerPrice = parseOfferPrice(
       variant.offerPrice,
       price,
-      `El precio de oferta de la opciÃ³n ${index + 1}`,
+      `El precio de oferta de la opción ${index + 1}`,
     );
     if (!Number.isInteger(stock) || stock < 0) {
       throw new Error(`El stock de la opción ${index + 1} no es válido.`);
@@ -503,14 +503,14 @@ export async function saveProduct(formData: FormData) {
   try {
     submittedVariants = rawVariants ? JSON.parse(rawVariants) : [];
   } catch {
-    throw new Error("Las opciones del producto no tienen un formato vÃ¡lido.");
+    throw new Error("Las opciones del producto no tienen un formato válido.");
   }
 
   if (!Number.isFinite(price) || price < 0) {
-    throw new Error("El precio del producto no es vÃ¡lido.");
+    throw new Error("El precio del producto no es válido.");
   }
   if (!Number.isInteger(stock) || stock < 0) {
-    throw new Error("El stock del producto no es vÃ¡lido.");
+    throw new Error("El stock del producto no es válido.");
   }
 
   const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;

@@ -379,7 +379,7 @@ export function ProductForm({
               />
               {productVariants.length ? (
                 <p className="text-xs text-muted-foreground">
-                  Las ofertas se configuran individualmente en cada opciÃ³n.
+                  Las ofertas se configuran individualmente en cada opción.
                 </p>
               ) : null}
             </Field>
