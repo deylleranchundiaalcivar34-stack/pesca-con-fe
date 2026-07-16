@@ -271,9 +271,9 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
         "registrar_preparacion_payphone",
         {
           client_transaction_id_input: rpcOrder.client_transaction_id,
-          // La Cajita no crea un paymentId previo: este valor solo deja el
-          // intento listo para que el callback pueda confirmarlo.
-          provider_prepare_id_input: "cajita-payphone",
+          // La Cajita no crea un paymentId previo. La tabla conserva este
+          // identificador único para dejar el intento listo para Confirm.
+          provider_prepare_id_input: `cajita-${rpcOrder.client_transaction_id}`,
         },
       );
 
