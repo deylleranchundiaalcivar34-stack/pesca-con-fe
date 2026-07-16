@@ -281,6 +281,14 @@ export function CheckoutForm({
     if (preferredAddress) selectAddress(preferredAddress);
   };
 
+  const onInvalid = () => {
+    toast.error(
+      deliveryType === "envio_servientrega"
+        ? "Para abrir PayPhone con envío completa cédula, provincia, ciudad y celular. Esos datos son para Servientrega."
+        : "Completa los datos requeridos antes de continuar.",
+    );
+  };
+
   const onSubmit = async (values: CheckoutValues) => {
     if (!visibleItems.length) {
       toast.error("Agrega productos al carrito antes de generar el pedido.");
@@ -396,7 +404,7 @@ export function CheckoutForm({
 
   return (
     <>
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-[1fr_390px]">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="grid gap-8 lg:grid-cols-[1fr_390px]">
       <input type="hidden" {...register("addressId")} />
       <input type="hidden" {...register("fullName")} />
       <input type="hidden" {...register("phone")} />
@@ -735,7 +743,9 @@ export function CheckoutForm({
                 description={
                   isGalapagosDelivery
                     ? "Disponible después de confirmar la tarifa de envío por WhatsApp."
-                    : "Paga aquí mismo, en la cajita segura de PayPhone."
+                    : deliveryType === "envio_servientrega"
+                      ? "Disponible para envíos por Servientrega en Ecuador continental."
+                      : "Paga aquí mismo, en la cajita segura de PayPhone."
                 }
                 icon={CreditCard}
                 disabled={isGalapagosDelivery}
@@ -773,6 +783,12 @@ export function CheckoutForm({
                 <p className="mt-1">
                   Ingresa los datos de tu tarjeta aquí mismo. Pesca Con Fe no almacena esa información.
                 </p>
+                {deliveryType === "envio_servientrega" ? (
+                  <p className="mt-2 border-t border-primary/15 pt-2 text-xs leading-5">
+                    PayPhone solo procesa el cobro. Tu cédula, provincia, ciudad y celular se guardan
+                    únicamente para que Servientrega entregue el pedido correctamente.
+                  </p>
+                ) : null}
               </div>
             )}
           </CardContent>
