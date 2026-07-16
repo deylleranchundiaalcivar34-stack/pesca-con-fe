@@ -68,6 +68,8 @@
 html {
   max-width: 100%;
   overflow-x: clip;
+  /* Reserva el espacio de la barra al abrir menús modales de Radix y evita saltos horizontales. */
+  scrollbar-gutter: stable;
   scroll-behavior: smooth;
 }
 
@@ -78,6 +80,14 @@ body {
   background: var(--secondary);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Radix bloquea el scroll al abrir un Select y añade un margen derecho al body.
+   En una página con barra vertical eso desplaza todo el contenido hacia la izquierda.
+   Esta excepción solo aplica a Select; los diálogos y paneles conservan su bloqueo normal. */
+body[data-scroll-locked]:has([data-pesca-select-content]) {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* Las paginas publicas comparten el azul claro del catalogo; las tarjetas siguen blancas. */

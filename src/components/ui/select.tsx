@@ -64,6 +64,7 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      data-pesca-select-content=""
       className={cn(
         "relative z-[100] max-h-80 min-w-48 overflow-hidden rounded-xl border border-primary/20 bg-white text-dark-blue shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         position === "popper" &&

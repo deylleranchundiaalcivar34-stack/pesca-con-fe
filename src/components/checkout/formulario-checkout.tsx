@@ -104,11 +104,11 @@ const checkoutSchema = z
       });
     }
 
-    if (!values.address || values.address.trim().length < 8) {
+    if (values.saveAddress && (!values.address || values.address.trim().length < 8)) {
       context.addIssue({
         code: "custom",
         path: ["address"],
-        message: "Escribe una dirección de entrega.",
+        message: "Escribe una dirección de referencia para guardarla.",
       });
     }
 
@@ -182,8 +182,8 @@ export function CheckoutForm({
       saveAddress: false,
       deliveryType: "envio_servientrega",
       paymentMethod: "transferencia",
-      province: customerDefaults.province ?? "Sucumbíos",
-      city: customerDefaults.city ?? "Shushufindi",
+      province: "",
+      city: "",
       address: customerDefaults.address ?? "",
       deliveryReference: customerDefaults.deliveryReference ?? "",
     },
@@ -527,8 +527,8 @@ export function CheckoutForm({
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field id="province" label="Provincia" error={errors.province?.message}>
                     <Select value={selectedProvince ?? ""} onValueChange={selectProvince}>
-                      <SelectTrigger id="province" aria-label="Selecciona una provincia">
-                        <SelectValue placeholder="Selecciona una provincia" />
+                      <SelectTrigger id="province" aria-label="Seleccione una provincia">
+                        <SelectValue placeholder="Seleccione una provincia" />
                       </SelectTrigger>
                       <SelectContent>
                       {selectedProvince && !ECUADOR_PROVINCIAS.includes(selectedProvince) ? (
@@ -548,8 +548,8 @@ export function CheckoutForm({
                       onValueChange={selectCity}
                       disabled={!selectedProvince || !cityOptions.length}
                     >
-                      <SelectTrigger id="city" aria-label="Selecciona una ciudad">
-                        <SelectValue placeholder="Selecciona una ciudad" />
+                      <SelectTrigger id="city" aria-label="Seleccione una ciudad">
+                        <SelectValue placeholder="Seleccione una ciudad" />
                       </SelectTrigger>
                       <SelectContent>
                       {cityOptions.map((city) => (
@@ -584,15 +584,21 @@ export function CheckoutForm({
                   <Field
                     id="address"
                     className="sm:col-span-2"
-                    label="Dirección"
+                    label="Dirección de referencia (opcional)"
                     error={errors.address?.message}
                   >
-                    <Input id="address" {...addressField} autoComplete="street-address" />
+                    <>
+                      <Input id="address" {...addressField} autoComplete="street-address" />
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Si no indicas una dirección, enviaremos el pedido a la oficina de
+                        Servientrega de la ciudad seleccionada.
+                      </p>
+                    </>
                   </Field>
                   <Field
                     id="deliveryReference"
                     className="sm:col-span-2"
-                    label="Referencia de entrega"
+                    label="Referencia adicional (opcional)"
                     error={errors.deliveryReference?.message}
                   >
                     <Textarea
@@ -713,7 +719,7 @@ export function CheckoutForm({
         </Card>
       </div>
 
-      <aside className="lg:sticky lg:top-24 lg:self-start">
+      <aside className="lg:self-start">
         <Card>
           <CardHeader>
             <CardTitle>Resumen del pedido</CardTitle>

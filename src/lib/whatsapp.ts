@@ -34,58 +34,49 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
         )}`,
     )
     .join("\n");
+  const contactPhone = input.customer.contactPhone || input.customer.phone;
+  const deliveryAddress = input.customer.address?.trim();
+  const officeDeliveryMessage = input.customer.city
+    ? `Oficina de Servientrega de ${input.customer.city}`
+    : "Oficina de Servientrega de la ciudad seleccionada";
 
   return [
-    "*NUEVO PEDIDO - PESCA CON FE*",
-    input.orderCode ? `Código: *${input.orderCode}*` : undefined,
-    "",
-    "*CLIENTE*",
-    `Nombre: ${input.customer.fullName}`,
+    input.orderCode ? `*PEDIDO ${input.orderCode}*` : "*PEDIDO*",
+    `Pedido enviado por: ${input.customer.fullName}`,
+    `Número celular: ${contactPhone}`,
     "",
     "*PRODUCTOS*",
     productLines,
     "",
-    "*RESUMEN DE PAGO*",
-    `Subtotal: ${formatCurrency(input.subtotal)}`,
+    "*DATOS PARA EL ENVÍO*",
+    `Nombre: ${input.customer.fullName}`,
+    input.customer.cedula ? `Cédula: ${input.customer.cedula}` : undefined,
+    `Celular: ${contactPhone}`,
     input.deliveryType === "retiro_local"
-      ? "Retiro en local: sin costo de envío"
-      : isGalapagosDelivery
-        ? "Envío a Galápagos: tarifa pendiente de cotización"
-        : `Envío Servientrega: ${formatCurrency(input.shipping)}`,
-    isGalapagosDelivery
-      ? `*Total de productos: ${formatCurrency(input.total)}*`
-      : `*Total: ${formatCurrency(input.total)}*`,
-    "",
-    input.bankAccount ? "*CUENTA BANCARIA*" : undefined,
-    input.bankAccount ? `Banco: ${input.bankAccount.bank}` : undefined,
-    input.bankAccount
-      ? `Cuenta: ${input.bankAccount.accountType} ${input.bankAccount.accountNumber}`
-      : undefined,
-    input.bankAccount ? `Titular: ${input.bankAccount.owner}` : undefined,
-    "",
-    "*ENTREGA*",
-    input.deliveryType === "retiro_local"
-      ? "Modalidad: retiro en el local"
-      : "Modalidad: envío por Servientrega",
+      ? "Modalidad: Retiro en el local"
+      : "Modalidad: Envío por Servientrega",
     input.deliveryType === "envio_servientrega"
-      ? `Destino: ${input.customer.city}, ${input.customer.province}`
+      ? `Provincia: ${input.customer.province}`
       : undefined,
     input.deliveryType === "envio_servientrega"
-      ? `Dirección: ${input.customer.address}`
+      ? `Ciudad: ${input.customer.city}`
+      : undefined,
+    input.deliveryType === "envio_servientrega"
+      ? `Dirección de referencia: ${deliveryAddress || officeDeliveryMessage}`
       : undefined,
     input.deliveryType === "envio_servientrega" && input.customer.deliveryReference
-        ? `Referencia: ${input.customer.deliveryReference}`
-        : undefined,
-    input.deliveryType === "envio_servientrega" && input.customer.contactPhone
-      ? `Celular de contacto: ${input.customer.contactPhone}`
+      ? `Referencia adicional: ${input.customer.deliveryReference}`
       : undefined,
     isGalapagosDelivery
-      ? "La tarifa de envío a Galápagos se confirmará por WhatsApp según peso y tamaño."
+      ? "La tarifa de envío a Galápagos se confirmará según peso y tamaño."
       : undefined,
     "",
-    isGalapagosDelivery
-      ? "Solicito la cotización del envío antes de realizar la transferencia."
-      : "Adjunto el comprobante de transferencia para confirmar el pago.",
+    input.bankAccount
+      ? `El cliente seleccionó la banca: ${input.bankAccount.bank}.`
+      : isGalapagosDelivery
+        ? "El cliente espera la cotización de envío antes de seleccionar la banca."
+        : undefined,
+    input.bankAccount ? "El cliente enviará el comprobante de transferencia para corroborar la información." : undefined,
   ]
     .filter(Boolean)
     .join("\n");
