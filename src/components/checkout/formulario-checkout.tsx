@@ -16,6 +16,7 @@ import {
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { AnimatePresence, motion } from "framer-motion";
 import { createCheckoutOrder } from "@/app/checkout/acciones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -269,6 +270,13 @@ export function CheckoutForm({
     setValue("saveAddress", false, { shouldDirty: true });
   };
 
+  const useSavedAddress = () => {
+    const preferredAddress =
+      checkoutAddresses.find((address) => address.isPrimary) ?? checkoutAddresses[0];
+
+    if (preferredAddress) selectAddress(preferredAddress);
+  };
+
   const onSubmit = async (values: CheckoutValues) => {
     if (!visibleItems.length) {
       toast.error("Agrega productos al carrito antes de generar el pedido.");
@@ -481,8 +489,16 @@ export function CheckoutForm({
                     </p>
                   </div>
                 ) : null}
-                {hasSavedAddresses ? (
-                  <div className="mt-5">
+                <AnimatePresence initial={false} mode="popLayout">
+                {hasSavedAddresses && !isManualAddress ? (
+                  <motion.div
+                    key="saved-addresses"
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    transition={{ duration: 0.24, ease: "easeOut" }}
+                    className="mt-5 overflow-hidden"
+                  >
                     <Label>Direcciones guardadas</Label>
                     <div className="mt-2 grid gap-3">
                       {checkoutAddresses.map((address) => {
@@ -525,9 +541,32 @@ export function CheckoutForm({
                         Usar otra dirección
                       </Button>
                     </div>
-                  </div>
+                  </motion.div>
                 ) : null}
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                </AnimatePresence>
+                {hasSavedAddresses && isManualAddress ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="mt-5"
+                  >
+                    <Button type="button" variant="outline" onClick={useSavedAddress} className="w-full justify-start">
+                      <MapPin aria-hidden="true" />
+                      Volver a mi dirección guardada
+                    </Button>
+                  </motion.div>
+                ) : null}
+                <AnimatePresence initial={false} mode="wait">
+                {(!hasSavedAddresses || isManualAddress) ? (
+                <motion.div
+                  key="manual-address-form"
+                  initial={{ opacity: 0, y: 18, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -12, height: 0 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="mt-5 grid gap-4 overflow-hidden sm:grid-cols-2"
+                >
                   <Field id="province" label="Provincia" error={errors.province?.message}>
                     <Select value={selectedProvince ?? ""} onValueChange={selectProvince}>
                       <SelectTrigger id="province" aria-label="Seleccione una provincia">
@@ -648,7 +687,9 @@ export function CheckoutForm({
                       ) : null}
                     </div>
                   ) : null}
-                </div>
+                </motion.div>
+                ) : null}
+                </AnimatePresence>
               </>
             )}
           </CardContent>
