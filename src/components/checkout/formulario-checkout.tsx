@@ -119,6 +119,8 @@ const checkoutSchema = z
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
 
+const PAYPHONE_SERVICE_FEE = 0.45;
+
 const deliveryOptions: Array<{
   value: DeliveryType;
   title: string;
@@ -213,7 +215,8 @@ export function CheckoutForm({
     isGalapagosDestination(selectedProvince, selectedCity);
   const displayShipping =
     isClient && deliveryType === "envio_servientrega" && !isGalapagosDelivery ? shipping : 0;
-  const displayTotal = displaySubtotal + displayShipping;
+  const displayPayPhoneFee = isClient && paymentMethod === "payphone" ? PAYPHONE_SERVICE_FEE : 0;
+  const displayTotal = displaySubtotal + displayShipping + displayPayPhoneFee;
   const cityOptions = useMemo(() => {
     const cities = [
       ...(ECUADOR_UBICACIONES[selectedProvince as keyof typeof ECUADOR_UBICACIONES] ?? []),
@@ -753,6 +756,7 @@ export function CheckoutForm({
             ) : (
               <div className="mt-5 rounded-lg border border-primary/20 bg-secondary p-4 text-sm leading-6 text-muted-foreground">
                 <p className="font-semibold text-dark-blue">Pago protegido por PayPhone</p>
+                <p className="mt-1 font-medium text-primary">El total incluye $0.45 por uso del servicio PayPhone.</p>
                 <p className="mt-1">
                   Ingresa los datos de tu tarjeta aquí mismo. Pesca Con Fe no almacena esa información.
                 </p>
@@ -790,6 +794,12 @@ export function CheckoutForm({
                 <span>{DELIVERY_TYPE_LABELS[deliveryType]}</span>
                 <span>{isGalapagosDelivery ? "Por cotizar" : formatCurrency(displayShipping)}</span>
               </div>
+              {paymentMethod === "payphone" ? (
+                <div className="flex justify-between text-primary">
+                  <span>Uso del servicio PayPhone</span>
+                  <span>{formatCurrency(displayPayPhoneFee)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-lg font-bold text-dark-blue">
                 <span>Total</span>
                 <span>{formatCurrency(displayTotal)}</span>

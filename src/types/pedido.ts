@@ -52,6 +52,7 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   shipping: number;
+  paymentFee: number;
   total: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;

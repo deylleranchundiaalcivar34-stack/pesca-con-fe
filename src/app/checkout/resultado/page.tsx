@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, CircleX, TriangleAlert } from "lucide-react";
 import { ClearPaidCart } from "@/components/checkout/limpiar-carrito-pagado";
+import { ClearPurchasedWishlist } from "@/components/checkout/limpiar-deseos-comprados";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Resultado del pago",
@@ -16,6 +18,28 @@ type PaymentResultParams = {
   pedido?: string | string[];
 };
 
+// Solo devuelve ítems de un pedido propio que ya fue aprobado por la pasarela.
+async function getApprovedOrderProductIds(orderCode?: string) {
+  if (!orderCode) return [];
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("pedidos")
+    .select("pedido_items(producto_id)")
+    .eq("codigo", orderCode)
+    .eq("cliente_id", user.id)
+    .eq("estado_pago", "aprobado")
+    .in("estado", ["pagado_confirmado", "listo_retiro", "retirado", "enviado"])
+    .maybeSingle();
+
+  const order = data as { pedido_items?: Array<{ producto_id?: string | null }> } | null;
+  return Array.from(new Set((order?.pedido_items ?? []).flatMap((item) => item.producto_id ? [item.producto_id] : [])));
+}
+
 export default async function CheckoutResultPage({
   searchParams,
 }: {
@@ -26,6 +50,7 @@ export default async function CheckoutResultPage({
   const orderCode = Array.isArray(params.pedido) ? params.pedido[0] : params.pedido;
   const approved = state === "aprobado";
   const canceled = state === "cancelado";
+  const purchasedProductIds = approved ? await getApprovedOrderProductIds(orderCode) : [];
   const Icon = approved ? CheckCircle2 : canceled ? CircleX : TriangleAlert;
   const title = approved
     ? "Pago confirmado"
@@ -40,7 +65,7 @@ export default async function CheckoutResultPage({
 
   return (
     <PublicShell>
-      {approved ? <ClearPaidCart /> : null}
+      {approved ? <><ClearPaidCart /><ClearPurchasedWishlist productIds={purchasedProductIds} /></> : null}
       <section className="bg-secondary px-4 py-14 sm:py-20">
         <Card className="mx-auto max-w-2xl border-primary/25 bg-white text-center shadow-lg">
           <CardHeader>

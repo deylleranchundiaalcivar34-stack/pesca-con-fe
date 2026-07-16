@@ -249,7 +249,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
 
   if (input.paymentMethod === "payphone" && payPhoneAdmin) {
     const { data: rpcOrder, error } = await supabase
-      .rpc("crear_pedido_payphone", { payload })
+      .rpc("crear_pedido_payphone_con_recargo", { payload })
       .single<PayPhoneOrderRpcRow>();
 
     if (error || !rpcOrder) {

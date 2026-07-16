@@ -6,6 +6,7 @@ import { persist } from "zustand/middleware";
 interface WishlistState {
   productIds: string[];
   toggleProduct: (productId: string) => void;
+  removeProducts: (productIds: string[]) => void;
   hasProduct: (productId: string) => boolean;
   itemCount: () => number;
 }
@@ -21,6 +22,11 @@ export const useWishlistStore = create<WishlistState>()(
             ? state.productIds.filter((id) => id !== productId)
             : [...state.productIds, productId],
         })),
+      removeProducts: (productIds) =>
+        set((state) => {
+          const purchased = new Set(productIds);
+          return { productIds: state.productIds.filter((id) => !purchased.has(id)) };
+        }),
       hasProduct: (productId) => get().productIds.includes(productId),
       itemCount: () => get().productIds.length,
     }),
