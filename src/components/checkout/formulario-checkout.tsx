@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   CreditCard,
+  LoaderCircle,
   MapPin,
   MessageCircle,
   Store,
@@ -295,12 +296,24 @@ export function CheckoutForm({
       return;
     }
 
-    const createdOrder = await createCheckoutOrder({
-      customer: values,
-      items: checkoutItems,
-      deliveryType: values.deliveryType,
-      paymentMethod: values.paymentMethod,
-    });
+    let createdOrder;
+
+    try {
+      createdOrder = await createCheckoutOrder({
+        customer: values,
+        items: checkoutItems,
+        deliveryType: values.deliveryType,
+        paymentMethod: values.paymentMethod,
+      });
+    } catch (error) {
+      console.error("Checkout order request failed", error);
+      toast.error(
+        values.paymentMethod === "payphone"
+          ? "No pudimos abrir el pago seguro. Intenta nuevamente."
+          : "No pudimos generar el pedido. Intenta nuevamente.",
+      );
+      return;
+    }
 
     if ("requiresAuth" in createdOrder && createdOrder.requiresAuth) {
       router.push("/login?redirect=%2Fcheckout");
@@ -807,17 +820,22 @@ export function CheckoutForm({
             </div>
             <Button
               type="submit"
+              variant={paymentMethod === "payphone" ? "dark" : "default"}
               className="mt-6 h-auto min-h-11 w-full whitespace-normal py-3 text-center leading-snug"
               size="lg"
               disabled={isSubmitting || !visibleItems.length}
             >
-              {paymentMethod === "payphone" ? (
+              {paymentMethod === "payphone" && isSubmitting ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : paymentMethod === "payphone" ? (
                 <CreditCard aria-hidden="true" />
               ) : (
                 <MessageCircle aria-hidden="true" />
               )}
               {paymentMethod === "payphone"
-                ? "Abrir pago seguro"
+                ? isSubmitting
+                  ? "Abriendo pago seguro..."
+                  : "Abrir pago seguro"
                 : isGalapagosDelivery
                   ? "Solicitar cotización por WhatsApp"
                   : "Generar pedido y enviar comprobante por WhatsApp"}
