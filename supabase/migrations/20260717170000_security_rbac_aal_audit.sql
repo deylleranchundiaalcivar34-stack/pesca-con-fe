@@ -1,5 +1,5 @@
 -- Expansión compatible: capacidades administrativas y auditoría append-only.
--- No activa todavía las políticas AAL2; el contrato vive en la migración siguiente
+-- No activa todavía las políticas AAL2; el contrato vive en la migración 175000
 -- y se aplica únicamente después de desplegar y validar /admin/seguridad.
 
 create schema if not exists private;
@@ -244,7 +244,7 @@ for each row execute function private.auditar_cambio_sensible();
 -- El propio perfil puede leerse en AAL1 para completar/desafiar MFA. Gestionar
 -- otros perfiles sigue reservado al dueño con AAL2.
 /* CONTRATO AAL2: se conserva aquí solo como referencia histórica del diseño.
-   La versión ejecutable está en 20260717171000_least_privilege_limits_and_physical_prices.sql.
+   La versión ejecutable está en 20260717175000_least_privilege_limits_and_physical_prices.sql.
 drop policy if exists "Admins leen perfiles admin" on public.perfiles_admin;
 create policy "Admin lee su perfil o dueno gestiona roles"
 on public.perfiles_admin for select to authenticated
