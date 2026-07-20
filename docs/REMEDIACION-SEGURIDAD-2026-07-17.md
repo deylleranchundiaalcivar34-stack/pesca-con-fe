@@ -104,6 +104,12 @@ Esta evidencia no sustituye pruebas de integración contra PostgreSQL/Supabase r
 4. Confirmar que los dos propietarios pueden iniciar sesión y tienen un autenticador TOTP disponible.
 5. Probar las cinco migraciones en una rama Supabase temporal. La organización está en plan Free y Supabase cotiza la rama en **USD 0,01344/hora**; requiere aprobación expresa antes de crearla.
 
+Inventario de variables que deben configurarse directamente en los paneles, sin guardarlas en Git:
+
+- Públicas: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`.
+- Solo servidor: `SUPABASE_SECRET_KEY`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `PAYPHONE_TOKEN`, `PAYPHONE_STORE_ID`, `PAYPHONE_TAX_MODE`, `PAYPHONE_TAX_RATE`, `CRON_SECRET`, `RATE_LIMIT_SECRET`.
+- `RATE_LIMIT_SECRET` y `CRON_SECRET` deben contener al menos 32 bytes aleatorios, ser distintos entre sí y no reutilizar ninguna clave de proveedor.
+
 ### Fase 1 — Expandir la base sin retirar compatibilidad
 
 1. Aplicar `20260717170000_security_rbac_aal_audit.sql` sin activar todavía sus políticas contractuales.

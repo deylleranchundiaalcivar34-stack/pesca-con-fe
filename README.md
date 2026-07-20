@@ -120,6 +120,6 @@ pnpm security:ci
 
 Los pull requests y cambios enviados a `main` ejecutan lint, revisión de tipos, pruebas, build, controles de migraciones/secretos, auditoría de dependencias y CodeQL. Dependabot revisa semanalmente actualizaciones menores y parches.
 
-Copia `.env.example` como `.env.local` y reemplaza sus valores para desarrollo. En producción, configura las mismas variables en Vercel. Nunca subas credenciales ni secretos al repositorio.
+Configura las variables indicadas en `docs/REMEDIACION-SEGURIDAD-2026-07-17.md` mediante `.env.local` en desarrollo y desde el panel de Vercel en Preview/Production. Nunca subas credenciales ni secretos al repositorio.
 
 La auditoría y el orden de despliegue de los controles de seguridad están en [`docs/REMEDIACION-SEGURIDAD-2026-07-17.md`](docs/REMEDIACION-SEGURIDAD-2026-07-17.md). Las migraciones pendientes usan expansión/contrato: no debe aplicarse `20260717175000_least_privilege_limits_and_physical_prices.sql` hasta desplegar la aplicación compatible y verificar MFA de los propietarios.

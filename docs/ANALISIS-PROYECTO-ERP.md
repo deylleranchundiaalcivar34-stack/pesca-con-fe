@@ -20,7 +20,7 @@ El panel **todavía no es un ERP**: es un backoffice de e-commerce con inventari
   - solo permite confirmar manualmente transferencias;
   - registra `estado_pago` y `pagado_en` al cobrar y corrige el registro histórico inconsistente.
 - Dependencias transitivas vulnerables de PostCSS y Babel fijadas a versiones seguras; `pnpm audit --prod` reporta cero vulnerabilidades conocidas.
-- Añadidos `.env.example`, auditoría de dependencias en CI y documentación de rutas administrativas faltantes.
+- Añadidos el inventario documentado de variables, la auditoría de dependencias en CI y las rutas administrativas faltantes.
 
 ## Estado comprobado
 
@@ -28,8 +28,8 @@ El panel **todavía no es un ERP**: es un backoffice de e-commerce con inventari
 | --- | --- |
 | ESLint | Correcto |
 | TypeScript estricto | Correcto |
-| Pruebas unitarias | 12/12, 4 archivos |
-| Build Next.js | Correcto, 81 rutas |
+| Pruebas unitarias | 43/43, 12 archivos |
+| Build Next.js | Correcto, 84 rutas |
 | Auditoría de paquetes | 0 vulnerabilidades conocidas |
 | Tablas públicas Supabase | 16/16 con RLS |
 | Productos activos | 52 |
