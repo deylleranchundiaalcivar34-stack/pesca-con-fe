@@ -21,6 +21,10 @@ function hashIdentifier(identifier: string) {
   return createHmac("sha256", secret).update(identifier).digest("hex");
 }
 
+function canBypassDurableRateLimit() {
+  return process.env.VERCEL_ENV === "preview" || process.env.NODE_ENV !== "production";
+}
+
 export async function consumeRateLimit(input: {
   bucket: string;
   identifier: string;
@@ -30,20 +34,29 @@ export async function consumeRateLimit(input: {
   const hash = hashIdentifier(input.identifier);
   if (!hash) return false;
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.rpc("consumir_limite_frecuencia_servidor", {
-    bucket_input: input.bucket,
-    clave_hash_input: hash,
-    maximo_input: input.max,
-    ventana_segundos_input: input.windowSeconds,
-  });
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("consumir_limite_frecuencia_servidor", {
+      bucket_input: input.bucket,
+      clave_hash_input: hash,
+      maximo_input: input.max,
+      ventana_segundos_input: input.windowSeconds,
+    });
 
-  if (error) {
-    // Permite desplegar el código antes que la migración sin interrumpir ventas;
-    // CI y el checklist de despliegue exigen aplicar la migración inmediatamente.
-    console.error("Durable rate limit unavailable", { bucket: input.bucket, code: error.code });
-    return true;
+    if (error) {
+      console.error("Durable rate limit unavailable", {
+        bucket: input.bucket,
+        code: error.code,
+      });
+      return canBypassDurableRateLimit();
+    }
+
+    return data === true;
+  } catch (error) {
+    console.error("Durable rate limit unavailable", {
+      bucket: input.bucket,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return canBypassDurableRateLimit();
   }
-
-  return data === true;
 }
