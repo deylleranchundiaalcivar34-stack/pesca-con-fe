@@ -3,7 +3,7 @@ alter table public.pedidos
   add column if not exists recargo_pago numeric not null default 0
   check (recargo_pago >= 0);
 
--- Envuelve la creación existente para mantener las reservas de stock y cobrar
+-- Envuelve la creaciÃ³n existente para mantener las reservas de stock y cobrar
 -- exactamente el importe que se muestra al cliente en la Cajita de PayPhone.
 create or replace function public.crear_pedido_payphone_con_recargo(payload jsonb)
 returns table(

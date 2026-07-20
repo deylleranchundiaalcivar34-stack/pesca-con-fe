@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/supabase/admin-auth";
+import { publicServerError } from "@/lib/safe-server-error";
 
 type SubmittedItem = {
   productId?: unknown;
@@ -18,21 +19,7 @@ export async function createPhysicalSale(input: {
   note?: string;
   paymentMethod?: string;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("No autenticado.");
-
-  const { data: admin } = await supabase
-    .from("perfiles_admin")
-    .select("id")
-    .eq("id", user.id)
-    .eq("activo", true)
-    .maybeSingle();
-
-  if (!admin) throw new Error("No autorizado.");
+  const { supabase } = await requireAdmin("sales.create");
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 50) {
     throw new Error("Agrega entre uno y cincuenta artículos.");
   }
@@ -62,7 +49,13 @@ export async function createPhysicalSale(input: {
     metodo_pago_input: paymentMethod,
   });
 
-  if (error || !data) throw new Error(error?.message ?? "No se pudo registrar la venta física.");
+  if (error || !data) {
+    throw publicServerError(
+      "Physical sale creation failed",
+      error,
+      "No se pudo registrar la venta física.",
+    );
+  }
 
   updateTag("products");
   revalidatePath("/");

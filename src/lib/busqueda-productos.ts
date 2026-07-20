@@ -19,7 +19,7 @@ export function normalizeSearchText(value: string) {
     .trim();
 }
 
-export function getRelatedSearchTerms(term: string) {
+function getRelatedSearchTerms(term: string) {
   return relatedTerms.find((group) =>
     group.some(
       (word) => word === term || word.startsWith(term) || term.startsWith(word),

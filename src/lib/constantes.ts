@@ -2,9 +2,6 @@
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://pescaconfe.com";
 
-// Umbral compartido para mostrar alertas de bajo stock.
-export const LOW_STOCK_THRESHOLD = 4;
-
 // Etiquetas visibles para los estados internos de pedidos.
 export const ORDER_STATUS_LABELS = {
   pendiente_pago: "Pendiente de pago",

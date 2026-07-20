@@ -1,11 +1,9 @@
-export type CategorySlug = string;
+type CategorySlug = string;
 
-export type BrandName = string;
+type BrandName = string;
 
 // Modelos de producto, categoria e imagen usados en catalogo y admin.
-export type ProductAvailability = "all" | "in-stock" | "low-stock" | "out-of-stock";
-
-export interface ProductSubcategory {
+interface ProductSubcategory {
   name: string;
   slug: string;
 }
@@ -48,7 +46,7 @@ export interface CatalogLanding {
   content: CatalogLandingContent;
 }
 
-export interface CatalogLandingContent {
+interface CatalogLandingContent {
   title: string;
   shortDescription: string;
   technicalContent: string;

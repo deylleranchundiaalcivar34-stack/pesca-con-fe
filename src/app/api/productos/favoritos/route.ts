@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Solicitud inv\u00e1lida." }, { status: 400 });
+    return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
   }
 
   const ids =
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   if (ids.length > 50) {
     return NextResponse.json(
-      { error: "La lista supera el l\u00edmite permitido." },
+      { error: "La lista supera el límite permitido." },
       { status: 400 },
     );
   }

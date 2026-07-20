@@ -1,6 +1,7 @@
 import type { Product } from "@/types/producto";
 import { SITE_URL } from "@/lib/constantes";
 import { getProductPricingSummary } from "@/lib/precios-producto";
+import { serializeJsonLd } from "@/lib/seguridad-json-ld";
 
 interface ProductJsonLdProps {
   product: Product;
@@ -32,7 +33,7 @@ export function ProductJsonLd({ product }: ProductJsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

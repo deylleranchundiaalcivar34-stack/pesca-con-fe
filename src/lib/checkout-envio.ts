@@ -35,7 +35,7 @@ function normalizarTexto(value: string) {
     .toLowerCase();
 }
 
-export function isGalapagosProvince(province?: string) {
+function isGalapagosProvince(province?: string) {
   return normalizarTexto(province ?? "") === "galapagos";
 }
 

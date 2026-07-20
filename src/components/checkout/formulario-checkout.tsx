@@ -44,6 +44,7 @@ import {
 } from "@/lib/checkout-envio";
 import { formatCurrency } from "@/lib/utilidades";
 import { getEffectivePrice } from "@/lib/precios-producto";
+import { getInitialCheckoutAddress } from "@/lib/direcciones-cliente";
 import {
   buildCheckoutWhatsAppMessage,
   getWhatsAppPrefilledUrl,
@@ -155,6 +156,7 @@ export function CheckoutForm({
   businessConfig: BusinessConfig;
 }) {
   const router = useRouter();
+  const [checkoutAttemptId, setCheckoutAttemptId] = useState(() => crypto.randomUUID());
   const items = useCartStore((state) => state.items);
   const isClient = useIsClient();
   const subtotal = useCartStore((state) => state.subtotal());
@@ -164,6 +166,7 @@ export function CheckoutForm({
   const [successOrder, setSuccessOrder] = useState<string | null>(null);
   const [payPhonePayment, setPayPhonePayment] = useState<PayPhoneBoxPayment | null>(null);
   const displaySubtotal = isClient ? subtotal : 0;
+  const initialAddress = getInitialCheckoutAddress(customerDefaults, checkoutAddresses);
 
   const selectedBank = useMemo(
     () => bankAccounts.find((account) => account.id === selectedBankId) ?? bankAccounts[0],
@@ -182,17 +185,17 @@ export function CheckoutForm({
       fullName: customerDefaults.fullName ?? "",
       phone: customerDefaults.phone ?? "",
       email: customerDefaults.email ?? "",
-      addressId: customerDefaults.addressId ?? "",
-      addressAlias: "Principal",
+      addressId: initialAddress.addressId,
+      addressAlias: initialAddress.addressAlias,
       cedula: customerDefaults.cedula ?? "",
-      contactPhone: customerDefaults.contactPhone ?? customerDefaults.phone ?? "",
+      contactPhone: initialAddress.contactPhone,
       saveAddress: false,
       deliveryType: "envio_servientrega",
       paymentMethod: "transferencia",
-      province: "",
-      city: "",
-      address: customerDefaults.address ?? "",
-      deliveryReference: customerDefaults.deliveryReference ?? "",
+      province: initialAddress.province,
+      city: initialAddress.city,
+      address: initialAddress.address,
+      deliveryReference: initialAddress.deliveryReference,
     },
   });
 
@@ -255,6 +258,7 @@ export function CheckoutForm({
 
   const selectAddress = (address: CustomerAddress) => {
     setValue("addressId", address.id, { shouldDirty: true, shouldValidate: true });
+    setValue("addressAlias", address.alias, { shouldDirty: true });
     setValue("province", address.province, { shouldDirty: true, shouldValidate: true });
     setValue("city", address.city, { shouldDirty: true, shouldValidate: true });
     setValue("address", address.address, { shouldDirty: true, shouldValidate: true });
@@ -305,9 +309,11 @@ export function CheckoutForm({
     }
 
     let createdOrder;
+    const idempotencyKey = checkoutAttemptId;
 
     try {
       createdOrder = await createCheckoutOrder({
+        idempotencyKey,
         customer: values,
         items: checkoutItems,
         deliveryType: values.deliveryType,
@@ -324,18 +330,26 @@ export function CheckoutForm({
     }
 
     if ("requiresAuth" in createdOrder && createdOrder.requiresAuth) {
+      setCheckoutAttemptId(crypto.randomUUID());
       router.push("/login?redirect=%2Fcheckout");
       return;
     }
 
     if ("requiresProfile" in createdOrder && createdOrder.requiresProfile) {
+      setCheckoutAttemptId(crypto.randomUUID());
       toast.error(createdOrder.message);
       router.push("/mi-cuenta?seccion=perfil&checkout=1");
       return;
     }
 
     if (!createdOrder.ok || !createdOrder.code) {
+      setCheckoutAttemptId(crypto.randomUUID());
       toast.error(createdOrder.message);
+      return;
+    }
+
+    if ("alreadyApproved" in createdOrder && createdOrder.alreadyApproved) {
+      router.push(`/checkout/resultado?pedido=${encodeURIComponent(createdOrder.code)}`);
       return;
     }
 
@@ -387,7 +401,10 @@ export function CheckoutForm({
     }
 
     setPayPhonePayment(null);
-    toast.message("Pago cancelado. El pedido no se registró y el stock quedó disponible.");
+    setCheckoutAttemptId(crypto.randomUUID());
+    toast.message(
+      "Solicitud de cancelación registrada. Verificaremos PayPhone antes de liberar la reserva.",
+    );
   };
 
   if (successOrder) {

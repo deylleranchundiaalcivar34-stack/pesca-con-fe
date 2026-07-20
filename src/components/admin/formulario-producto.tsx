@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ImagePlus, LoaderCircle, Plus, Save, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, LoaderCircle, Plus, Save, Star, Trash2, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
-import { deleteProductImage, saveProduct, setMainImage } from "@/app/admin/productos/acciones";
+import {
+  deleteProductImage,
+  saveProduct,
+  setMainImage,
+  type ProductActionState,
+} from "@/app/admin/productos/acciones";
 import type { CatalogAttribute, CatalogNode, Product, ProductCategory, ProductVariant } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +27,16 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  MAX_PRODUCT_IMAGES,
+  validateProductImageFiles,
+} from "@/lib/seguridad-imagenes";
 import { cn, slugify } from "@/lib/utilidades";
+
+const initialProductActionState: ProductActionState = {
+  status: "idle",
+  message: "",
+};
 
 type ProductFormValues = {
   name: string;
@@ -138,12 +152,15 @@ export function ProductForm({
   initialAttributes,
 }: ProductFormProps) {
   const router = useRouter();
+  const [actionState, formAction] = useActionState(saveProduct, initialProductActionState);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLDivElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
   const initialCatalogPathIds = getInitialCatalogPathIds(product, catalogNodes, categories);
   const [selectedCatalogPathIds, setSelectedCatalogPathIds] = useState(initialCatalogPathIds);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>(variants);
@@ -225,25 +242,58 @@ export function ProductForm({
     imageInputRef.current.files = dataTransfer.files;
   };
 
-  const updateSelectedImages = (files: FileList | null) => {
-    const imageFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+  useEffect(() => {
+    if (actionState.status !== "error") return;
+
+    const dataTransfer = new DataTransfer();
+    selectedImagePreviewsRef.current.forEach((image) =>
+      dataTransfer.items.add(image.file),
+    );
+    if (imageInputRef.current) imageInputRef.current.files = dataTransfer.files;
+
+    formErrorRef.current?.focus({ preventScroll: true });
+    formErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [actionState]);
+
+  const updateSelectedImages = async (files: FileList | null) => {
+    const imageFiles = Array.from(files ?? []);
+    if (!imageFiles.length) return;
+
+    const currentImages = selectedImagePreviewsRef.current;
+    const nextFiles = [...currentImages.map((image) => image.file), ...imageFiles];
+
+    try {
+      await validateProductImageFiles(nextFiles);
+
+      if ((product?.images.length ?? 0) + nextFiles.length > MAX_PRODUCT_IMAGES) {
+        throw new Error(
+          `Un producto puede conservar como máximo ${MAX_PRODUCT_IMAGES} imágenes.`,
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudieron validar las imágenes.";
+      setImageError(message);
+      syncImageInputFiles(currentImages);
+      return;
+    }
+
     const previews = imageFiles.map((file, index) => ({
       id: `${file.name}-${file.lastModified}-${Date.now()}-${index}`,
       file,
       url: URL.createObjectURL(file),
       alt: file.name.replace(/\.[^/.]+$/, ""),
     }));
+    const nextImages = [...currentImages, ...previews];
 
-    setSelectedImagePreviews((current) => {
-      const nextImages = [...current, ...previews];
-      syncImageInputFiles(nextImages);
+    selectedImagePreviewsRef.current = nextImages;
+    setSelectedImagePreviews(nextImages);
+    syncImageInputFiles(nextImages);
+    setImageError(null);
 
-      if (!mainSelectedImageId && !product?.images.length && nextImages.length) {
-        setMainSelectedImageId(nextImages[0].id);
-      }
-
-      return nextImages;
-    });
+    if (!mainSelectedImageId && !product?.images.length && nextImages.length) {
+      setMainSelectedImageId(nextImages[0].id);
+    }
   };
 
   const removeSelectedImage = (id: string) => {
@@ -257,7 +307,9 @@ export function ProductForm({
         setMainSelectedImageId(product?.images.length ? null : (nextImages[0]?.id ?? null));
       }
 
+      selectedImagePreviewsRef.current = nextImages;
       syncImageInputFiles(nextImages);
+      setImageError(null);
       return nextImages;
     });
   };
@@ -288,7 +340,7 @@ export function ProductForm({
 
   return (
     <form
-      action={saveProduct}
+      action={formAction}
       className="grid w-full max-w-full min-w-0 grid-cols-1 gap-6 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]"
     >
       <input type="hidden" name="productId" value={product?.id ?? ""} />
@@ -306,6 +358,24 @@ export function ProductForm({
       />
       <input type="hidden" name="variants" value={JSON.stringify(productVariants)} />
       <input type="hidden" name="attributes" value={serializedAttributes} />
+
+      {actionState.status === "error" ? (
+        <div
+          ref={formErrorRef}
+          role="alert"
+          aria-live="assertive"
+          tabIndex={-1}
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive outline-none xl:col-span-2"
+        >
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">No se guardaron los cambios</p>
+              <p className="mt-1 leading-6">{actionState.message}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="min-w-0 space-y-6">
         <Card>
@@ -818,12 +888,7 @@ export function ProductForm({
                 onDrop={(event) => {
                   event.preventDefault();
                   setIsDraggingImages(false);
-
-                  if (imageInputRef.current) {
-                    imageInputRef.current.files = event.dataTransfer.files;
-                  }
-
-                  updateSelectedImages(event.dataTransfer.files);
+                  void updateSelectedImages(event.dataTransfer.files);
                 }}
                 className={cn(
                   "flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-secondary p-6 text-center transition-colors hover:border-primary hover:bg-white",
@@ -833,7 +898,7 @@ export function ProductForm({
                 <ImagePlus className="size-8 text-primary" aria-hidden="true" />
                 <span className="mt-2 font-semibold text-dark-blue">Subir imagenes</span>
                 <span className="mt-1 text-sm text-muted-foreground">
-                  Selecciona o arrastra varias imagenes del producto.
+                  JPEG, PNG, WebP o AVIF. Máximo 6 imágenes, 4 MB cada una y 5 MB por lote.
                 </span>
                 {selectedImagePreviews.length > 0 ? (
                   <span className="mt-3 rounded-md bg-white px-3 py-1 text-xs font-semibold text-primary">
@@ -849,10 +914,19 @@ export function ProductForm({
                 name="images"
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/avif"
                 className="sr-only"
-                onChange={(event) => updateSelectedImages(event.target.files)}
+                onChange={(event) => void updateSelectedImages(event.target.files)}
               />
+              {imageError ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+                >
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <span>{imageError} No se agregó ningún archivo de esta selección.</span>
+                </div>
+              ) : null}
               <Field id="imageAlt" label="Texto alternativo para imagenes nuevas">
                 <Input id="imageAlt" name="imageAlt" defaultValue={product?.name ?? ""} />
               </Field>

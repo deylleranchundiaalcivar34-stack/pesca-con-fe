@@ -2,37 +2,50 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { uploadProductImage } from "@/lib/cloudinary";
-import { createClient } from "@/lib/supabase/server";
+import { deleteCloudinaryImage, uploadProductImage } from "@/lib/cloudinary";
+import {
+  MAX_PRODUCT_IMAGE_DIMENSION,
+  MAX_PRODUCT_IMAGE_BYTES,
+  MAX_PRODUCT_IMAGES,
+  validateProductImageFiles,
+} from "@/lib/seguridad-imagenes";
+import { requireAdmin } from "@/lib/supabase/admin-auth";
+import {
+  PublicServerError,
+  publicServerError,
+  reportServerError,
+} from "@/lib/safe-server-error";
 
-// Verifica que el usuario tenga permisos antes de modificar productos.
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+type AdminClient = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (!user) {
-    throw new Error("No autenticado.");
+export type ProductActionState = {
+  status: "idle" | "error";
+  message: string;
+};
+
+class ProductFormError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProductFormError";
   }
-
-  const { data } = await supabase
-    .from("perfiles_admin")
-    .select("id")
-    .eq("id", user.id)
-    .eq("activo", true)
-    .maybeSingle();
-
-  if (!data) {
-    throw new Error("No autorizado.");
-  }
-
-  return { supabase, userId: user.id };
 }
 
 // Lee un campo de formulario como texto limpio.
 function getText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function requireTextLength(value: string, label: string, maximum: number) {
+  if ([...value].length > maximum) {
+    throw new ProductFormError(`${label} supera el máximo de ${maximum} caracteres.`);
+  }
+  return value;
+}
+
+function requireUuid(value: string, label: string) {
+  if (!UUID_PATTERN.test(value)) throw new ProductFormError(`${label} no válido.`);
+  return value;
 }
 
 // Invalida cache publica despues de cambios que afectan la tienda.
@@ -85,41 +98,11 @@ function getYouTubeVideoId(value: string) {
   return null;
 }
 
-// Busca marca, categoria y subcategoria relacionadas antes de guardar.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function resolveProductRelations(formData: FormData) {
-  const { supabase } = await requireAdmin();
-  const brandName = getText(formData, "brand");
-  const categorySlug = getText(formData, "categorySlug");
-  const subcategorySlug = getText(formData, "subcategorySlug");
-
-  const [{ data: brand }, { data: category }] = await Promise.all([
-    supabase.from("marcas").select("id").eq("nombre", brandName).maybeSingle(),
-    supabase.from("categorias").select("id").eq("slug", categorySlug).maybeSingle(),
-  ]);
-
-  if (!category) {
-    throw new Error("Categoría no encontrada.");
-  }
-
-  const { data: subcategory } = await supabase
-    .from("subcategorias")
-    .select("id")
-    .eq("categoria_id", category.id)
-    .eq("slug", subcategorySlug)
-    .maybeSingle();
-
-  return {
-    supabase,
-    brandId: brand?.id ?? null,
-    categoryId: category.id,
-    subcategoryId: subcategory?.id ?? null,
-  };
-}
-
 // Resuelve la ruta flexible del catalogo y conserva columnas antiguas cuando existen.
-async function resolveFlexibleProductRelations(formData: FormData) {
-  const { supabase } = await requireAdmin();
+async function resolveFlexibleProductRelations(
+  supabase: AdminClient,
+  formData: FormData,
+) {
   const brandName = getText(formData, "brand");
   const catalogNodeIdInput = getText(formData, "catalogNodeId");
   const catalogNodeId = catalogNodeIdInput.startsWith("fallback-")
@@ -129,11 +112,18 @@ async function resolveFlexibleProductRelations(formData: FormData) {
   let subcategorySlug = getText(formData, "subcategorySlug");
 
   if (catalogNodeId) {
-    const { data: nodes } = await supabase
+    const { data: nodes, error: nodesError } = await supabase
       .from("catalogo_nodos")
       .select("id, parent_id, slug")
       .eq("activo", true);
+
+    if (nodesError) throw publicServerError("Catalog node validation failed", nodesError, "No se pudo validar el catálogo.");
+
     const nodeById = new Map((nodes ?? []).map((node) => [node.id, node]));
+
+    if (!nodeById.has(catalogNodeId)) {
+      throw new ProductFormError("La categoría seleccionada ya no está disponible.");
+    }
     const path = [];
     let current = nodeById.get(catalogNodeId);
 
@@ -146,22 +136,31 @@ async function resolveFlexibleProductRelations(formData: FormData) {
     subcategorySlug = path[1]?.slug ?? subcategorySlug;
   }
 
-  const [{ data: brand }, { data: category }] = await Promise.all([
+  const [brandResult, categoryResult] = await Promise.all([
     supabase.from("marcas").select("id").eq("nombre", brandName).maybeSingle(),
     supabase.from("categorias").select("id").eq("slug", categorySlug).maybeSingle(),
   ]);
+  const { data: brand, error: brandError } = brandResult;
+  const { data: category, error: categoryError } = categoryResult;
 
-  const { data: subcategory } = category
-    ? await supabase
-        .from("subcategorias")
-        .select("id")
-        .eq("categoria_id", category.id)
-        .eq("slug", subcategorySlug)
-        .maybeSingle()
-    : { data: null };
+  if (brandError || categoryError) {
+    throw publicServerError("Catalog relation validation failed", brandError ?? categoryError, "No se pudo validar el catálogo.");
+  }
+
+  if (!catalogNodeId || !category || !brand) {
+    throw new ProductFormError("Selecciona una categoría y una marca válidas.");
+  }
+
+  const { data: subcategory, error: subcategoryError } = await supabase
+    .from("subcategorias")
+    .select("id")
+    .eq("categoria_id", category.id)
+    .eq("slug", subcategorySlug)
+    .maybeSingle();
+
+  if (subcategoryError) throw publicServerError("Subcategory validation failed", subcategoryError, "No se pudo validar la subcategoría.");
 
   return {
-    supabase,
     brandId: brand?.id ?? null,
     categoryId: category?.id ?? null,
     subcategoryId: subcategory?.id ?? null,
@@ -169,24 +168,73 @@ async function resolveFlexibleProductRelations(formData: FormData) {
   };
 }
 
-// Sube imagenes nuevas a Cloudinary y registra sus filas en Supabase.
-async function uploadImagesForProduct(productId: string, formData: FormData, userId: string) {
-  const { supabase } = await requireAdmin();
+type PreparedProductImages = {
+  files: File[];
+  existingImages: Array<{ id: string; principal: boolean }>;
+};
+
+// Ejecuta todas las validaciones locales de las imágenes antes de modificar el
+// producto, evitando que un envío inválido deje cambios parciales.
+async function prepareProductImages(
+  supabase: AdminClient,
+  productId: string | null,
+  formData: FormData,
+): Promise<PreparedProductImages> {
   const files = formData
     .getAll("images")
     .filter((file): file is File => file instanceof File && file.size > 0);
 
   if (!files.length) {
-    return;
+    return { files, existingImages: [] };
   }
 
-  const { count } = await supabase
+  try {
+    await validateProductImageFiles(files);
+  } catch (error) {
+    throw new ProductFormError(
+      error instanceof Error ? error.message : "No se pudieron validar las imágenes.",
+    );
+  }
+
+  if (!productId) {
+    return { files, existingImages: [] };
+  }
+
+  const { data: existingImages, error: existingImagesError } = await supabase
     .from("producto_imagenes")
-    .select("id", { count: "exact", head: true })
+    .select("id, principal")
     .eq("producto_id", productId)
     .eq("activo", true);
 
-  const hasImages = Boolean(count && count > 0);
+  if (existingImagesError) {
+    throw publicServerError("Product image lookup failed", existingImagesError, "No se pudieron validar las imágenes.");
+  }
+
+  if ((existingImages?.length ?? 0) + files.length > MAX_PRODUCT_IMAGES) {
+    throw new ProductFormError(
+      `Un producto puede conservar como máximo ${MAX_PRODUCT_IMAGES} imágenes.`,
+    );
+  }
+
+  return { files, existingImages: existingImages ?? [] };
+}
+
+// Sube imágenes ya validadas a Cloudinary y registra sus filas en Supabase.
+async function uploadImagesForProduct(
+  supabase: AdminClient,
+  productId: string,
+  formData: FormData,
+  userId: string,
+  preparedImages: PreparedProductImages,
+) {
+  const { files, existingImages } = preparedImages;
+
+  if (!files.length) {
+    return;
+  }
+
+  const hasImages = existingImages.length > 0;
+  const previousMainImageId = existingImages.find((image) => image.principal)?.id;
   const selectedMainImageIndex = Number(getText(formData, "mainImageIndex"));
   const mainImageIndex =
     Number.isInteger(selectedMainImageIndex) &&
@@ -197,42 +245,63 @@ async function uploadImagesForProduct(productId: string, formData: FormData, use
         ? -1
         : 0;
   const rows = [];
+  const uploadedPublicIds: string[] = [];
 
-  if (hasImages && mainImageIndex >= 0) {
-    await supabase
-      .from("producto_imagenes")
-      .update({ principal: false, actualizado_por: userId })
-      .eq("producto_id", productId);
-  }
-
-  for (const [index, file] of files.entries()) {
-    const result = await uploadProductImage(file);
-    rows.push({
-      producto_id: productId,
-      cloudinary_public_id: result.public_id,
-      cloudinary_secure_url: result.secure_url,
-      cloudinary_url: result.url,
-      cloudinary_version: result.version,
-      cloudinary_signature: result.signature,
-      cloudinary_format: result.format,
-      cloudinary_resource_type: result.resource_type,
-      cloudinary_width: result.width,
-      cloudinary_height: result.height,
-      cloudinary_bytes: result.bytes,
-      alt: getText(formData, "imageAlt") || getText(formData, "name") || file.name,
-      orden: (count ?? 0) + index,
-      principal: index === mainImageIndex,
-      activo: true,
-      creado_por: userId,
-      actualizado_por: userId,
-    });
-  }
-
-  if (rows.length) {
-    const { error } = await supabase.from("producto_imagenes").insert(rows);
-    if (error) {
-      throw new Error(error.message);
+  try {
+    for (const [index, file] of files.entries()) {
+      const result = await uploadProductImage(file);
+      uploadedPublicIds.push(result.public_id);
+      if (
+        result.resource_type !== "image" ||
+        result.bytes > MAX_PRODUCT_IMAGE_BYTES ||
+        result.width > MAX_PRODUCT_IMAGE_DIMENSION ||
+        result.height > MAX_PRODUCT_IMAGE_DIMENSION
+      ) {
+        throw new ProductFormError("Cloudinary rechazó una imagen por tamaño o dimensiones.");
+      }
+      rows.push({
+        producto_id: productId,
+        cloudinary_public_id: result.public_id,
+        cloudinary_secure_url: result.secure_url,
+        cloudinary_url: result.url,
+        cloudinary_version: result.version,
+        cloudinary_signature: result.signature,
+        cloudinary_format: result.format,
+        cloudinary_resource_type: result.resource_type,
+        cloudinary_width: result.width,
+        cloudinary_height: result.height,
+        cloudinary_bytes: result.bytes,
+        alt: getText(formData, "imageAlt") || getText(formData, "name") || file.name,
+        orden: existingImages.length + index,
+        principal: index === mainImageIndex,
+        activo: true,
+        creado_por: userId,
+        actualizado_por: userId,
+      });
     }
+
+    if (hasImages && mainImageIndex >= 0) {
+      const { error } = await supabase
+        .from("producto_imagenes")
+        .update({ principal: false, actualizado_por: userId })
+        .eq("producto_id", productId)
+        .eq("activo", true);
+
+      if (error) throw publicServerError("Product main image reset failed", error, "No se pudo preparar la imagen principal.");
+    }
+
+    const { error } = await supabase.from("producto_imagenes").insert(rows);
+    if (error) throw publicServerError("Product image insert failed", error, "No se pudieron guardar las imágenes.");
+  } catch (error) {
+    if (previousMainImageId && mainImageIndex >= 0) {
+      await supabase
+        .from("producto_imagenes")
+        .update({ principal: true, actualizado_por: userId })
+        .eq("id", previousMainImageId);
+    }
+
+    await Promise.allSettled(uploadedPublicIds.map((publicId) => deleteCloudinaryImage(publicId)));
+    throw error;
   }
 }
 
@@ -261,7 +330,7 @@ function parseOfferPrice(
 
   const offerPrice = Number(value);
   if (!Number.isFinite(offerPrice) || offerPrice <= 0 || offerPrice >= regularPrice) {
-    throw new Error(`${label} debe ser mayor que cero y menor que el precio normal.`);
+    throw new ProductFormError(`${label} debe ser mayor que cero y menor que el precio normal.`);
   }
 
   return offerPrice;
@@ -275,18 +344,18 @@ type ProductAttributeInput = {
 // Valida y reemplaza los atributos estructurados del producto. Nunca acepta
 // atributos de otra categoría, aunque alguien manipule el formulario manualmente.
 async function saveProductAttributes(
+  supabase: AdminClient,
   productId: string,
   catalogNodeId: string | null,
   formData: FormData,
 ) {
-  const { supabase } = await requireAdmin();
   const rawVariants = getText(formData, "variants");
   let submittedVariants: unknown = [];
 
   try {
     submittedVariants = rawVariants ? JSON.parse(rawVariants) : [];
   } catch {
-    throw new Error("Las opciones del producto no tienen un formato válido.");
+    throw new ProductFormError("Las opciones del producto no tienen un formato válido.");
   }
 
   // Cuando existen opciones, sus atributos son la única fuente técnica del producto.
@@ -295,7 +364,7 @@ async function saveProductAttributes(
       .from("producto_atributos")
       .delete()
       .eq("producto_id", productId);
-    if (error) throw new Error(error.message);
+    if (error) throw publicServerError("Product attributes lookup failed", error, "No se pudieron validar las características.");
     return;
   }
 
@@ -305,11 +374,11 @@ async function saveProductAttributes(
   try {
     submitted = rawAttributes ? JSON.parse(rawAttributes) : [];
   } catch {
-    throw new Error("Las características del producto no tienen un formato válido.");
+    throw new ProductFormError("Las características del producto no tienen un formato válido.");
   }
 
   if (!Array.isArray(submitted)) {
-    throw new Error("Las características del producto no tienen un formato válido.");
+    throw new ProductFormError("Las características del producto no tienen un formato válido.");
   }
 
   const [{ data: definitions, error: definitionsError }, { data: nodes, error: nodesError }] =
@@ -322,7 +391,7 @@ async function saveProductAttributes(
     ]);
 
   if (definitionsError || nodesError) {
-    throw new Error(definitionsError?.message ?? nodesError?.message ?? "No se pudieron validar las características.");
+    throw publicServerError("Product attribute definitions failed", definitionsError ?? nodesError, "No se pudieron validar las características.");
   }
 
   const nodeById = new Map((nodes ?? []).map((node) => [node.id, node]));
@@ -351,7 +420,7 @@ async function saveProductAttributes(
         attribute.value.length > 120,
     )
   ) {
-    throw new Error("Una característica no corresponde a la categoría seleccionada.");
+    throw new ProductFormError("Una característica no corresponde a la categoría seleccionada.");
   }
 
   const submittedIds = new Set(normalized.map((attribute) => attribute.attributeId));
@@ -359,14 +428,14 @@ async function saveProductAttributes(
     (definition) => definition.obligatorio && !submittedIds.has(definition.id),
   );
   if (missingRequired) {
-    throw new Error("Completa las características requeridas para esta categoría.");
+    throw new ProductFormError("Completa las características requeridas para esta categoría.");
   }
 
   const { error: deleteError } = await supabase
     .from("producto_atributos")
     .delete()
     .eq("producto_id", productId);
-  if (deleteError) throw new Error(deleteError.message);
+  if (deleteError) throw publicServerError("Product attributes replace failed", deleteError, "No se pudieron actualizar las características.");
 
   if (normalized.length) {
     const { error: insertError } = await supabase.from("producto_atributos").insert(
@@ -376,33 +445,60 @@ async function saveProductAttributes(
         valor: attribute.value,
       })),
     );
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) throw publicServerError("Product attributes insert failed", insertError, "No se pudieron guardar las características.");
   }
 }
 
-async function saveProductVariants(productId: string, formData: FormData) {
-  const { supabase } = await requireAdmin();
+async function saveProductVariants(
+  supabase: AdminClient,
+  productId: string,
+  formData: FormData,
+) {
   const rawVariants = getText(formData, "variants");
   let variants: VariantInput[] = [];
 
   try {
     variants = rawVariants ? JSON.parse(rawVariants) : [];
   } catch {
-    throw new Error("Las opciones del producto no tienen un formato válido.");
+    throw new ProductFormError("Las opciones del producto no tienen un formato válido.");
   }
 
   if (!Array.isArray(variants)) {
-    throw new Error("Las opciones del producto no tienen un formato válido.");
+    throw new ProductFormError("Las opciones del producto no tienen un formato válido.");
+  }
+
+  if (variants.length > 100) {
+    throw new ProductFormError("Un producto no puede tener más de cien opciones.");
   }
 
   const normalized = variants.map((variant, index) => {
-    const name = String(variant.name ?? "").trim();
+    const name = requireTextLength(
+      String(variant.name ?? "").trim(),
+      `El nombre de la opción ${index + 1}`,
+      160,
+    );
+    const variantDescription = requireTextLength(
+      String(variant.description ?? "").trim(),
+      `La descripción de la opción ${index + 1}`,
+      1_000,
+    );
+    const variantImage = requireTextLength(
+      String(variant.image ?? "").trim(),
+      `La imagen de la opción ${index + 1}`,
+      2_048,
+    );
+    const variantSku = requireTextLength(
+      String(variant.sku ?? "").trim(),
+      `El SKU de la opción ${index + 1}`,
+      80,
+    );
+    const attributeEntries = Object.entries(variant.attributes ?? {});
     const price = Number(variant.price);
     const stock = Number(variant.stock);
 
-    if (!name) throw new Error(`Completa el nombre de la opción ${index + 1}.`);
+    if (!name) throw new ProductFormError(`Completa el nombre de la opción ${index + 1}.`);
     if (!Number.isFinite(price) || price < 0) {
-      throw new Error(`El precio de la opción ${index + 1} no es válido.`);
+      throw new ProductFormError(`El precio de la opción ${index + 1} no es válido.`);
     }
     const offerPrice = parseOfferPrice(
       variant.offerPrice,
@@ -410,22 +506,40 @@ async function saveProductVariants(productId: string, formData: FormData) {
       `El precio de oferta de la opción ${index + 1}`,
     );
     if (!Number.isInteger(stock) || stock < 0) {
-      throw new Error(`El stock de la opción ${index + 1} no es válido.`);
+      throw new ProductFormError(`El stock de la opción ${index + 1} no es válido.`);
+    }
+
+    const id = String(variant.id ?? "").trim();
+
+    if (!UUID_PATTERN.test(id) && !/^new-[0-9a-f-]{36}$/i.test(id)) {
+      throw new ProductFormError(`El identificador de la opción ${index + 1} no es válido.`);
+    }
+    if (attributeEntries.length > 20) {
+      throw new ProductFormError(`La opción ${index + 1} contiene demasiados atributos.`);
     }
 
     return {
-      id: String(variant.id ?? ""),
+      id,
       producto_id: productId,
       nombre: name,
-      descripcion: String(variant.description ?? "").trim() || null,
+      descripcion: variantDescription || null,
       atributos: Object.fromEntries(
-        Object.entries(variant.attributes ?? {}).flatMap(([key, value]) => {
+        attributeEntries.flatMap(([key, value]) => {
+          const normalizedKey = String(key).trim();
           const normalizedValue = typeof value === "string" ? value.trim() : "";
-          return normalizedValue ? [[key, normalizedValue]] : [];
+          if (!/^[a-z0-9_-]{1,60}$/i.test(normalizedKey)) {
+            throw new ProductFormError(`La opción ${index + 1} contiene un atributo no válido.`);
+          }
+          requireTextLength(
+            normalizedValue,
+            `Un atributo de la opción ${index + 1}`,
+            200,
+          );
+          return normalizedValue ? [[normalizedKey, normalizedValue]] : [];
         }),
       ),
-      imagen: String(variant.image ?? "").trim() || null,
-      sku: String(variant.sku ?? "").trim() || null,
+      imagen: variantImage || null,
+      sku: variantSku || null,
       precio: price,
       precio_oferta: offerPrice,
       stock,
@@ -442,7 +556,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
     .select("id")
     .eq("producto_id", productId);
 
-  if (storedError) throw new Error(storedError.message);
+  if (storedError) throw publicServerError("Product variants lookup failed", storedError, "No se pudieron validar las variantes.");
 
   const storedIds = (storedVariants ?? []).map((variant) => variant.id);
   const removedIds = storedIds.filter((id) => !submittedExistingIds.includes(id));
@@ -453,7 +567,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
       .update({ activo: false })
       .eq("producto_id", productId)
       .in("id", removedIds);
-    if (error) throw new Error(error.message);
+    if (error) throw publicServerError("Product variants deactivate failed", error, "No se pudieron actualizar las variantes.");
   }
 
   for (const variant of existingRows) {
@@ -463,7 +577,7 @@ async function saveProductVariants(productId: string, formData: FormData) {
       .update(payload)
       .eq("id", id)
       .eq("producto_id", productId);
-    if (error) throw new Error(error.message);
+    if (error) throw publicServerError("Product variant update failed", error, "No se pudo actualizar una variante.");
   }
 
   if (newRows.length) {
@@ -482,19 +596,41 @@ async function saveProductVariants(productId: string, formData: FormData) {
         orden: variant.orden,
       })),
     );
-    if (error) throw new Error(error.message);
+    if (error) throw publicServerError("Product variants insert failed", error, "No se pudieron crear las variantes.");
   }
 }
 
-// Crea o actualiza un producto completo desde el formulario admin.
-export async function saveProduct(formData: FormData) {
-  const { supabase, userId } = await requireAdmin();
-  const relations = await resolveFlexibleProductRelations(formData);
+// Crea o actualiza un producto completo. Los errores esperados se convierten
+// en estado de formulario en la acción pública que aparece más abajo.
+async function persistProduct(formData: FormData) {
+  const { supabase, userId } = await requireAdmin("catalog.write");
   const productId = getText(formData, "productId");
+  const name = getText(formData, "name");
+  const slug = getText(formData, "slug");
+  const sku = getText(formData, "sku");
+  const description = getText(formData, "description");
+
+  if (productId) requireUuid(productId, "Producto");
+  if (!name || !slug || !sku || !description) {
+    throw new ProductFormError("Completa nombre, slug, SKU y descripción del producto.");
+  }
+  requireTextLength(name, "El nombre", 160);
+  requireTextLength(slug, "El slug", 180);
+  requireTextLength(sku, "El SKU", 80);
+  requireTextLength(description, "La descripción", 5_000);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new ProductFormError("El slug del producto no es válido.");
+  }
+
+  const relations = await resolveFlexibleProductRelations(supabase, formData);
   const features = getText(formData, "features")
     .split("\n")
     .map((feature) => feature.trim())
     .filter(Boolean);
+  if (features.length > 30) {
+    throw new ProductFormError("Un producto no puede tener más de treinta características.");
+  }
+  features.forEach((feature) => requireTextLength(feature, "Una característica", 300));
   const price = Number(getText(formData, "price"));
   const stock = Number(getText(formData, "stock"));
   const rawVariants = getText(formData, "variants");
@@ -503,32 +639,37 @@ export async function saveProduct(formData: FormData) {
   try {
     submittedVariants = rawVariants ? JSON.parse(rawVariants) : [];
   } catch {
-    throw new Error("Las opciones del producto no tienen un formato válido.");
+    throw new ProductFormError("Las opciones del producto no tienen un formato válido.");
   }
 
   if (!Number.isFinite(price) || price < 0) {
-    throw new Error("El precio del producto no es válido.");
+    throw new ProductFormError("El precio del producto no es válido.");
   }
   if (!Number.isInteger(stock) || stock < 0) {
-    throw new Error("El stock del producto no es válido.");
+    throw new ProductFormError("El stock del producto no es válido.");
   }
 
   const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
   const offerPrice = hasVariants
     ? null
     : parseOfferPrice(getText(formData, "offerPrice"), price, "El precio de oferta");
+  const preparedImages = await prepareProductImages(
+    supabase,
+    productId || null,
+    formData,
+  );
 
   const payload = {
     categoria_id: relations.categoryId,
     subcategoria_id: relations.subcategoryId,
     marca_id: relations.brandId,
-    slug: getText(formData, "slug"),
-    nombre: getText(formData, "name"),
-    sku: getText(formData, "sku"),
+    slug,
+    nombre: name,
+    sku,
     precio: price,
     precio_oferta: offerPrice,
     stock,
-    descripcion: getText(formData, "description"),
+    descripcion: description,
     caracteristicas: features,
     youtube_video_id: getYouTubeVideoId(getText(formData, "youtubeVideoId")),
     destacado: formData.get("isFeatured") === "on",
@@ -540,13 +681,16 @@ export async function saveProduct(formData: FormData) {
     : payload;
 
   if (productId) {
-    const { error } = await supabase.from("productos").update(flexiblePayload).eq("id", productId);
-    if (error) {
-      throw new Error(error.message);
-    }
-    await uploadImagesForProduct(productId, formData, userId);
-    await saveProductVariants(productId, formData);
-    await saveProductAttributes(productId, relations.catalogNodeId, formData);
+    const { data, error } = await supabase
+      .from("productos")
+      .update(flexiblePayload)
+      .eq("id", productId)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) throw publicServerError("Product update failed", error, "No se pudo actualizar el producto.");
+    await uploadImagesForProduct(supabase, productId, formData, userId, preparedImages);
+    await saveProductVariants(supabase, productId, formData);
+    await saveProductAttributes(supabase, productId, relations.catalogNodeId, formData);
   } else {
     const { data, error } = await supabase
       .from("productos")
@@ -555,29 +699,55 @@ export async function saveProduct(formData: FormData) {
       .single();
 
     if (error || !data) {
-      throw new Error(error?.message ?? "No se pudo crear el producto.");
+      throw publicServerError("Product creation failed", error, "No se pudo crear el producto.");
     }
 
-    await uploadImagesForProduct(data.id, formData, userId);
-    await saveProductVariants(data.id, formData);
-    await saveProductAttributes(data.id, relations.catalogNodeId, formData);
+    await uploadImagesForProduct(supabase, data.id, formData, userId, preparedImages);
+    await saveProductVariants(supabase, data.id, formData);
+    await saveProductAttributes(supabase, data.id, relations.catalogNodeId, formData);
   }
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
+}
+
+// Los rechazos normales del formulario vuelven a la misma pantalla. Solo los
+// fallos inesperados se registran con una referencia segura.
+export async function saveProduct(
+  _previousState: ProductActionState,
+  formData: FormData,
+): Promise<ProductActionState> {
+  try {
+    await persistProduct(formData);
+  } catch (error) {
+    if (error instanceof ProductFormError || error instanceof PublicServerError) {
+      return { status: "error", message: error.message };
+    }
+
+    const correlationId = reportServerError("Unexpected product save failure", error);
+    return {
+      status: "error",
+      message: `No se pudo guardar el producto. Intenta nuevamente. Referencia: ${correlationId}`,
+    };
+  }
+
   redirect("/admin/productos");
 }
 
 // Activa o desactiva un producto sin eliminarlo.
 export async function toggleProductActive(formData: FormData) {
-  const { supabase, userId } = await requireAdmin();
-  const id = getText(formData, "id");
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  const id = requireUuid(getText(formData, "id"), "Producto");
   const active = getText(formData, "active") === "true";
 
-  await supabase
+  const { data, error } = await supabase
     .from("productos")
     .update({ activo: !active, actualizado_por: userId })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) throw publicServerError("Product active state update failed", error, "No se pudo actualizar el producto.");
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
@@ -585,13 +755,17 @@ export async function toggleProductActive(formData: FormData) {
 
 // Desactiva un producto para ocultarlo del catalogo.
 export async function deleteProduct(formData: FormData) {
-  const { supabase, userId } = await requireAdmin();
-  const id = getText(formData, "id");
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  const id = requireUuid(getText(formData, "id"), "Producto");
 
-  await supabase
+  const { data, error } = await supabase
     .from("productos")
     .update({ activo: false, actualizado_por: userId })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) throw publicServerError("Product featured state update failed", error, "No se pudo actualizar el producto.");
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
@@ -599,26 +773,72 @@ export async function deleteProduct(formData: FormData) {
 
 // Marca una imagen existente como principal.
 export async function setMainImage(productId: string, imageId: string) {
-  const { supabase, userId } = await requireAdmin();
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  requireUuid(productId, "Producto");
+  requireUuid(imageId, "Imagen");
 
-  await supabase
+  const { data: target, error: targetError } = await supabase
+    .from("producto_imagenes")
+    .select("id, principal")
+    .eq("id", imageId)
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .maybeSingle();
+
+  if (targetError || !target) {
+    throw publicServerError("Product image target lookup failed", targetError, "No se pudo validar la imagen.");
+  }
+
+  if (target.principal) return;
+
+  const { data: previousMain, error: previousMainError } = await supabase
+    .from("producto_imagenes")
+    .select("id")
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .eq("principal", true)
+    .maybeSingle();
+
+  if (previousMainError) throw publicServerError("Previous main image lookup failed", previousMainError, "No se pudo validar la imagen principal.");
+
+  const { error: clearError } = await supabase
     .from("producto_imagenes")
     .update({ principal: false, actualizado_por: userId })
-    .eq("producto_id", productId);
-  await supabase
+    .eq("producto_id", productId)
+    .eq("activo", true);
+
+  if (clearError) throw publicServerError("Main image clear failed", clearError, "No se pudo actualizar la imagen principal.");
+
+  const { data: updated, error: updateError } = await supabase
     .from("producto_imagenes")
     .update({ principal: true, actualizado_por: userId })
     .eq("id", imageId)
-    .eq("producto_id", productId);
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .select("id")
+    .maybeSingle();
+
+  if (updateError || !updated) {
+    if (previousMain) {
+      await supabase
+        .from("producto_imagenes")
+        .update({ principal: true, actualizado_por: userId })
+        .eq("id", previousMain.id);
+    }
+
+    throw publicServerError("Main image promotion failed", updateError, "No se pudo actualizar la imagen principal.");
+  }
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
   revalidatePath(`/admin/productos/${productId}/editar`);
 }
 
-// Desactiva una imagen de producto y limpia Cloudinary si corresponde.
+// Desactiva una imagen conservando el recurso para permitir recuperación.
 export async function deleteProductImage(productId: string, imageId: string) {
-  const { supabase, userId } = await requireAdmin();
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  requireUuid(productId, "Producto");
+  requireUuid(imageId, "Imagen");
 
   const { data: image, error: imageError } = await supabase
     .from("producto_imagenes")
@@ -628,24 +848,16 @@ export async function deleteProductImage(productId: string, imageId: string) {
     .maybeSingle();
 
   if (imageError) {
-    throw new Error(imageError.message);
+    throw publicServerError("Product image delete lookup failed", imageError, "No se pudo validar la imagen.");
   }
 
   if (!image) {
-    throw new Error("Imagen no encontrada.");
+    throw new ProductFormError("Imagen no encontrada.");
   }
 
-  const { error } = await supabase
-    .from("producto_imagenes")
-    .update({ activo: false, principal: false, actualizado_por: userId })
-    .eq("id", imageId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  let nextImageId: string | null = null;
   if (image.principal) {
-    const { data: nextImage } = await supabase
+    const { data: nextImage, error: nextImageError } = await supabase
       .from("producto_imagenes")
       .select("id")
       .eq("producto_id", productId)
@@ -654,11 +866,31 @@ export async function deleteProductImage(productId: string, imageId: string) {
       .limit(1)
       .maybeSingle();
 
-    if (nextImage) {
+    if (nextImageError) throw publicServerError("Next product image lookup failed", nextImageError, "No se pudo validar la imagen siguiente.");
+    nextImageId = nextImage?.id ?? null;
+  }
+
+  const { error } = await supabase
+    .from("producto_imagenes")
+    .update({ activo: false, principal: false, actualizado_por: userId })
+    .eq("id", imageId);
+
+  if (error) {
+    throw publicServerError("Product image deactivation failed", error, "No se pudo quitar la imagen.");
+  }
+
+  if (nextImageId) {
+    const { error: promoteError } = await supabase
+      .from("producto_imagenes")
+      .update({ principal: true, actualizado_por: userId })
+      .eq("id", nextImageId);
+
+    if (promoteError) {
       await supabase
         .from("producto_imagenes")
-        .update({ principal: true, actualizado_por: userId })
-        .eq("id", nextImage.id);
+        .update({ activo: true, principal: true, actualizado_por: userId })
+        .eq("id", imageId);
+      throw publicServerError("Product image fallback promotion failed", promoteError, "No se pudo actualizar la imagen principal.");
     }
   }
 

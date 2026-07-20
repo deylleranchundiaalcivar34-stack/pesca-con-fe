@@ -13,7 +13,7 @@ export interface BankAccount {
   accountNumber: string;
 }
 
-export interface SocialLinks {
+interface SocialLinks {
   facebook: string;
   instagram: string;
   tiktok: string;

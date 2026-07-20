@@ -23,15 +23,15 @@ export function PasswordResetForm() {
     const supabase = createClient();
     let mounted = true;
 
-    const checkRecoverySession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setIsReady(Boolean(data.session));
-    };
-
-    void checkRecoverySession();
+    // Una sesión normal nunca habilita este formulario. Supabase emite este
+    // evento únicamente al consumir el enlace de recuperación.
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (mounted && event === "PASSWORD_RECOVERY") {
         setIsReady(Boolean(session));
+      }
+
+      if (mounted && event === "SIGNED_OUT") {
+        setIsReady(false);
       }
     });
 
@@ -54,7 +54,7 @@ export function PasswordResetForm() {
     }
 
     if (password !== confirmPassword) {
-      setMessage("Las contrase\u00f1as no coinciden.");
+      setMessage("Las contraseñas no coinciden.");
       return;
     }
 
@@ -64,7 +64,7 @@ export function PasswordResetForm() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setMessage("No pudimos actualizar la contrase\u00f1a. Solicita un enlace nuevo.");
+      setMessage("No pudimos actualizar la contraseña. Solicita un enlace nuevo.");
       setIsPending(false);
       return;
     }
@@ -79,22 +79,22 @@ export function PasswordResetForm() {
       <CardHeader className="space-y-2">
         <CardTitle className="flex items-center gap-2 text-2xl">
           <KeyRound className="size-5 text-primary" aria-hidden="true" />
-          Nueva contrase\u00f1a
+          Nueva contraseña
         </CardTitle>
         <p className="text-sm leading-6 text-muted-foreground">
-          Elige una contrase\u00f1a nueva para tu cuenta.
+          Elige una contraseña nueva para tu cuenta.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
         {!isReady ? (
           <div className="rounded-md border border-primary/20 bg-secondary p-3 text-sm text-dark-blue">
-            Este enlace no es v\u00e1lido o expir\u00f3. Solicita uno nuevo para continuar.
+            Este enlace no es válido o expiró. Solicita uno nuevo para continuar.
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {message ? <p className="text-sm text-destructive">{message}</p> : null}
             <div>
-              <Label htmlFor="new-password">Nueva contrase\u00f1a</Label>
+              <Label htmlFor="new-password">Nueva contraseña</Label>
               <Input
                 id="new-password"
                 name="password"
@@ -110,7 +110,7 @@ export function PasswordResetForm() {
               </p>
             </div>
             <div>
-              <Label htmlFor="confirm-new-password">Confirmar contrase\u00f1a</Label>
+              <Label htmlFor="confirm-new-password">Confirmar contraseña</Label>
               <Input
                 id="confirm-new-password"
                 name="confirmPassword"
@@ -122,7 +122,7 @@ export function PasswordResetForm() {
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={isPending}>
-              Guardar nueva contrase\u00f1a
+              Guardar nueva contraseña
             </Button>
           </form>
         )}

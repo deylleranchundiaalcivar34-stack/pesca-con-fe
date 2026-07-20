@@ -1,3 +1,5 @@
+import "server-only";
+
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 
 // Lee credenciales de Cloudinary y detecta si falta configuracion.
@@ -13,13 +15,8 @@ function getCloudinaryEnv() {
   return { cloudName, apiKey, apiSecret };
 }
 
-// Permite saber si el upload de imagenes esta disponible.
-export function hasCloudinaryEnv() {
-  return Boolean(getCloudinaryEnv());
-}
-
 // Crea el cliente Cloudinary configurado para operaciones del servidor.
-export function getCloudinaryClient() {
+function getCloudinaryClient() {
   const env = getCloudinaryEnv();
 
   if (!env) {

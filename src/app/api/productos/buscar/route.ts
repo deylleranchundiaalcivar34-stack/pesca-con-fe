@@ -6,9 +6,24 @@ import {
 } from "@/lib/busqueda-productos";
 import { searchProductsByTerms } from "@/lib/supabase/data";
 import { getProductPricingSummary } from "@/lib/precios-producto";
+import { consumeRateLimit, getRequestAddress } from "@/lib/rate-limit";
 
 // Devuelve sugerencias breves para el buscador del encabezado.
 export async function GET(request: NextRequest) {
+  const allowed = await consumeRateLimit({
+    bucket: "public.search",
+    identifier: getRequestAddress(request.headers),
+    max: 120,
+    windowSeconds: 60,
+  });
+
+  if (!allowed) {
+    return NextResponse.json(
+      { results: [] },
+      { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
+    );
+  }
+
   const query = normalizeSearchText(
     (request.nextUrl.searchParams.get("q") ?? "").slice(0, 60),
   );
