@@ -15,6 +15,7 @@ import { notifyPublicSessionChange } from "@/lib/sesion-publica";
 import { getPasswordValidationError, passwordPolicyHint } from "@/lib/seguridad-contrasena";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utilidades";
+import { getPublicUserSummary } from "@/lib/usuario";
 
 type LoginPanelProps = {
   accessMessage?: string;
@@ -52,12 +53,7 @@ function getAuthErrorMessage(message?: string) {
     return "No pudimos crear la cuenta. Intenta nuevamente.";
   }
 
-  return message;
-}
-
-// Detecta cuando Supabase responde que el correo ya estaba registrado.
-function isExistingEmailSignUp(dataUser?: { identities?: unknown[] } | null) {
-  return Boolean(dataUser && Array.isArray(dataUser.identities) && dataUser.identities.length === 0);
+  return "No pudimos completar la solicitud. Revisa los datos e intenta nuevamente.";
 }
 
 // Convierte errores de ruta en mensajes visibles del formulario.
@@ -140,7 +136,7 @@ export function LoginPanel({
       return;
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
       options: { captchaToken: loginCaptchaToken ?? undefined },
@@ -158,7 +154,9 @@ export function LoginPanel({
     }
 
     toast.success("Sesión iniciada");
-    notifyPublicSessionChange();
+    notifyPublicSessionChange(
+      signInData.user ? getPublicUserSummary(signInData.user) : undefined,
+    );
     router.push(redirectTo);
     router.refresh();
   };
@@ -209,7 +207,7 @@ export function LoginPanel({
       return;
     }
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -230,25 +228,25 @@ export function LoginPanel({
     setIsPending(false);
 
     if (signUpError) {
-      showStatus(getAuthErrorMessage(signUpError.message));
+      const normalizedError = signUpError.message.toLowerCase();
+      const couldRevealExistingEmail =
+        normalizedError.includes("already") ||
+        normalizedError.includes("registered") ||
+        normalizedError.includes("exists");
+
+      showStatus(
+        couldRevealExistingEmail
+          ? "Si el correo puede registrarse, recibirás un mensaje para continuar."
+          : getAuthErrorMessage(signUpError.message),
+        couldRevealExistingEmail ? "info" : "error",
+      );
       return;
     }
 
-    if (isExistingEmailSignUp(data.user)) {
-      showStatus("Este correo ya está registrado. Intenta iniciar sesión.");
-      return;
-    }
-
-    if (data.session) {
-      toast.success("Cuenta creada");
-      notifyPublicSessionChange();
-      router.push(redirectTo);
-      router.refresh();
-      return;
-    }
-
+    // La respuesta es deliberadamente idéntica para un correo nuevo y uno ya
+    // registrado, evitando que el formulario funcione como enumerador de cuentas.
     showStatus(
-      "Registro creado. Revisa tu correo para confirmar tu cuenta.",
+      "Si el correo puede registrarse, recibirás un mensaje para continuar.",
       "info",
     );
   };

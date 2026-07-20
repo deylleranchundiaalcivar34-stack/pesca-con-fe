@@ -86,7 +86,6 @@ type DbCatalogAttribute = {
 type DbImage = {
   id: string;
   producto_id: string;
-  cloudinary_public_id: string;
   cloudinary_secure_url: string;
   alt: string;
   principal: boolean;
@@ -196,32 +195,6 @@ function buildCatalogTree(rows: DbCatalogNode[]): CatalogNode[] {
 
   sortNodes(roots);
   return roots;
-}
-
-function fallbackCatalogNavigation(): CatalogNode[] {
-  return fallbackCategories.map((category, categoryIndex) => ({
-    id: `fallback-${category.slug}`,
-    parentId: null,
-    name: category.name,
-    slug: category.slug,
-    level: "Categoria",
-    description: category.description,
-    image: category.image,
-    isActive: true,
-    sortOrder: categoryIndex,
-    children: category.subcategories.map((subcategory, subcategoryIndex) => ({
-      id: `fallback-${category.slug}-${subcategory.slug}`,
-      parentId: `fallback-${category.slug}`,
-      name: subcategory.name,
-      slug: subcategory.slug,
-      level: "Tipo",
-      description: "",
-      image: null,
-      isActive: true,
-      sortOrder: subcategoryIndex,
-      children: [],
-    })),
-  }));
 }
 
 function flattenCatalogNodes(
@@ -389,12 +362,14 @@ function mapProductVariants(rows: DbProductVariant[]): ProductVariant[] {
 }
 
 async function getPublicProductVariants(supabase: SupabaseClient, productId: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("producto_variantes")
     .select("id, producto_id, nombre, descripcion, atributos, sku, precio, precio_oferta, precio_adicional, stock, imagen, activo, orden")
     .eq("producto_id", productId)
     .eq("activo", true)
     .order("orden", { ascending: true });
+
+  if (error) throw new Error(error.message);
 
   return mapProductVariants((data ?? []) as DbProductVariant[]);
 }
@@ -416,7 +391,10 @@ async function getProductVariantsByProductIds(
     query = query.eq("activo", true);
   }
 
-  const { data } = await query;
+  const { data, error } = await query;
+
+  if (error) throw new Error(error.message);
+
   const grouped = new Map<string, DbProductVariant[]>();
 
   for (const variant of (data ?? []) as DbProductVariant[]) {
@@ -441,7 +419,6 @@ function mapImages(rows: DbImage[]) {
       url: row.cloudinary_secure_url,
       alt: row.alt,
       isMain: row.principal,
-      publicId: row.cloudinary_public_id,
     }));
 }
 
@@ -454,13 +431,15 @@ async function getProductImagesByProductIds(
     return new Map<string, ProductImage[]>();
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("producto_imagenes")
-    .select("id, producto_id, cloudinary_public_id, cloudinary_secure_url, alt, principal, orden, activo")
+    .select("id, producto_id, cloudinary_secure_url, alt, principal, orden, activo")
     .in("producto_id", productIds)
     .eq("activo", true)
     .order("principal", { ascending: false })
     .order("orden", { ascending: true });
+
+  if (error) throw new Error(error.message);
 
   const grouped = new Map<string, DbImage[]>();
   for (const image of (data ?? []) as DbImage[]) {
@@ -956,7 +935,7 @@ export async function getAdminProductAttributes(productId: string): Promise<Reco
     .select("valor, catalogo_atributos!inner(clave)")
     .eq("producto_id", productId);
 
-  if (error) return {};
+  if (error) throw new Error(error.message);
 
   return Object.fromEntries(
     (data ?? []).flatMap((row) => {
@@ -1021,16 +1000,18 @@ export async function getBrands() {
 // Lista marcas del panel admin, incluyendo inactivas.
 export async function getAdminBrands() {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("marcas")
     .select("id, nombre, slug, activa")
     .order("nombre", { ascending: true });
+
+  if (error) throw new Error(error.message);
 
   return data ?? [];
 }
 
 // Lista nodos del catalogo para administracion, incluyendo inactivos.
-export async function getAdminCatalogNodes(): Promise<CatalogNode[]> {
+async function getAdminCatalogNodes(): Promise<CatalogNode[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("catalogo_nodos")
@@ -1040,9 +1021,8 @@ export async function getAdminCatalogNodes(): Promise<CatalogNode[]> {
     .order("orden", { ascending: true })
     .order("nombre", { ascending: true });
 
-  if (error || !data?.length) {
-    return fallbackCatalogNavigation();
-  }
+  if (error) throw new Error(error.message);
+  if (!data?.length) return [];
 
   return buildCatalogTree(data as DbCatalogNode[]);
 }
@@ -1060,21 +1040,35 @@ export async function getBankAccounts(): Promise<BankAccount[]> {
 // Carga productos para administracion con nombres de categoria, subcategoria y marca.
 export async function getAdminProducts() {
   const supabase = await createClient();
-  const { data: products } = await supabase
+  const { data: products, error: productsError } = await supabase
     .from("productos")
     .select("*")
     .order("nombre", { ascending: true });
+
+  if (productsError) throw new Error(productsError.message);
 
   if (!products?.length) {
     return [];
   }
 
-  const [{ data: categories }, { data: subcategories }, { data: brands }] =
+  const [categoriesResult, subcategoriesResult, brandsResult] =
     await Promise.all([
       supabase.from("categorias").select("id, nombre, slug"),
       supabase.from("subcategorias").select("id, nombre, slug"),
       supabase.from("marcas").select("id, nombre, slug"),
     ]);
+  const { data: categories, error: categoriesError } = categoriesResult;
+  const { data: subcategories, error: subcategoriesError } = subcategoriesResult;
+  const { data: brands, error: brandsError } = brandsResult;
+
+  if (categoriesError || subcategoriesError || brandsError) {
+    throw new Error(
+      categoriesError?.message ??
+        subcategoriesError?.message ??
+        brandsError?.message ??
+        "No se pudieron cargar las relaciones de productos.",
+    );
+  }
 
   const categoryById = new Map((categories ?? []).map((item) => [item.id, item]));
   const subcategoryById = new Map((subcategories ?? []).map((item) => [item.id, item]));
@@ -1175,22 +1169,26 @@ export async function getAdminProductVariants(productId: string): Promise<Produc
 // Carga pedidos para el panel administrativo.
 export async function getAdminOrders(): Promise<Order[]> {
   const supabase = await createClient();
-  const { data: orders } = await supabase
+  const { data: orders, error: ordersError } = await supabase
     .from("pedidos")
     .select("*")
     .order("creado_en", { ascending: false });
+
+  if (ordersError) throw new Error(ordersError.message);
 
   if (!orders?.length) {
     return [];
   }
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from("pedido_items")
     .select("*")
     .in(
       "pedido_id",
       orders.map((order) => order.id),
     );
+
+  if (itemsError) throw new Error(itemsError.message);
 
   return orders.map((order) => ({
     id: order.id,
@@ -1241,12 +1239,15 @@ export async function getAdminPhysicalSales(): Promise<PhysicalSale[]> {
     .select("*")
     .order("creado_en", { ascending: false });
 
-  if (error || !sales?.length) return [];
+  if (error) throw new Error(error.message);
+  if (!sales?.length) return [];
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from("venta_fisica_items")
-    .select("*")
+    .select("id, categoria_id, subcategoria_id, marca_id, slug, nombre, sku, precio, precio_oferta, stock, descripcion, caracteristicas, youtube_video_id, destacado, activo, catalogo_nodo_id")
     .in("venta_id", sales.map((sale) => sale.id));
+
+  if (itemsError) throw new Error(itemsError.message);
 
   return sales.map((sale) => ({
     id: sale.id,
@@ -1274,23 +1275,27 @@ export async function getAdminPhysicalSales(): Promise<PhysicalSale[]> {
 // Carga pedidos asociados a un cliente autenticado.
 export async function getCustomerOrders(userId: string): Promise<Order[]> {
   const supabase = await createClient();
-  const { data: orders } = await supabase
+  const { data: orders, error: ordersError } = await supabase
     .from("pedidos")
     .select("*")
     .eq("cliente_id", userId)
     .order("creado_en", { ascending: false });
 
+  if (ordersError) throw new Error(ordersError.message);
+
   if (!orders?.length) {
     return [];
   }
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from("pedido_items")
     .select("*")
     .in(
       "pedido_id",
       orders.map((order) => order.id),
     );
+
+  if (itemsError) throw new Error(itemsError.message);
 
   return orders.map((order) => ({
     id: order.id,

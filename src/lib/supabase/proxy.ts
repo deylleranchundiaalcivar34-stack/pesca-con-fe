@@ -1,6 +1,59 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { AdminPermission } from "@/lib/admin-permissions";
+import { getAdminHome, hasAdminPermission, isAdminRole } from "@/lib/admin-permissions";
 import { getSupabaseEnv } from "./env";
+
+type SessionCookie = {
+  name: string;
+  value: string;
+  options: CookieOptions;
+};
+
+type SessionResponseState = {
+  cookies: SessionCookie[];
+  headers: Record<string, string>;
+};
+
+const sessionRoutePrefixes = [
+  "/admin",
+  "/auth",
+  "/checkout",
+  "/login",
+  "/mi-cuenta",
+  "/recuperar-contrasena",
+  "/restablecer-contrasena",
+  "/api/sesion",
+];
+
+export function shouldRefreshSupabaseSession(pathname: string) {
+  return sessionRoutePrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function applySessionState(response: NextResponse, state: SessionResponseState) {
+  state.cookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options);
+  });
+
+  Object.entries(state.headers).forEach(([name, value]) => {
+    response.headers.set(name, value);
+  });
+
+  return response;
+}
+
+function requiredPermission(pathname: string): AdminPermission {
+  if (pathname.startsWith("/admin/productos") || pathname.startsWith("/admin/marcas")) {
+    return "catalog.write";
+  }
+
+  if (pathname.startsWith("/admin/pedidos")) return "orders.read";
+  if (pathname.startsWith("/admin/ventas-fisicas")) return "sales.create";
+  if (pathname.startsWith("/admin/inventario")) return "inventory.export";
+  return "dashboard.read";
+}
 
 // Evita redirecciones abiertas al volver al admin despues del login.
 function getSafeAdminRedirect(request: NextRequest) {
@@ -9,7 +62,11 @@ function getSafeAdminRedirect(request: NextRequest) {
 }
 
 // Envia al login con una razon opcional y redirect interno seguro.
-function redirectToLogin(request: NextRequest, reason?: string) {
+function redirectToLogin(
+  request: NextRequest,
+  sessionState: SessionResponseState,
+  reason?: string,
+) {
   const url = request.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
@@ -19,24 +76,28 @@ function redirectToLogin(request: NextRequest, reason?: string) {
     url.searchParams.set("error", reason);
   }
 
-  return NextResponse.redirect(url);
+  return applySessionState(NextResponse.redirect(url), sessionState);
 }
 
 // Actualiza cookies de sesion y protege rutas administrativas.
 export async function updateSession(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+  const mustRefreshSession = shouldRefreshSupabaseSession(request.nextUrl.pathname);
+  const sessionState: SessionResponseState = { cookies: [], headers: {} };
   let response = NextResponse.next({
     request,
   });
 
-  if (!isAdminRoute) {
+  if (!mustRefreshSession) {
     return response;
   }
 
   const supabaseEnv = getSupabaseEnv();
 
   if (!supabaseEnv) {
-    return redirectToLogin(request, "config");
+    return isAdminRoute
+      ? redirectToLogin(request, sessionState, "config")
+      : response;
   }
 
   const supabase = createServerClient(
@@ -47,18 +108,20 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
+          sessionState.cookies = cookiesToSet;
+          sessionState.headers = headers;
+
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
 
-          response = NextResponse.next({
-            request,
-          });
-
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
+          response = applySessionState(
+            NextResponse.next({
+              request,
+            }),
+            sessionState,
+          );
         },
       },
     },
@@ -68,18 +131,50 @@ export async function updateSession(request: NextRequest) {
   const userId = claimsData?.claims.sub;
 
   if (claimsError || !userId) {
-    return redirectToLogin(request);
+    return isAdminRoute
+      ? redirectToLogin(request, sessionState)
+      : response;
+  }
+
+  if (!isAdminRoute) {
+    return response;
   }
 
   const { data: adminProfile, error: adminError } = await supabase
     .from("perfiles_admin")
-    .select("id")
+    .select("id, rol")
     .eq("id", userId)
     .eq("activo", true)
     .maybeSingle();
 
-  if (adminError || !adminProfile) {
-    return redirectToLogin(request, "unauthorized");
+  if (adminError || !adminProfile || !isAdminRole(adminProfile.rol)) {
+    return redirectToLogin(request, sessionState, "unauthorized");
+  }
+
+  const isSecurityRoute = request.nextUrl.pathname.startsWith("/admin/seguridad");
+  const aal = claimsData.claims.aal;
+
+  if (!isSecurityRoute && aal !== "aal2") {
+    const securityUrl = request.nextUrl.clone();
+    securityUrl.pathname = "/admin/seguridad";
+    securityUrl.search = "";
+    securityUrl.searchParams.set("next", getSafeAdminRedirect(request));
+    return applySessionState(NextResponse.redirect(securityUrl), sessionState);
+  }
+
+  if (
+    !isSecurityRoute &&
+    !hasAdminPermission(adminProfile.rol, requiredPermission(request.nextUrl.pathname))
+  ) {
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = getAdminHome(adminProfile.rol);
+    homeUrl.search = "";
+
+    if (homeUrl.pathname === request.nextUrl.pathname) {
+      return redirectToLogin(request, sessionState, "unauthorized");
+    }
+
+    return applySessionState(NextResponse.redirect(homeUrl), sessionState);
   }
 
   return response;

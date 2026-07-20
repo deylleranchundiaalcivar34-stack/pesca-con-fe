@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSameCustomerAddress } from "@/lib/direcciones-cliente";
+import { reportServerError } from "@/lib/safe-server-error";
 
 export type ProfileFormState = {
   message?: string;
@@ -37,7 +38,7 @@ export async function updateProfile(
   const firstName = getText(formData, "firstName");
   const lastName = getText(formData, "lastName");
 
-  if (!firstName || !lastName) {
+  if (!firstName || !lastName || firstName.length > 100 || lastName.length > 100) {
     return {
       message: "Completa nombre y apellido.",
       success: false,
@@ -62,8 +63,9 @@ export async function updateProfile(
   });
 
   if (error) {
+    reportServerError("Customer auth profile update failed", error);
     return {
-      message: error.message,
+      message: "No pudimos actualizar el perfil. Intenta nuevamente.",
       success: false,
     };
   }
@@ -81,8 +83,9 @@ export async function updateProfile(
     );
 
   if (profileError) {
+    reportServerError("Customer database profile update failed", profileError);
     return {
-      message: profileError.message,
+      message: "No pudimos guardar el perfil. Intenta nuevamente.",
       success: false,
     };
   }
@@ -111,7 +114,17 @@ export async function saveCustomerAddress(
   const wantsPrimary = formData.get("isPrimary") === "on";
   const isCurrentPrimary = formData.get("currentIsPrimary") === "true";
 
-  if (!province || !city || !address) {
+  if (
+    !province ||
+    !city ||
+    !address ||
+    alias.length > 80 ||
+    province.length > 100 ||
+    city.length > 100 ||
+    address.length > 500 ||
+    deliveryReference.length > 500 ||
+    contactPhone.length > 30
+  ) {
     return {
       message: "Completa provincia, ciudad y direccion.",
       success: false,
@@ -141,8 +154,9 @@ export async function saveCustomerAddress(
     .eq("activa", true);
 
   if (activeAddressesError) {
+    reportServerError("Customer address lookup failed", activeAddressesError);
     return {
-      message: activeAddressesError.message,
+      message: "No pudimos revisar tus direcciones. Intenta nuevamente.",
       success: false,
     };
   }
@@ -177,7 +191,8 @@ export async function saveCustomerAddress(
         .eq("activa", true);
 
       if (clearPrimaryError) {
-        return { message: clearPrimaryError.message, success: false };
+        reportServerError("Customer primary address clear failed", clearPrimaryError);
+        return { message: "No pudimos actualizar la dirección principal.", success: false };
       }
 
       await supabase
@@ -202,8 +217,9 @@ export async function saveCustomerAddress(
       .eq("activa", true);
 
     if (clearPrimaryError) {
+      reportServerError("Customer primary address reset failed", clearPrimaryError);
       return {
-        message: clearPrimaryError.message,
+        message: "No pudimos actualizar la dirección principal.",
         success: false,
       };
     }
@@ -238,8 +254,9 @@ export async function saveCustomerAddress(
   const { data, error } = await query;
 
   if (error || !data) {
+    reportServerError("Customer address save failed", error);
     return {
-      message: error?.message ?? "No pudimos guardar la direccion.",
+      message: "No pudimos guardar la dirección. Intenta nuevamente.",
       success: false,
     };
   }
@@ -286,8 +303,9 @@ export async function setPrimaryCustomerAddress(addressId: string): Promise<Addr
     .eq("activa", true);
 
   if (clearPrimaryError) {
+    reportServerError("Customer primary address change failed", clearPrimaryError);
     return {
-      message: clearPrimaryError.message,
+      message: "No pudimos actualizar la dirección principal.",
       success: false,
     };
   }
@@ -299,8 +317,9 @@ export async function setPrimaryCustomerAddress(addressId: string): Promise<Addr
     .eq("cliente_id", user.id);
 
   if (error) {
+    reportServerError("Customer primary address update failed", error);
     return {
-      message: error.message,
+      message: "No pudimos actualizar la dirección principal.",
       success: false,
     };
   }
@@ -332,8 +351,9 @@ export async function deactivateCustomerAddress(addressId: string): Promise<Addr
     .eq("cliente_id", user.id);
 
   if (error) {
+    reportServerError("Customer address deactivation failed", error);
     return {
-      message: error.message,
+      message: "No pudimos eliminar la dirección.",
       success: false,
     };
   }

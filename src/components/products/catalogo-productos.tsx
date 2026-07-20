@@ -27,6 +27,7 @@ import {
 } from "./filtros-productos";
 import { ProductGrid } from "./cuadricula-productos";
 import { getProductPricingSummary } from "@/lib/precios-producto";
+import { getValidCatalogCategory } from "@/lib/filtros-catalogo";
 
 const productsPerPage = 12;
 
@@ -43,7 +44,10 @@ export function ProductCatalog({
   brands,
 }: ProductCatalogProps) {
   const searchParams = useSearchParams();
-  const categoryFromUrl = searchParams.get("categoria") ?? "all";
+  const categoryFromUrl = getValidCatalogCategory(
+    searchParams.get("categoria"),
+    categories,
+  );
   const searchFromUrl = searchParams.get("busqueda") ?? "";
   const saleFromUrl = searchParams.get("oferta") === "1";
   const pageFromUrl = Number(searchParams.get("pagina") ?? 1);

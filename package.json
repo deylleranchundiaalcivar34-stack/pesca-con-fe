@@ -2,14 +2,21 @@
   "name": "proyecto-pescaconfe",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "security:migrations": "node scripts/check-security-migrations.mjs",
+    "security:secrets": "node scripts/check-secrets.mjs",
+    "security:ci": "pnpm security:migrations && pnpm security:secrets && pnpm audit --audit-level=moderate"
   },
   "dependencies": {
     "@hcaptcha/react-hcaptcha": "^2.0.2",
@@ -21,8 +28,8 @@
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.106.1",
+    "@supabase/ssr": "0.10.3",
+    "@supabase/supabase-js": "2.106.1",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
@@ -41,7 +48,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
@@ -49,5 +56,12 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "@babel/core": "7.29.7",
+      "js-yaml": "4.2.0",
+      "postcss": "8.5.19"
+    }
   }
 }

@@ -39,7 +39,7 @@ const catalogBanners: Record<string, CatalogBanner> = {
 
   canas: {
     src: "/images/catalogo/banner_nuevo_cana.webp",
-    alt: "Banner de la categoria Ca\u00f1as",
+    alt: "Banner de la categoria Cañas",
   },
   "canas/casting": {
     src: "/images/catalogo/banner_nuevo_cana.webp",
@@ -76,59 +76,59 @@ const catalogBanners: Record<string, CatalogBanner> = {
   },
 
   senuelos: {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
-    alt: "Banner de la categoria Se\u00f1uelos",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
+    alt: "Banner de la categoria Señuelos",
   },
   "senuelos/para-mar": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos para mar",
   },
   "senuelos/para-mar/curricanes": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Curricanes",
   },
   "senuelos/para-mar/jigs": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Jigs",
   },
   "senuelos/para-mar/jigs/slow-jig": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Slow Jig",
   },
   "senuelos/spinning": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos Spinning",
   },
   "senuelos/casting": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos Casting",
   },
   "senuelos/jigging": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos Jigging",
   },
   "senuelos/trolling": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos Trolling",
   },
   "senuelos/para-rio": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Senuelos para rio",
   },
   "senuelos/accesorios-para-senuelos": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Accesorios para senuelos",
   },
   "senuelos/accesorios-para-senuelos/asistentes": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Asistentes para senuelos",
   },
   "senuelos/accesorios-para-senuelos/faldas": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Faldas para senuelos",
   },
   "senuelos/accesorios-para-senuelos/anillas-split-rings": {
-    src: "/images/catalogo/banner_nuevo_se\u00f1uelo.webp",
+    src: "/images/catalogo/banner_nuevo_señuelo.webp",
     alt: "Banner de Anillas y Split Rings",
   },
 

@@ -108,8 +108,3 @@ export function getWhatsAppPrefilledUrl(message: string, business: BusinessConfi
     message,
   )}`;
 }
-
-// Abre el chat general de la tienda sin mensaje de pedido.
-export function getBusinessWhatsAppUrl() {
-  return businessConfig.social.whatsapp;
-}

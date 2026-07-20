@@ -29,7 +29,7 @@ function localDateKey(value: Date | string) {
 }
 
 function isCollected(order: Order) {
-  return ["pagado_confirmado", "listo_retiro", "retirado", "enviado"].includes(order.status);
+  return order.paymentStatus === "aprobado";
 }
 
 function rangeFor(period: Period, start: string, end: string) {
@@ -62,7 +62,13 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
       }),
     [orders, range.end, range.start],
   );
-  const collected = inRangeOrders.filter(isCollected);
+  const collected = orders.filter(
+    (order) => {
+      if (!isCollected(order)) return false;
+      const key = localDateKey(order.paidAt ?? order.createdAt);
+      return (!range.start || key >= range.start) && (!range.end || key <= range.end);
+    },
+  );
   const inRangePhysicalSales = physicalSales.filter((sale) => {
     const key = localDateKey(sale.createdAt);
     return (!range.start || key >= range.start) && (!range.end || key <= range.end);
@@ -81,7 +87,7 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
   const dailyRows = (() => {
     const byDay = new Map<string, { total: number; orders: number }>();
     for (const order of collected) {
-      const key = localDateKey(order.createdAt);
+      const key = localDateKey(order.paidAt ?? order.createdAt);
       const current = byDay.get(key) ?? { total: 0, orders: 0 };
       current.total += order.total;
       current.orders += 1;

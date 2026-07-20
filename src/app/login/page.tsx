@@ -6,7 +6,7 @@ import { LoginPanel } from "@/components/shared/panel-inicio-sesion";
 
 export const metadata: Metadata = {
   title: "Ingresar",
-  description: "Ingresa o crea tu cuenta en Pesca Con Fe para comprar m\u00e1s r\u00e1pido.",
+  description: "Ingresa o crea tu cuenta en Pesca Con Fe para comprar más rápido.",
 };
 
 type LoginSearchParams = {
@@ -37,11 +37,11 @@ function getSafeRedirect(value: string | string[] | undefined) {
 
 function getAccessMessage(redirectTo: string) {
   if (redirectTo === "/checkout") {
-    return "Debes iniciar sesi\u00f3n para generar tu pedido.";
+    return "Debes iniciar sesión para generar tu pedido.";
   }
 
   if (redirectTo === "/preguntas-frecuentes#hacer-pregunta") {
-    return "Debes iniciar sesi\u00f3n para enviar tu pregunta.";
+    return "Debes iniciar sesión para enviar tu pregunta.";
   }
 
   return undefined;
@@ -70,7 +70,7 @@ export default async function LoginPage({
           <div className="relative flex min-h-[520px] flex-col justify-between overflow-hidden bg-dark-blue p-8 text-white sm:p-10">
             <Image
               src="/images/fotos/foto-cuadrada1.webp"
-              alt="Pesca deportiva en la Amazon\u00eda"
+              alt="Pesca deportiva en la Amazonía"
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 45vw"
@@ -87,7 +87,7 @@ export default async function LoginPage({
                 Bienvenido a Pesca Con Fe
               </h1>
               <p className="mt-4 leading-7 text-white/85">
-                {"Tu equipo para cada aventura de pesca comienza aqu\u00ed."}
+                {"Tu equipo para cada aventura de pesca comienza aquí."}
               </p>
             </div>
 
@@ -102,7 +102,7 @@ export default async function LoginPage({
               key={`${mode}-${confirmed ? "confirmed" : "pending"}-${passwordReset ? "password-reset" : "none"}-${error ?? "none"}-${redirectTo}`}
               accessMessage={
                 passwordReset
-                  ? "Contrase\u00f1a actualizada. Ya puedes iniciar sesi\u00f3n."
+                  ? "Contraseña actualizada. Ya puedes iniciar sesión."
                   : getAccessMessage(redirectTo)
               }
               confirmed={confirmed}

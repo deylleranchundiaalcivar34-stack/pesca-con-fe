@@ -6,7 +6,7 @@ El proyecto utiliza Next.js App Router y Supabase para ofrecer catálogo jerárq
 
 ## Tecnologías
 
-- Next.js 16.2.6 y React 19
+- Node.js 24, Next.js 16.2.6 y React 19
 - TypeScript y Tailwind CSS 4
 - Supabase Database, Auth y Row Level Security
 - Cloudinary para imágenes de productos
@@ -52,6 +52,8 @@ El proyecto utiliza Next.js App Router y Supabase para ofrecer catálogo jerárq
 - Gestión de productos, imágenes, marcas, opciones, atributos y stock.
 - Gestión del catálogo jerárquico y contenido de sus landings.
 - Gestión de pedidos y estados operativos.
+- Registro de ventas físicas con descuento automático de stock.
+- Resumen de ventas e inventario exportable desde el panel.
 - Imágenes de productos almacenadas en Cloudinary.
 
 ## Rutas principales
@@ -91,6 +93,8 @@ El proyecto utiliza Next.js App Router y Supabase para ofrecer catálogo jerárq
 | `/admin/productos/[id]/editar` | Editar producto |
 | `/admin/marcas` | Marcas |
 | `/admin/pedidos` | Pedidos |
+| `/admin/ventas-fisicas` | Punto de venta físico |
+| `/admin/inventario` | Inventario y exportación CSV |
 
 ## Desarrollo local
 
@@ -101,6 +105,9 @@ pnpm install
 pnpm dev
 ```
 
+El runtime soportado es Node.js 24 y el proyecto fija pnpm 10.33.0 mediante
+`packageManager` para reproducir localmente el entorno de Vercel y CI.
+
 Validaciones disponibles:
 
 ```bash
@@ -108,8 +115,11 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm security:ci
 ```
 
-Los pull requests y cambios enviados a `main` ejecutan de forma automatizada lint, revision de tipos y pruebas unitarias mediante GitHub Actions. Dependabot revisa semanalmente actualizaciones menores y parches de dependencias.
+Los pull requests y cambios enviados a `main` ejecutan lint, revisión de tipos, pruebas, build, controles de migraciones/secretos, auditoría de dependencias y CodeQL. Dependabot revisa semanalmente actualizaciones menores y parches.
 
-Las credenciales y secretos deben configurarse mediante `.env.local` y variables de entorno de Vercel. Nunca deben subirse al repositorio.
+Configura las variables indicadas en `docs/REMEDIACION-SEGURIDAD-2026-07-17.md` mediante `.env.local` en desarrollo y desde el panel de Vercel en Preview/Production. Nunca subas credenciales ni secretos al repositorio.
+
+La auditoría y el orden de despliegue de los controles de seguridad están en [`docs/REMEDIACION-SEGURIDAD-2026-07-17.md`](docs/REMEDIACION-SEGURIDAD-2026-07-17.md). Las migraciones pendientes usan expansión/contrato: no debe aplicarse `20260717175000_least_privilege_limits_and_physical_prices.sql` hasta desplegar la aplicación compatible y verificar MFA de los propietarios.

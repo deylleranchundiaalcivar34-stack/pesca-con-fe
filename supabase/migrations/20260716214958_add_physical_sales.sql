@@ -43,7 +43,7 @@ create policy "Admins gestionan items de ventas fisicas"
   using ((select private.es_admin()))
   with check ((select private.es_admin()));
 
--- Descuenta inventario y guarda toda la venta en una única transacción.
+-- Descuenta inventario y guarda toda la venta en una Ãºnica transacciÃ³n.
 create or replace function public.registrar_venta_fisica(
   items_input jsonb,
   nota_input text default null,
@@ -74,7 +74,7 @@ begin
   end if;
 
   if metodo_pago_input not in ('efectivo', 'transferencia', 'tarjeta', 'otro') then
-    raise exception 'Método de pago no válido';
+    raise exception 'MÃ©todo de pago no vÃ¡lido';
   end if;
 
   insert into public.ventas_fisicas (nota, metodo_pago, subtotal, total, creado_por)
@@ -89,11 +89,11 @@ begin
       cantidad_input := (item ->> 'quantity')::integer;
       precio_input := (item ->> 'price')::numeric;
     exception when others then
-      raise exception 'Un artículo de la venta tiene datos inválidos';
+      raise exception 'Un artÃ­culo de la venta tiene datos invÃ¡lidos';
     end;
 
     if cantidad_input <= 0 or precio_input < 0 then
-      raise exception 'Cantidad o precio inválido';
+      raise exception 'Cantidad o precio invÃ¡lido';
     end if;
 
     select * into producto_record

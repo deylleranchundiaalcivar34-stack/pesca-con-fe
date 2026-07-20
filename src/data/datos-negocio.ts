@@ -96,14 +96,14 @@ export const categories: ProductCategory[] = [
     image: "/images/categorias/herramientas.webp",
     subcategories: [
       { name: "Alicates / Pinzas", slug: "alicates-pinzas" },
-      { name: "Grips / B\u00e1sculas", slug: "grips-basculas" },
-      { name: "Tijeras / Corta l\u00edneas", slug: "tijeras-corta-lineas" },
+      { name: "Grips / Básculas", slug: "grips-basculas" },
+      { name: "Tijeras / Corta líneas", slug: "tijeras-corta-lineas" },
       { name: "Cajas / Organizadores", slug: "cajas-organizadores" },
       { name: "Herramientas varias", slug: "herramientas-varias" },
     ],
   },
   {
-    name: "L\u00edneas y Aparejos",
+    name: "Líneas y Aparejos",
     description: "Herramientas necesarias para el mantenimiento y reparación de tu equipo de pesca.",
     slug: "lineas-y-aparejos",
     image: "/images/categorias/lineas.webp",

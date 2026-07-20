@@ -1,8 +1,5 @@
 import "server-only";
 
-// Conservado para compatibilidad interna mientras se retira el flujo anterior.
-const PAYPHONE_PREPARE_URL =
-  "https://pay.payphonetodoesposible.com/api/button/Prepare";
 const PAYPHONE_CONFIRM_URL =
   "https://paymentbox.payphonetodoesposible.com/api/confirm";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -12,8 +9,6 @@ type PayPhoneTaxMode = "without_tax" | "tax_included";
 type PayPhoneConfig = {
   token: string;
   storeId: string;
-  responseUrl: string;
-  cancellationUrl: string;
   taxMode: PayPhoneTaxMode;
   taxRate: number;
 };
@@ -23,13 +18,7 @@ type PayPhoneErrorBody = {
   errorCode?: unknown;
 };
 
-export type PayPhonePrepareResult = {
-  paymentId: string;
-  payWithCard: string;
-  payWithPayPhone: string;
-};
-
-export type PayPhoneConfirmation = {
+type PayPhoneConfirmation = {
   amount: number;
   clientTransactionId: string;
   statusCode: number;
@@ -51,7 +40,7 @@ export type PayPhoneBoxPayment = {
   reference: string;
 };
 
-export class PayPhoneError extends Error {
+class PayPhoneError extends Error {
   constructor(
     message: string,
     readonly code?: string,
@@ -97,8 +86,6 @@ export function getPayPhoneConfig(): PayPhoneConfig {
     // opcionalmente "Bearer " evita enviar "Bearer Bearer <token>".
     token: normalizeBearerToken(requiredEnv("PAYPHONE_TOKEN")),
     storeId: requiredEnv("PAYPHONE_STORE_ID"),
-    responseUrl: requiredEnv("PAYPHONE_RESPONSE_URL"),
-    cancellationUrl: requiredEnv("PAYPHONE_CANCELLATION_URL"),
     taxMode,
     taxRate,
   };
@@ -150,26 +137,6 @@ export function createPayPhoneBoxPayment(input: {
   };
 }
 
-function payPhoneRequestSummary(input: {
-  amount: number;
-  amountWithoutTax: number;
-  amountWithTax: number;
-  tax: number;
-  clientTransactionId: string;
-  responseUrl: string;
-  storeId: string;
-}) {
-  return {
-    amount: input.amount,
-    amountWithoutTax: input.amountWithoutTax,
-    amountWithTax: input.amountWithTax,
-    tax: input.tax,
-    clientTransactionId: input.clientTransactionId,
-    responseOrigin: new URL(input.responseUrl).origin,
-    storeIdSuffix: input.storeId.slice(-4),
-  };
-}
-
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   const contentType = response.headers.get("content-type") ?? "sin content-type";
   const rawBody = await response.text();
@@ -204,71 +171,6 @@ function providerError(body: PayPhoneErrorBody, fallback: string) {
       : undefined;
 
   return new PayPhoneError(message, code);
-}
-
-export async function preparePayPhonePayment(input: {
-  amount: number;
-  clientTransactionId: string;
-  orderCode: string;
-}) {
-  const config = getPayPhoneConfig();
-  const taxBreakdown = calculateTaxBreakdown(input.amount, config);
-  const body = {
-    amount: input.amount,
-    ...taxBreakdown,
-    service: 0,
-    tip: 0,
-    clientTransactionId: input.clientTransactionId,
-    reference: `Pedido ${input.orderCode} - Pesca Con Fe`,
-    storeId: config.storeId,
-    currency: "USD",
-    responseUrl: config.responseUrl,
-    cancellationUrl: config.cancellationUrl,
-    lang: "es",
-  };
-
-  // No se envia timeZone: el endpoint Prepare devolvio HTTP 500 al recibirlo,
-  // mientras que acepta esta misma peticion completa sin ese campo opcional.
-  console.info(
-    "PayPhone Prepare request",
-    payPhoneRequestSummary({ ...body, storeId: config.storeId }),
-  );
-
-  const response = await fetch(PAYPHONE_PREPARE_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(body),
-    cache: "no-store",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  const data = await readJson(response);
-
-  if (!response.ok) {
-    console.error("PayPhone Prepare rejected", {
-      ...payPhoneRequestSummary({ ...body, storeId: config.storeId }),
-      status: response.status,
-      providerCode:
-        typeof data.errorCode === "string" || typeof data.errorCode === "number"
-          ? String(data.errorCode)
-          : null,
-    });
-    throw providerError(data, "PayPhone no pudo preparar el pago.");
-  }
-
-  const paymentId = typeof data.paymentId === "string" ? data.paymentId : "";
-  const payWithCard = typeof data.payWithCard === "string" ? data.payWithCard : "";
-  const payWithPayPhone =
-    typeof data.payWithPayPhone === "string" ? data.payWithPayPhone : "";
-
-  if (!paymentId || !payWithCard || !payWithPayPhone) {
-    throw new PayPhoneError("PayPhone no devolvió enlaces de pago válidos.");
-  }
-
-  return { paymentId, payWithCard, payWithPayPhone } satisfies PayPhonePrepareResult;
 }
 
 export async function confirmPayPhonePayment(input: {

@@ -12,6 +12,7 @@ import {
   Menu,
   PackagePlus,
   ReceiptText,
+  ShieldCheck,
   ShoppingBag,
   Tags,
 } from "lucide-react";
@@ -24,23 +25,32 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import type { AdminPermission, AdminRole } from "@/lib/admin-permissions";
+import { hasAdminPermission } from "@/lib/admin-permissions";
 import { cn } from "@/lib/utilidades";
 
-const adminLinks = [
-  { href: "/admin", label: "Dashboard", icon: BarChart3 },
-  { href: "/admin/productos", label: "Productos", icon: Boxes },
-  { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus },
-  { href: "/admin/marcas", label: "Marcas", icon: Tags },
-  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
-  { href: "/admin/ventas-fisicas", label: "Venta física", icon: ReceiptText },
-  { href: "/admin/inventario", label: "Exportar inventario", icon: FileSpreadsheet },
+const adminLinks: Array<{
+  href: string;
+  label: string;
+  icon: typeof BarChart3;
+  permission: AdminPermission;
+}> = [
+  { href: "/admin", label: "Dashboard", icon: BarChart3, permission: "dashboard.read" },
+  { href: "/admin/productos", label: "Productos", icon: Boxes, permission: "catalog.write" },
+  { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus, permission: "catalog.write" },
+  { href: "/admin/marcas", label: "Marcas", icon: Tags, permission: "catalog.write" },
+  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag, permission: "orders.read" },
+  { href: "/admin/ventas-fisicas", label: "Venta física", icon: ReceiptText, permission: "sales.create" },
+  { href: "/admin/inventario", label: "Exportar inventario", icon: FileSpreadsheet, permission: "inventory.export" },
+  { href: "/admin/seguridad", label: "Seguridad", icon: ShieldCheck, permission: "admin.access" },
 ];
 
 // Navegacion principal del panel administrativo.
-export function AdminSidebar() {
+export function AdminSidebar({ role }: { role: AdminRole }) {
   const pathname = usePathname();
+  const visibleLinks = adminLinks.filter((item) => hasAdminPermission(role, item.permission));
   const activeHref =
-    [...adminLinks]
+    [...visibleLinks]
       .sort((a, b) => b.href.length - a.href.length)
       .find((item) =>
         item.href === "/admin"
@@ -62,13 +72,13 @@ export function AdminSidebar() {
             <SheetHeader>
               <SheetTitle className="text-white">Panel administrador</SheetTitle>
             </SheetHeader>
-            <SidebarContent activeHref={activeHref} mobile />
+            <SidebarContent activeHref={activeHref} role={role} mobile />
           </SheetContent>
         </Sheet>
       </div>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/10 bg-dark-blue p-5 text-white lg:block">
-        <SidebarContent activeHref={activeHref} />
+        <SidebarContent activeHref={activeHref} role={role} />
       </aside>
     </>
   );
@@ -77,17 +87,21 @@ export function AdminSidebar() {
 // Comparte el contenido entre sidebar de escritorio y menu movil.
 function SidebarContent({
   activeHref,
+  role,
   mobile = false,
 }: {
   activeHref: string;
+  role: AdminRole;
   mobile?: boolean;
 }) {
+  const visibleLinks = adminLinks.filter((item) => hasAdminPermission(role, item.permission));
+
   return (
     <div className={cn("flex h-full flex-col", mobile ? "mt-8" : "")}>
       {!mobile ? <Brand /> : null}
 
       <nav className={cn("grid gap-1", mobile ? "" : "mt-8")} aria-label="Administrador">
-        {adminLinks.map((item) => {
+        {visibleLinks.map((item) => {
           const isActive = activeHref === item.href;
 
           return (

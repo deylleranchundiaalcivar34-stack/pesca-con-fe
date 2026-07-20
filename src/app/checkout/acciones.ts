@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createPayPhoneBoxPayment, getPayPhoneConfig } from "@/lib/payphone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -11,9 +12,11 @@ import {
 } from "@/lib/checkout-envio";
 import { getCustomerProfile } from "@/lib/usuario";
 import { isSameCustomerAddress } from "@/lib/direcciones-cliente";
+import { consumeRateLimit, getRequestAddress } from "@/lib/rate-limit";
 import type { DeliveryType, OrderItem, PaymentMethod } from "@/types/pedido";
 
 type CreateCheckoutOrderInput = {
+  idempotencyKey: string;
   customer: {
     addressId?: string;
     addressAlias?: string;
@@ -39,6 +42,7 @@ type PayPhoneOrderRpcRow = CheckoutOrderRpcRow & {
   client_transaction_id: string;
   amount_cents: number;
   expires_at: string;
+  estado_intento: string;
 };
 
 type PersistedCheckoutItem = {
@@ -66,8 +70,57 @@ type PersistedCheckoutOrder = {
 const checkoutOrderErrorMessage =
   "No pudimos generar el pedido. Revisa disponibilidad y vuelve a intentarlo.";
 
+function isMissingRpc(error: { code?: string; message?: string } | null) {
+  return Boolean(
+    error &&
+      (error.code === "PGRST202" ||
+        error.code === "42883" ||
+        error.message?.toLowerCase().includes("function") &&
+          error.message.toLowerCase().includes("not found")),
+  );
+}
+
+function isUuid(value: unknown) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function hasValidCheckoutContract(input: CreateCheckoutOrderInput) {
+  const customer = input?.customer;
+  const stringsWithinLimits =
+    (!customer?.addressId || isUuid(customer.addressId)) &&
+    (!customer?.addressAlias || customer.addressAlias.trim().length <= 80) &&
+    (!customer?.contactPhone || customer.contactPhone.trim().length <= 30) &&
+    (!customer?.province || customer.province.trim().length <= 100) &&
+    (!customer?.city || customer.city.trim().length <= 100) &&
+    (!customer?.address || customer.address.trim().length <= 500) &&
+    (!customer?.deliveryReference || customer.deliveryReference.trim().length <= 500);
+
+  return Boolean(
+    customer &&
+    isUuid(input.idempotencyKey) &&
+    stringsWithinLimits &&
+    ["retiro_local", "envio_servientrega"].includes(input.deliveryType) &&
+    ["transferencia", "payphone"].includes(input.paymentMethod) &&
+    Array.isArray(input.items) &&
+    input.items.length > 0 &&
+    input.items.length <= 50 &&
+    input.items.every(
+      (item) =>
+        isUuid(item.productId) &&
+        (!item.variantId || isUuid(item.variantId)) &&
+        Number.isInteger(item.quantity) &&
+        item.quantity > 0 &&
+        item.quantity <= 99,
+    ),
+  );
+}
+
 // Crea un pedido usando solo identificadores y cantidades; SQL resuelve los valores comerciales.
 export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
+  if (!hasValidCheckoutContract(input)) {
+    return { ok: false, message: checkoutOrderErrorMessage, code: null };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -79,6 +132,30 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       message: "Inicia sesión para generar tu pedido.",
       code: null,
       requiresAuth: true,
+    };
+  }
+
+  const requestHeaders = await headers();
+  const [userAllowed, addressAllowed] = await Promise.all([
+    consumeRateLimit({
+      bucket: "checkout.user",
+      identifier: `user:${user.id}`,
+      max: 8,
+      windowSeconds: 600,
+    }),
+    consumeRateLimit({
+      bucket: "checkout.ip",
+      identifier: `ip:${getRequestAddress(requestHeaders)}`,
+      max: 20,
+      windowSeconds: 600,
+    }),
+  ]);
+
+  if (!userAllowed || !addressAllowed) {
+    return {
+      ok: false,
+      message: "Has realizado varios intentos. Espera unos minutos antes de volver a intentar.",
+      code: null,
     };
   }
 
@@ -248,9 +325,24 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   };
 
   if (input.paymentMethod === "payphone" && payPhoneAdmin) {
-    const { data: rpcOrder, error } = await supabase
-      .rpc("crear_pedido_payphone_con_recargo", { payload })
+    let { data: rpcOrder, error } = await supabase
+      .rpc("crear_pedido_payphone_idempotente", {
+        payload,
+        idempotency_key_input: input.idempotencyKey,
+      })
       .single<PayPhoneOrderRpcRow>();
+
+    // Permite publicar la aplicación antes de la migración sin interrumpir el
+    // checkout. La ventana de compatibilidad desaparece al aplicar la RPC nueva.
+    if (isMissingRpc(error)) {
+      const legacy = await supabase
+        .rpc("crear_pedido_payphone_con_recargo", { payload })
+        .single<Omit<PayPhoneOrderRpcRow, "estado_intento">>();
+      rpcOrder = legacy.data
+        ? { ...legacy.data, estado_intento: "pendiente" }
+        : null;
+      error = legacy.error;
+    }
 
     if (error || !rpcOrder) {
       console.error("PayPhone order creation failed", error);
@@ -261,24 +353,43 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       };
     }
 
+    if (rpcOrder.estado_intento === "aprobado") {
+      return {
+        ok: true,
+        message: "El pago ya estaba confirmado.",
+        code: rpcOrder.codigo,
+        alreadyApproved: true,
+      };
+    }
+
+    if (!["pendiente", "preparado"].includes(rpcOrder.estado_intento)) {
+      return {
+        ok: false,
+        message: "Este intento de pago ya terminó. Inicia un pago nuevo.",
+        code: null,
+      };
+    }
+
     try {
       const paymentBox = createPayPhoneBoxPayment({
         amount: Number(rpcOrder.amount_cents),
         clientTransactionId: rpcOrder.client_transaction_id,
         orderCode: rpcOrder.codigo,
       });
-      const { error: preparationError } = await payPhoneAdmin.rpc(
-        "registrar_preparacion_payphone",
-        {
-          client_transaction_id_input: rpcOrder.client_transaction_id,
-          // La Cajita no crea un paymentId previo. La tabla conserva este
-          // identificador único para dejar el intento listo para Confirm.
-          provider_prepare_id_input: `cajita-${rpcOrder.client_transaction_id}`,
-        },
-      );
+      if (rpcOrder.estado_intento === "pendiente") {
+        const { error: preparationError } = await payPhoneAdmin.rpc(
+          "registrar_preparacion_payphone",
+          {
+            client_transaction_id_input: rpcOrder.client_transaction_id,
+            // La Cajita no crea un paymentId previo. La tabla conserva este
+            // identificador único para dejar el intento listo para Confirm.
+            provider_prepare_id_input: `cajita-${rpcOrder.client_transaction_id}`,
+          },
+        );
 
-      if (preparationError) {
-        throw new Error("No se pudo registrar la preparación del pago.");
+        if (preparationError) {
+          throw new Error("No se pudo registrar la preparación del pago.");
+        }
       }
 
       revalidatePath("/mi-cuenta");
@@ -307,9 +418,20 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     }
   }
 
-  const { data: rpcOrder, error } = await supabase
-    .rpc("crear_pedido_web", { payload })
+  let { data: rpcOrder, error } = await supabase
+    .rpc("crear_pedido_web_idempotente", {
+      payload,
+      idempotency_key_input: input.idempotencyKey,
+    })
     .single<CheckoutOrderRpcRow>();
+
+  if (isMissingRpc(error)) {
+    const legacy = await supabase
+      .rpc("crear_pedido_web", { payload })
+      .single<CheckoutOrderRpcRow>();
+    rpcOrder = legacy.data;
+    error = legacy.error;
+  }
 
   if (error || !rpcOrder) {
     console.error("Checkout order creation failed", error);
@@ -364,8 +486,8 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   };
 }
 
-// El pedido de PayPhone es temporal hasta que el callback confirme el cobro.
-// Al cerrar la Cajita se borra junto con sus reservas de inventario.
+// Cerrar la cajita solo solicita cancelación. El pedido se conserva hasta que
+// PayPhone confirme un estado terminal o la reconciliación expire la reserva.
 export async function discardPayPhoneCheckout(clientTransactionId: string) {
   if (!/^PCF-[a-f0-9]{32}$/i.test(clientTransactionId)) {
     return { ok: false };

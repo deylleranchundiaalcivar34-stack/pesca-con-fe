@@ -2,33 +2,9 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/supabase/admin-auth";
+import { publicServerError } from "@/lib/safe-server-error";
 import { slugify } from "@/lib/utilidades";
-
-// Verifica que el usuario tenga perfil admin activo.
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("No autenticado.");
-  }
-
-  const { data } = await supabase
-    .from("perfiles_admin")
-    .select("id")
-    .eq("id", user.id)
-    .eq("activo", true)
-    .maybeSingle();
-
-  if (!data) {
-    throw new Error("No autorizado.");
-  }
-
-  return { supabase };
-}
 
 // Lee un campo de FormData como texto limpio.
 function getText(formData: FormData, key: string) {
@@ -46,7 +22,7 @@ function revalidatePublicBrands() {
 
 // Crea una marca nueva con slug generado.
 export async function saveBrand(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireAdmin("catalog.write");
   const name = getText(formData, "name");
   const slug = getText(formData, "slug") || slugify(name);
 
@@ -61,7 +37,7 @@ export async function saveBrand(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw publicServerError("Admin brand creation failed", error, "No se pudo crear la marca.");
   }
 
   revalidatePath("/admin/marcas");
@@ -72,7 +48,7 @@ export async function saveBrand(formData: FormData) {
 
 // Actualiza nombre, slug y estado de una marca existente.
 export async function updateBrand(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireAdmin("catalog.write");
   const id = getText(formData, "id");
   const name = getText(formData, "name");
   const slug = getText(formData, "slug") || slugify(name);
@@ -91,7 +67,7 @@ export async function updateBrand(formData: FormData) {
     .eq("id", id);
 
   if (error) {
-    throw new Error(error.message);
+    throw publicServerError("Admin brand update failed", error, "No se pudo actualizar la marca.");
   }
 
   revalidatePath("/admin/marcas");
@@ -101,7 +77,7 @@ export async function updateBrand(formData: FormData) {
 
 // Desactiva una marca para ocultarla sin borrar historial.
 export async function deactivateBrand(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireAdmin("catalog.write");
   const id = getText(formData, "id");
 
   if (!id) {
@@ -114,7 +90,7 @@ export async function deactivateBrand(formData: FormData) {
     .eq("id", id);
 
   if (error) {
-    throw new Error(error.message);
+    throw publicServerError("Admin brand deactivation failed", error, "No se pudo desactivar la marca.");
   }
 
   revalidatePath("/admin/marcas");

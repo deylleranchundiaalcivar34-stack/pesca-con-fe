@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -36,20 +36,20 @@ import {
 } from "@/components/ui/sheet";
 import { useIsClient } from "@/hooks/use-es-cliente";
 import {
+  getPublicSessionServerSnapshot,
+  getPublicSessionSnapshot,
   notifyPublicSessionChange,
-  publicSessionEventName,
+  refreshPublicSession,
+  setPublicSessionUser,
+  subscribePublicSession,
 } from "@/lib/sesion-publica";
 import { useCartStore } from "@/store/tienda-carrito";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
-import { formatCurrency } from "@/lib/utilidades";
+import { cn, formatCurrency } from "@/lib/utilidades";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
 import { MobileFixedNavigation } from "./mega-menu-catalogo";
-
-type SessionResponse = {
-  user: PublicUserSummary | null;
-};
 
 type ProductSearchSuggestion = {
   name: string;
@@ -61,68 +61,38 @@ type ProductSearchSuggestion = {
   price: number;
 };
 
-let sessionPromise: Promise<PublicUserSummary | null> | null = null;
-
-function loadPublicUser() {
-  sessionPromise ??= fetch("/api/sesion", {
-    cache: "no-store",
-    credentials: "same-origin",
-  })
-    .then((response) => (response.ok ? response.json() : { user: null }))
-    .then((data: SessionResponse) => data.user)
-    .catch(() => null)
-    .finally(() => {
-      sessionPromise = null;
-    });
-
-  return sessionPromise;
-}
-
 // Lee la sesion sin convertir todo el shell publico en render dinamico.
 function usePublicUser() {
   const pathname = usePathname();
-  const syncVersion = useRef(0);
-  const [user, setUser] = useState<PublicUserSummary | null>(null);
+  const session = useSyncExternalStore(
+    subscribePublicSession,
+    getPublicSessionSnapshot,
+    getPublicSessionServerSnapshot,
+  );
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function syncUser() {
-      const requestVersion = syncVersion.current + 1;
-      syncVersion.current = requestVersion;
-      const nextUser = await loadPublicUser();
-      if (isMounted && requestVersion === syncVersion.current) {
-        setUser(nextUser);
-      }
-    }
-
-    function handleSessionEvent(event: Event) {
-      const nextUser = (event as CustomEvent<{ user?: PublicUserSummary | null }>).detail
-        ?.user;
-
-      if (nextUser !== undefined) {
-        syncVersion.current += 1;
-        setUser(nextUser);
-        return;
-      }
-
-      void syncUser();
-    }
-
-    void syncUser();
-    window.addEventListener("focus", syncUser);
-    window.addEventListener(publicSessionEventName, handleSessionEvent);
-    document.addEventListener("visibilitychange", syncUser);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", syncUser);
-      window.removeEventListener(publicSessionEventName, handleSessionEvent);
-      document.removeEventListener("visibilitychange", syncUser);
-    };
+    void refreshPublicSession();
   }, [pathname]);
 
-  return { user, setUser };
+  useEffect(() => {
+    function syncUser() {
+      void refreshPublicSession({ force: true });
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") syncUser();
+    }
+
+    window.addEventListener("focus", syncUser);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", syncUser);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  return { ...session, setUser: setPublicSessionUser };
 }
 
 // Decide el nombre completo que se muestra en menu y saludo.
@@ -244,8 +214,28 @@ function LoginLink({ mobile = false }: { mobile?: boolean }) {
   );
 }
 
+// Reserva el espacio de la cuenta sin afirmar que el visitante cerro sesion.
+function AccountLoading({ mobile = false }: { mobile?: boolean }) {
+  return (
+    <div
+      role="status"
+      aria-label="Comprobando sesión"
+      className={cn(
+        "flex h-9 items-center gap-2 rounded-md border border-border/70 px-3 text-muted-foreground",
+        mobile ? "w-full justify-start" : "w-28",
+      )}
+    >
+      <UserRound className="size-4" aria-hidden="true" />
+      <span className="h-2.5 flex-1 animate-pulse rounded-full bg-border" aria-hidden="true" />
+    </div>
+  );
+}
+
 export function HeaderUserControls({ mobile = false }: { mobile?: boolean }) {
-  const { user, setUser } = usePublicUser();
+  const { status, user, setUser } = usePublicUser();
+
+  if (status === "loading") return <AccountLoading mobile={mobile} />;
+
   return user ? (
     <UserMenu user={user} onOptimisticLogout={() => setUser(null)} />
   ) : (
@@ -420,7 +410,7 @@ function MobileAccountNavigation({ user }: { user: PublicUserSummary }) {
 }
 
 export function MobileMenu() {
-  const { user, setUser } = usePublicUser();
+  const { status, user, setUser } = usePublicUser();
 
   return (
     <Sheet>
@@ -443,7 +433,9 @@ export function MobileMenu() {
           </form>
           <MobileFixedNavigation />
           <Button asChild variant="outline" className="justify-start"><Link href="/lista-deseos"><Heart aria-hidden="true" />Lista de deseos</Link></Button>
-          {user ? (
+          {status === "loading" ? (
+            <AccountLoading mobile />
+          ) : user ? (
             <>
               <MobileAccountNavigation user={user} />
               <form action={logout}>

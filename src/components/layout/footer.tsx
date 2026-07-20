@@ -4,13 +4,13 @@ import { Clock3, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { businessConfig } from "@/data/datos-negocio";
 
 const informationLinks = [
-  { label: "Qui\u00e9nes somos", href: "/quienes-somos" },
+  { label: "Quiénes somos", href: "/quienes-somos" },
   { label: "Preguntas frecuentes", href: "/preguntas-frecuentes" },
   { label: "Contacto", href: "/contacto" },
 ] as const;
 
 const categoryLinks = [
-  { label: "Art\u00edculos de pesca", href: "/productos" },
+  { label: "Artículos de pesca", href: "/productos" },
   { label: "Indumentaria", href: "/productos/indumentaria" },
   { label: "Camping", href: "/productos/camping" },
 ] as const;
@@ -46,11 +46,11 @@ export function Footer() {
             <span className="whitespace-nowrap text-xl font-black text-white xl:text-2xl">Pesca Con Fe</span>
           </Link>
           <p className="mt-4 max-w-md text-sm leading-7 text-white/75">
-            Tienda especializada en pesca deportiva, camping y aventura en la {"Amazon\u00eda"} ecuatoriana.
+            Tienda especializada en pesca deportiva, camping y aventura en la {"Amazonía"} ecuatoriana.
           </p>
         </div>
 
-        <FooterColumn title={"Informaci\u00f3n"}>
+        <FooterColumn title={"Información"}>
           <ul className="space-y-2.5">
             {informationLinks.map((item) => (
               <li key={item.href}>
@@ -62,7 +62,7 @@ export function Footer() {
           </ul>
         </FooterColumn>
 
-        <FooterColumn title={"Categor\u00edas"}>
+        <FooterColumn title={"Categorías"}>
           <ul className="space-y-2.5">
             {categoryLinks.map((item) => (
               <li key={item.href}>
@@ -74,7 +74,7 @@ export function Footer() {
           </ul>
         </FooterColumn>
 
-        <FooterColumn title={"Atenci\u00f3n al cliente"}>
+        <FooterColumn title={"Atención al cliente"}>
           <ul className="space-y-3 text-sm leading-6 text-white/75">
             <li>
               <a href={businessConfig.social.whatsapp} target="_blank" rel="noreferrer" className={`${footerLinkClassName} items-start gap-2`}>
@@ -105,7 +105,7 @@ export function Footer() {
           </ul>
         </FooterColumn>
 
-        <FooterColumn title={"S\u00edguenos"}>
+        <FooterColumn title={"Síguenos"}>
           <div className="flex flex-nowrap gap-2">
             {socialLinks.map((item) => (
               <a

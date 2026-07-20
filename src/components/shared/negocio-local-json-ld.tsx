@@ -1,5 +1,6 @@
 import { businessConfig } from "@/data/datos-negocio";
 import { SITE_URL } from "@/lib/constantes";
+import { serializeJsonLd } from "@/lib/seguridad-json-ld";
 
 // Publica datos estructurados del negocio local para buscadores.
 export function LocalBusinessJsonLd() {
@@ -44,7 +45,7 @@ export function LocalBusinessJsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
     />
   );
 }

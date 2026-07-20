@@ -1,4 +1,4 @@
-export type PhysicalPaymentMethod = "efectivo" | "transferencia" | "tarjeta" | "otro";
+type PhysicalPaymentMethod = "efectivo" | "transferencia" | "tarjeta" | "otro";
 
 export interface PhysicalSaleItem {
   id: string;

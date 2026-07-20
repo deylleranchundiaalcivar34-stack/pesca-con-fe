@@ -25,7 +25,7 @@ const HERO_SLIDES = [
     id: "carretes",
     src: "/images/banners/banner_carretes1.webp",
     alt: "Selección de cañas, carretes y señuelos para pesca",
-    href: "/productos?categoria=carrete",
+    href: "/productos?categoria=carretes",
     imageClassName: "object-cover object-center",
   },
   {
