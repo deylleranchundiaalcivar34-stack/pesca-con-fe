@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import {
   deleteProductImage,
   saveProduct,
+  setProductImageColor,
   setMainImage,
   type ProductActionState,
 } from "@/app/admin/productos/acciones";
@@ -59,6 +60,7 @@ type SelectedImagePreview = {
   file: File;
   url: string;
   alt: string;
+  color: string;
 };
 
 interface ProductFormProps {
@@ -199,6 +201,9 @@ export function ProductForm({
   const selectedCatalogPath = getCatalogPathByIds(catalogNodes, selectedCatalogPathIds);
   const selectedCatalogNodeId = selectedCatalogPathIds.at(-1) ?? "";
   const categorySlug = selectedCatalogPath[0]?.slug ?? product?.categorySlug ?? categories[0]?.slug ?? "";
+  const isCurrican = selectedCatalogPath.some((node) => node.slug === "curricanes");
+  const isColorSelectableLure = categorySlug === "senuelos" && !isCurrican;
+  const curricanOptions = isCurrican && productVariants.length > 0;
   const subcategorySlug = selectedCatalogPath[1]?.slug ?? product?.subcategorySlug ?? "";
   const categoryAttributes = useMemo(
     () =>
@@ -283,6 +288,7 @@ export function ProductForm({
       file,
       url: URL.createObjectURL(file),
       alt: file.name.replace(/\.[^/.]+$/, ""),
+      color: "",
     }));
     const nextImages = [...currentImages, ...previews];
 
@@ -338,6 +344,21 @@ export function ProductForm({
     }
   };
 
+  const saveExistingImageColor = async (imageId: string, color: string) => {
+    if (!product) return;
+
+    setPendingExistingImageId(imageId);
+    try {
+      await setProductImageColor(product.id, imageId, color);
+      router.refresh();
+      toast.success("Color de imagen actualizado.");
+    } catch {
+      toast.error("No pudimos actualizar el color de la imagen.");
+    } finally {
+      setPendingExistingImageId(null);
+    }
+  };
+
   return (
     <form
       action={formAction}
@@ -348,6 +369,7 @@ export function ProductForm({
       <input type="hidden" name="brand" value={brand} />
       <input type="hidden" name="categorySlug" value={categorySlug} />
       <input type="hidden" name="subcategorySlug" value={subcategorySlug} />
+      <input type="hidden" name="curricanConfiguration" value={isCurrican ? "true" : ""} />
       <input type="hidden" name="catalogNodeId" value={selectedCatalogNodeId} />
       <input type="hidden" name="isActive" value={isActive ? "on" : ""} />
       <input type="hidden" name="isFeatured" value={isFeatured ? "on" : ""} />
@@ -358,6 +380,7 @@ export function ProductForm({
       />
       <input type="hidden" name="variants" value={JSON.stringify(productVariants)} />
       <input type="hidden" name="attributes" value={serializedAttributes} />
+      <input type="hidden" name="newImageColors" value={JSON.stringify(selectedImagePreviews.map((image) => image.color))} />
 
       {actionState.status === "error" ? (
         <div
@@ -419,7 +442,7 @@ export function ProductForm({
                 }}
               />
             </Field>
-            <Field id="price" label="Precio" error={errors.price?.message}>
+            <Field id="price" label={isCurrican ? "Señuelo base — precio base" : "Precio"} error={errors.price?.message}>
               <Input
                 id="price"
                 type="number"
@@ -430,14 +453,14 @@ export function ProductForm({
                 required
               />
             </Field>
-            <Field id="offerPrice" label="Precio de oferta (opcional)" error={errors.offerPrice?.message}>
+            <Field id="offerPrice" label={isCurrican ? "Oferta del señuelo base (opcional)" : "Precio de oferta (opcional)"} error={errors.offerPrice?.message}>
               <Input
                 id="offerPrice"
                 type="number"
                 min="0.01"
                 max={price > 0.01 ? price - 0.01 : 0}
                 step="0.01"
-                disabled={productVariants.length > 0}
+                disabled={productVariants.length > 0 && !isCurrican}
                 {...register("offerPrice", {
                   setValueAs: (value) => (value === "" ? undefined : Number(value)),
                   validate: (value) =>
@@ -447,13 +470,17 @@ export function ProductForm({
                 })}
                 name="offerPrice"
               />
-              {productVariants.length ? (
+              {curricanOptions ? (
+                <p className="text-xs text-muted-foreground">
+                  La oferta se aplica al precio base. Los adicionales de cada configuración se suman sin descuento.
+                </p>
+              ) : productVariants.length ? (
                 <p className="text-xs text-muted-foreground">
                   Las ofertas se configuran individualmente en cada opción.
                 </p>
               ) : null}
             </Field>
-            <Field id="stock" label="Stock" error={errors.stock?.message}>
+            <Field id="stock" label={isCurrican ? "Stock del señuelo base" : "Stock"} error={errors.stock?.message}>
               <Input
                 id="stock"
                 type="number"
@@ -484,12 +511,14 @@ export function ProductForm({
                 <div className="mb-4">
                   <h3 className="font-semibold text-dark-blue">Especificaciones base para filtros</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {hasProductVariants
+                    {curricanOptions
+                      ? "Completa estos datos una sola vez: serán la ficha técnica y los filtros de todo el curricán."
+                      : hasProductVariants
                       ? "Este producto usa opciones. Sus especificaciones, selectores y filtros se toman de cada opción más abajo."
                       : "Completa los datos técnicos del modelo general para los filtros de esta categoría."}
                   </p>
                 </div>
-                <fieldset disabled={hasProductVariants} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
+                <fieldset disabled={hasProductVariants && !isCurrican} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
                   {categoryAttributes.map((attribute) => {
                     const inputId = `attribute-${attribute.id}`;
                     const value = attributeValues[attribute.key] ?? "";
@@ -554,10 +583,11 @@ export function ProductForm({
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>Opciones del producto</CardTitle>
+              <CardTitle>{isCurrican ? "Configuraciones adicionales" : "Opciones del producto"}</CardTitle>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Úsalas cuando el mismo producto se venda en diferentes medidas, colores,
-                capacidades o configuraciones.
+                {isCurrican
+                  ? "El señuelo sin aparejo se configura arriba como precio base. Aquí agrega solamente armados o extras, como uno o dos anzuelos o faldas adicionales."
+                  : "Úsalas cuando el mismo producto se venda en diferentes medidas, colores, capacidades o configuraciones."}
               </p>
             </div>
             <Button
@@ -566,7 +596,7 @@ export function ProductForm({
               size="sm"
               onClick={() =>
                 setProductVariants((current) => {
-                  if (!current.length) setValue("offerPrice", undefined);
+                  if (!current.length && !isCurrican) setValue("offerPrice", undefined);
                   return [
                     ...current,
                     {
@@ -577,6 +607,7 @@ export function ProductForm({
                       attributes: {},
                       sku: "",
                       price: price ?? product?.price ?? 0,
+                      additionalPrice: 0,
                       offerPrice: undefined,
                       stock: 0,
                       isActive: true,
@@ -587,7 +618,7 @@ export function ProductForm({
               }
             >
               <Plus aria-hidden="true" />
-              Agregar opción
+              {isCurrican ? "Agregar configuración" : "Agregar opción"}
             </Button>
           </CardHeader>
           <CardContent>
@@ -596,7 +627,7 @@ export function ProductForm({
                 {productVariants.map((variant, index) => (
                   <div key={variant.id} className="rounded-lg border border-border bg-secondary/20 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="font-bold text-dark-blue">Opción {index + 1}</p>
+                      <p className="font-bold text-dark-blue">{isCurrican ? `Configuración adicional ${index + 1}` : `Opción ${index + 1}`}</p>
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
@@ -651,12 +682,67 @@ export function ProductForm({
                       </div>
                     </div>
 
+                    {isCurrican ? (
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <Field id={`variant-name-${index}`} label="Configuración de venta">
+                          <Input
+                            id={`variant-name-${index}`}
+                            value={variant.name}
+                            placeholder="Ejemplo: Aparejo con 2 anzuelos Mustad 10/0"
+                            onChange={(event) =>
+                              setProductVariants((current) =>
+                                current.map((item) =>
+                                  item.id === variant.id ? { ...item, name: event.target.value } : item,
+                                ),
+                              )
+                            }
+                          />
+                        </Field>
+                        <Field id={`variant-additional-price-${index}`} label="Valor adicional">
+                          <Input
+                            id={`variant-additional-price-${index}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={variant.additionalPrice ?? Math.max(0, variant.price - (price ?? product?.price ?? 0))}
+                            onChange={(event) =>
+                              setProductVariants((current) =>
+                                current.map((item) =>
+                                  item.id === variant.id
+                                    ? { ...item, additionalPrice: Math.max(0, Number(event.target.value) || 0) }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Se suma al precio base del señuelo.
+                          </p>
+                        </Field>
+                        <Field id={`variant-stock-${index}`} label="Stock">
+                          <Input
+                            id={`variant-stock-${index}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={variant.stock}
+                            onChange={(event) =>
+                              setProductVariants((current) =>
+                                current.map((item) =>
+                                  item.id === variant.id ? { ...item, stock: Number(event.target.value) } : item,
+                                ),
+                              )
+                            }
+                          />
+                        </Field>
+                      </div>
+                    ) : (
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <Field id={`variant-name-${index}`} label="Nombre de la opción">
+                      <Field id={`variant-name-${index}`} label={isCurrican ? "Configuración de venta" : "Nombre de la opción"}>
                         <Input
                           id={`variant-name-${index}`}
                           value={variant.name}
-                          placeholder="Ejemplo: 7 pies · Medium Heavy · 15-30 lb"
+                          placeholder={isCurrican ? "Ejemplo: Aparejo con 2 anzuelos Mustad 10/0" : "Ejemplo: 7 pies · Medium Heavy · 15-30 lb"}
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -800,6 +886,7 @@ export function ProductForm({
                         </div>
                       ) : null}
                     </div>
+                    )}
 
                     <label className="mt-4 flex items-center justify-between rounded-md border border-border bg-white p-3">
                       <span>
@@ -973,6 +1060,23 @@ export function ProductForm({
                       <p className="mt-2 truncate text-xs text-muted-foreground">
                         {index + 1}. {image.alt}
                       </p>
+                      {isColorSelectableLure ? (
+                        <Field id={`new-image-color-${image.id}`} label="Color de esta imagen" className="mt-3">
+                          <Input
+                            id={`new-image-color-${image.id}`}
+                            value={image.color}
+                            placeholder="Ejemplo: Negro / Rojo"
+                            maxLength={80}
+                            onChange={(event) =>
+                              setSelectedImagePreviews((current) =>
+                                current.map((item) =>
+                                  item.id === image.id ? { ...item, color: event.target.value } : item,
+                                ),
+                              )
+                            }
+                          />
+                        </Field>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1027,6 +1131,18 @@ export function ProductForm({
                           </Button>
                         </div>
                       </div>
+                      {isColorSelectableLure ? (
+                        <Field id={`existing-image-color-${image.id}`} label="Color de esta imagen" className="mt-3">
+                          <Input
+                            id={`existing-image-color-${image.id}`}
+                            defaultValue={image.color ?? ""}
+                            placeholder="Ejemplo: Negro / Rojo"
+                            maxLength={80}
+                            disabled={pendingExistingImageId !== null}
+                            onBlur={(event) => void saveExistingImageColor(image.id, event.target.value)}
+                          />
+                        </Field>
+                      ) : null}
                     </div>
                   ))}
                 </div>

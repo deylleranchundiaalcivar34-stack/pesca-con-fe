@@ -82,10 +82,10 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Radix bloquea el scroll al abrir un Select y añade un margen derecho al body.
-   En una página con barra vertical eso desplaza todo el contenido hacia la izquierda.
-   Esta excepción solo aplica a Select; los diálogos y paneles conservan su bloqueo normal. */
-body[data-scroll-locked]:has([data-pesca-select-content]) {
+/* Radix bloquea el scroll de Select, Dialog y Sheet y añade una compensación lateral
+   al body. `scrollbar-gutter` ya reserva ese espacio, así que la compensación extra
+   desplaza el fondo al abrir un desplegable o el carrito. */
+html body[data-scroll-locked] {
   margin-right: 0 !important;
   padding-right: 0 !important;
 }

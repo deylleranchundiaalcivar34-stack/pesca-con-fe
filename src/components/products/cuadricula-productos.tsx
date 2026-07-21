@@ -3,7 +3,7 @@ import { ProductCard } from "./tarjeta-producto";
 
 interface ProductGridProps {
   products: Product[];
-  variant?: "default" | "catalog" | "home";
+  variant?: "default" | "catalog" | "home" | "wishlist";
   compactPrice?: boolean;
 }
 
@@ -33,7 +33,9 @@ export function ProductGrid({
           ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
           : variant === "home"
             ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
-          : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+            : variant === "wishlist"
+              ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+              : "grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
       }
     >
       {products.map((product, index) => (

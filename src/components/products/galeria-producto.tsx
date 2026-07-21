@@ -9,11 +9,13 @@ import { cn } from "@/lib/utilidades";
 
 interface ProductGalleryProps {
   product: Product;
+  selectedImageId?: string;
+  onSelectedImageIdChange?: (imageId: string) => void;
 }
 
 const fallbackImage = "/images/products/product-placeholder.png";
 // Muestra imagen principal y miniaturas del producto.
-export function ProductGallery({ product }: ProductGalleryProps) {
+export function ProductGallery({ product, selectedImageId, onSelectedImageIdChange }: ProductGalleryProps) {
   const images: ProductImage[] = product.images.length
     ? product.images
     : [
@@ -26,22 +28,29 @@ export function ProductGallery({ product }: ProductGalleryProps) {
       ];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const selected = images[selectedIndex] ?? images[0];
+  const [isPortrait, setIsPortrait] = useState(false);
+  const controlledIndex = selectedImageId
+    ? images.findIndex((image) => image.id === selectedImageId)
+    : -1;
+  const activeIndex = controlledIndex >= 0 ? controlledIndex : selectedIndex;
+  const selected = images[activeIndex] ?? images[0];
 
   const selectImage = (index: number) => {
+    setIsPortrait(false);
     setSelectedIndex(index);
+    onSelectedImageIdChange?.(images[index]?.id ?? images[0].id);
   };
 
   const selectPreviousImage = () => {
-    selectImage((selectedIndex - 1 + images.length) % images.length);
+    selectImage((activeIndex - 1 + images.length) % images.length);
   };
 
   const selectNextImage = () => {
-    selectImage((selectedIndex + 1) % images.length);
+    selectImage((activeIndex + 1) % images.length);
   };
 
   return (
-    <div className="lg:h-[540px] xl:h-[560px]">
+    <div className={cn("lg:h-[540px] xl:h-[580px]", isPortrait && "lg:h-[640px] xl:h-[680px]")}>
       <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
         {images.length > 1 ? (
           <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
@@ -77,7 +86,11 @@ export function ProductGallery({ product }: ProductGalleryProps) {
             fill
             priority
             sizes="(min-width: 1024px) 48vw, 100vw"
-            className="object-contain p-3 sm:p-4"
+            className={cn("object-contain p-3 sm:p-4", isPortrait && "p-2 sm:p-2")}
+            onLoad={(event) => {
+              const { naturalHeight, naturalWidth } = event.currentTarget;
+              setIsPortrait(naturalHeight > naturalWidth);
+            }}
           />
           <button
             type="button"
@@ -112,7 +125,7 @@ export function ProductGallery({ product }: ProductGalleryProps) {
       {isLightboxOpen ? (
         <ProductImageLightbox
           images={images}
-          selectedIndex={selectedIndex}
+          selectedIndex={activeIndex}
           onSelectedIndexChange={selectImage}
           onClose={() => setIsLightboxOpen(false)}
         />

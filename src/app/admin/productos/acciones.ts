@@ -173,6 +173,26 @@ type PreparedProductImages = {
   existingImages: Array<{ id: string; principal: boolean }>;
 };
 
+function getNewImageColors(formData: FormData, imageCount: number) {
+  const rawColors = getText(formData, "newImageColors");
+  if (!rawColors) return Array.from({ length: imageCount }, () => "");
+
+  let colors: unknown;
+  try {
+    colors = JSON.parse(rawColors);
+  } catch {
+    throw new ProductFormError("Los colores de las imágenes no tienen un formato válido.");
+  }
+
+  if (!Array.isArray(colors) || colors.length !== imageCount) {
+    throw new ProductFormError("Los colores de las imágenes no coinciden con los archivos seleccionados.");
+  }
+
+  return colors.map((color, index) =>
+    requireTextLength(String(color ?? "").trim(), `El color de la imagen ${index + 1}`, 80),
+  );
+}
+
 // Ejecuta todas las validaciones locales de las imágenes antes de modificar el
 // producto, evitando que un envío inválido deje cambios parciales.
 async function prepareProductImages(
@@ -245,6 +265,7 @@ async function uploadImagesForProduct(
         ? -1
         : 0;
   const rows = [];
+  const imageColors = getNewImageColors(formData, files.length);
   const uploadedPublicIds: string[] = [];
 
   try {
@@ -272,6 +293,7 @@ async function uploadImagesForProduct(
         cloudinary_height: result.height,
         cloudinary_bytes: result.bytes,
         alt: getText(formData, "imageAlt") || getText(formData, "name") || file.name,
+        color: imageColors[index] || null,
         orden: existingImages.length + index,
         principal: index === mainImageIndex,
         activo: true,
@@ -314,6 +336,7 @@ type VariantInput = {
   sku?: string;
   price?: number;
   offerPrice?: number | null;
+  additionalPrice?: number;
   stock?: number;
   isActive?: boolean;
   sortOrder?: number;
@@ -348,6 +371,7 @@ async function saveProductAttributes(
   productId: string,
   catalogNodeId: string | null,
   formData: FormData,
+  retainProductAttributes = false,
 ) {
   const rawVariants = getText(formData, "variants");
   let submittedVariants: unknown = [];
@@ -359,7 +383,7 @@ async function saveProductAttributes(
   }
 
   // Cuando existen opciones, sus atributos son la única fuente técnica del producto.
-  if (Array.isArray(submittedVariants) && submittedVariants.length > 0) {
+  if (Array.isArray(submittedVariants) && submittedVariants.length > 0 && !retainProductAttributes) {
     const { error } = await supabase
       .from("producto_atributos")
       .delete()
@@ -453,6 +477,7 @@ async function saveProductVariants(
   supabase: AdminClient,
   productId: string,
   formData: FormData,
+  pricing: { basePrice: number; baseOfferPrice: number | null; usesAdditionalPrice: boolean },
 ) {
   const rawVariants = getText(formData, "variants");
   let variants: VariantInput[] = [];
@@ -493,18 +518,26 @@ async function saveProductVariants(
       80,
     );
     const attributeEntries = Object.entries(variant.attributes ?? {});
-    const price = Number(variant.price);
+    const additionalPrice = Number(variant.additionalPrice ?? 0);
+    const price = pricing.usesAdditionalPrice
+      ? pricing.basePrice + additionalPrice
+      : Number(variant.price);
     const stock = Number(variant.stock);
 
     if (!name) throw new ProductFormError(`Completa el nombre de la opción ${index + 1}.`);
     if (!Number.isFinite(price) || price < 0) {
       throw new ProductFormError(`El precio de la opción ${index + 1} no es válido.`);
     }
-    const offerPrice = parseOfferPrice(
-      variant.offerPrice,
-      price,
-      `El precio de oferta de la opción ${index + 1}`,
-    );
+    if (!Number.isFinite(additionalPrice) || additionalPrice < 0) {
+      throw new ProductFormError(`El cargo adicional de la opción ${index + 1} no es válido.`);
+    }
+    const offerPrice = pricing.usesAdditionalPrice
+      ? pricing.baseOfferPrice === null ? null : pricing.baseOfferPrice + additionalPrice
+      : parseOfferPrice(
+          variant.offerPrice,
+          price,
+          `El precio de oferta de la opción ${index + 1}`,
+        );
     if (!Number.isInteger(stock) || stock < 0) {
       throw new ProductFormError(`El stock de la opción ${index + 1} no es válido.`);
     }
@@ -542,6 +575,7 @@ async function saveProductVariants(
       sku: variantSku || null,
       precio: price,
       precio_oferta: offerPrice,
+      precio_adicional: pricing.usesAdditionalPrice ? additionalPrice : null,
       stock,
       activo: variant.isActive !== false,
       orden: index + 1,
@@ -591,6 +625,7 @@ async function saveProductVariants(
         sku: variant.sku,
         precio: variant.precio,
         precio_oferta: variant.precio_oferta,
+        precio_adicional: variant.precio_adicional,
         stock: variant.stock,
         activo: variant.activo,
         orden: variant.orden,
@@ -650,7 +685,8 @@ async function persistProduct(formData: FormData) {
   }
 
   const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
-  const offerPrice = hasVariants
+  const usesCurricanPricing = getText(formData, "curricanConfiguration") === "true";
+  const offerPrice = hasVariants && !usesCurricanPricing
     ? null
     : parseOfferPrice(getText(formData, "offerPrice"), price, "El precio de oferta");
   const preparedImages = await prepareProductImages(
@@ -689,8 +725,12 @@ async function persistProduct(formData: FormData) {
       .maybeSingle();
     if (error || !data) throw publicServerError("Product update failed", error, "No se pudo actualizar el producto.");
     await uploadImagesForProduct(supabase, productId, formData, userId, preparedImages);
-    await saveProductVariants(supabase, productId, formData);
-    await saveProductAttributes(supabase, productId, relations.catalogNodeId, formData);
+    await saveProductVariants(supabase, productId, formData, {
+      basePrice: price,
+      baseOfferPrice: offerPrice,
+      usesAdditionalPrice: usesCurricanPricing,
+    });
+    await saveProductAttributes(supabase, productId, relations.catalogNodeId, formData, usesCurricanPricing);
   } else {
     const { data, error } = await supabase
       .from("productos")
@@ -703,8 +743,12 @@ async function persistProduct(formData: FormData) {
     }
 
     await uploadImagesForProduct(supabase, data.id, formData, userId, preparedImages);
-    await saveProductVariants(supabase, data.id, formData);
-    await saveProductAttributes(supabase, data.id, relations.catalogNodeId, formData);
+    await saveProductVariants(supabase, data.id, formData, {
+      basePrice: price,
+      baseOfferPrice: offerPrice,
+      usesAdditionalPrice: usesCurricanPricing,
+    });
+    await saveProductAttributes(supabase, data.id, relations.catalogNodeId, formData, usesCurricanPricing);
   }
 
   revalidatePublicProducts();
@@ -831,6 +875,30 @@ export async function setMainImage(productId: string, imageId: string) {
 
   revalidatePublicProducts();
   revalidatePath("/admin/productos");
+  revalidatePath(`/admin/productos/${productId}/editar`);
+}
+
+// Guarda la etiqueta de color de una imagen para los señuelos con presentaciones por color.
+export async function setProductImageColor(productId: string, imageId: string, color: string) {
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  requireUuid(productId, "Producto");
+  requireUuid(imageId, "Imagen");
+  const normalizedColor = requireTextLength(color.trim(), "El color", 80);
+
+  const { data, error } = await supabase
+    .from("producto_imagenes")
+    .update({ color: normalizedColor || null, actualizado_por: userId })
+    .eq("id", imageId)
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw publicServerError("Product image color update failed", error, "No se pudo actualizar el color de la imagen.");
+  }
+
+  revalidatePublicProducts();
   revalidatePath(`/admin/productos/${productId}/editar`);
 }
 

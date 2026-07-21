@@ -32,8 +32,8 @@ export const businessConfig: BusinessConfig = {
 // Categorias visibles del catalogo y sus imagenes de respaldo.
 export const categories: ProductCategory[] = [
   {
-    name: "Carrete",
-    slug: "carrete",
+    name: "Carretes",
+    slug: "carretes",
     description: "Carretes suaves y resistentes para jornadas intensas.",
     image: "/images/categorias/carretes.webp",
     subcategories: [

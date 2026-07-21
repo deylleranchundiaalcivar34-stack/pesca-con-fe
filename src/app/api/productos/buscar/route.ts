@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const products = await searchProductsByTerms(getSearchTerms(query));
-  const results = products
+  const matchingProducts = products
     .filter((product) => product.isActive)
     .filter((product) => {
       const searchableText = [
@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
       ].join(" ");
 
       return matchesProductSearch(query, searchableText);
-    })
+    });
+  const results = matchingProducts
     .slice(0, 6)
     .map((product) => ({
       name: product.name,
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
     }));
 
   return NextResponse.json(
-    { results },
+    { results, total: matchingProducts.length },
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",

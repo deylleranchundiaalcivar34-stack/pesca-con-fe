@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, LoaderCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, ChevronUp, Heart, LoaderCircle, RotateCcw } from "lucide-react";
 import type { Product } from "@/types/producto";
 import { Button } from "@/components/ui/button";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
 import { ProductGrid } from "./cuadricula-productos";
+
+const productsPerPage = 12;
 
 export function WishlistContent() {
   const productIds = useWishlistStore((state) => state.productIds);
@@ -16,6 +18,7 @@ export function WishlistContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedPage, setSelectedPage] = useState(1);
 
   useEffect(() => {
     if (!hydrated || !productIds.length) return;
@@ -52,6 +55,19 @@ export function WishlistContent() {
   }, [hydrated, productIds, reloadToken]);
 
   const wishlistedProducts = products.filter((product) => productIds.includes(product.id));
+  const totalPages = Math.max(1, Math.ceil(wishlistedProducts.length / productsPerPage));
+  const currentPage = Math.min(selectedPage, totalPages);
+  const paginatedProducts = wishlistedProducts.slice(
+    (currentPage - 1) * productsPerPage,
+    currentPage * productsPerPage,
+  );
+
+  const changePage = (page: number) => {
+    setSelectedPage(Math.min(Math.max(page, 1), totalPages));
+    window.requestAnimationFrame(() => {
+      document.getElementById("lista-de-deseos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   if (!hydrated) return <div className="min-h-[45vh]" aria-busy="true" />;
 
@@ -96,20 +112,53 @@ export function WishlistContent() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-      <div className="max-w-2xl">
-        <div className="flex items-center gap-3 text-primary">
-          <Heart className="size-7 fill-current" aria-hidden="true" />
-          <p className="text-sm font-bold uppercase tracking-[0.14em]">Tus favoritos</p>
+    <>
+      <nav className="border-b border-border bg-white py-2" aria-label="Navegación de lista de deseos">
+        <div className="mx-auto flex max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/productos">
+              <ArrowLeft aria-hidden="true" />
+              Volver a productos
+            </Link>
+          </Button>
         </div>
-        <h1 className="mt-3 text-3xl font-black text-dark-blue sm:text-4xl">Lista de deseos</h1>
-        <p className="mt-3 text-muted-foreground">
-          {wishlistedProducts.length} producto{wishlistedProducts.length === 1 ? "" : "s"} guardado{wishlistedProducts.length === 1 ? "" : "s"}.
-        </p>
-      </div>
-      <div className="mt-8">
-        <ProductGrid products={wishlistedProducts} />
-      </div>
-    </section>
+      </nav>
+      <section id="lista-de-deseos" className="mx-auto max-w-7xl scroll-mt-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <div className="max-w-2xl">
+          <div className="flex items-center gap-3 text-primary">
+            <Heart className="size-7 fill-current" aria-hidden="true" />
+            <p className="text-sm font-bold uppercase tracking-[0.14em]">Tus favoritos</p>
+          </div>
+          <h1 className="mt-3 text-3xl font-black text-dark-blue sm:text-4xl">Lista de deseos</h1>
+          <p className="mt-3 text-muted-foreground">
+            {wishlistedProducts.length} producto{wishlistedProducts.length === 1 ? "" : "s"} guardado{wishlistedProducts.length === 1 ? "" : "s"}.
+          </p>
+        </div>
+        <div className="mt-8">
+          <ProductGrid products={paginatedProducts} variant="wishlist" />
+        </div>
+        {totalPages > 1 ? (
+          <nav className="mt-8 flex flex-wrap justify-center gap-2" aria-label="Paginación de lista de deseos">
+            <Button type="button" variant="outline" disabled={currentPage === 1} onClick={() => changePage(currentPage - 1)}>
+              Anterior
+            </Button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+              <Button key={page} type="button" variant={page === currentPage ? "default" : "outline"} aria-current={page === currentPage ? "page" : undefined} onClick={() => changePage(page)}>
+                {page}
+              </Button>
+            ))}
+            <Button type="button" variant="outline" disabled={currentPage === totalPages} onClick={() => changePage(currentPage + 1)}>
+              Siguiente
+            </Button>
+          </nav>
+        ) : null}
+        <div className="mt-10 flex justify-center">
+          <Button type="button" variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <ChevronUp aria-hidden="true" />
+            Volver arriba
+          </Button>
+        </div>
+      </section>
+    </>
   );
 }

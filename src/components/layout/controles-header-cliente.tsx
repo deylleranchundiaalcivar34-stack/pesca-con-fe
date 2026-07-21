@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import {
+  ArrowRight,
   ChevronDown,
   Heart,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   MapPin,
   Menu,
@@ -60,6 +62,8 @@ type ProductSearchSuggestion = {
   imageAlt: string;
   price: number;
 };
+
+const searchSuggestionCache = new Map<string, { results: ProductSearchSuggestion[]; total: number }>();
 
 // Lee la sesion sin convertir todo el shell publico en render dinamico.
 function usePublicUser() {
@@ -264,12 +268,28 @@ export function HeaderCartButton() {
 export function HeaderSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProductSearchSuggestion[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
 
-    if (normalizedQuery.length < 2) return;
+    if (normalizedQuery.length < 2) {
+      return;
+    }
+
+    const cacheKey = normalizedQuery.toLocaleLowerCase("es");
+    const cached = searchSuggestionCache.get(cacheKey);
+    if (cached) {
+      const timer = window.setTimeout(() => {
+        setResults(cached.results);
+        setTotalResults(cached.total);
+        setIsLoading(false);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
@@ -277,13 +297,23 @@ export function HeaderSearch() {
         const response = await fetch(`/api/productos/buscar?q=${encodeURIComponent(normalizedQuery)}`, {
           signal: controller.signal,
         });
-        const data = (await response.json()) as { results?: ProductSearchSuggestion[] };
+        const data = (await response.json()) as { results?: ProductSearchSuggestion[]; total?: number };
 
-        if (response.ok) setResults(data.results ?? []);
+        if (!response.ok) throw new Error("No se pudieron cargar las sugerencias.");
+
+        const next = { results: data.results ?? [], total: data.total ?? 0 };
+        searchSuggestionCache.set(cacheKey, next);
+        setResults(next.results);
+        setTotalResults(next.total);
       } catch (error) {
-        if ((error as Error).name !== "AbortError") setResults([]);
+        if ((error as Error).name !== "AbortError") {
+          setResults([]);
+          setTotalResults(0);
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
       }
-    }, 200);
+    }, 120);
 
     return () => {
       window.clearTimeout(timer);
@@ -310,6 +340,8 @@ export function HeaderSearch() {
           const nextQuery = event.target.value;
           setQuery(nextQuery);
           setResults([]);
+          setTotalResults(0);
+          setIsLoading(nextQuery.trim().length >= 2);
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
@@ -317,8 +349,15 @@ export function HeaderSearch() {
         className="h-10 w-full rounded-full border border-border bg-secondary/40 pl-4 pr-10 text-sm text-dark-blue outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
       />
       <button type="submit" className="absolute right-1 top-1 flex size-8 items-center justify-center rounded-full text-dark-blue transition hover:bg-primary hover:text-white" aria-label="Buscar productos"><Search className="size-4" aria-hidden="true" /></button>
-      {isOpen && query.trim().length >= 2 && results.length ? (
+      {isOpen && query.trim().length >= 2 ? (
         <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 overflow-hidden rounded-lg border border-border bg-white shadow-xl">
+          {isLoading ? (
+            <div className="flex items-center gap-3 px-4 py-4 text-sm font-medium text-muted-foreground" role="status">
+              <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
+              Buscando productos...
+            </div>
+          ) : results.length ? (
+            <>
           <div className="max-h-[min(30rem,calc(100vh-5rem))] divide-y divide-border overflow-y-auto">
             {results.map((product) => (
               <Link
@@ -343,6 +382,20 @@ export function HeaderSearch() {
               </Link>
             ))}
           </div>
+          <Link
+            href={`/productos?busqueda=${encodeURIComponent(query.trim())}`}
+            onClick={() => setIsOpen(false)}
+            className="flex items-center justify-between gap-3 border-t border-border bg-secondary/60 px-4 py-3 text-sm font-bold text-primary transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <span>Ver más ({totalResults} producto{totalResults === 1 ? "" : "s"})</span>
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+            </>
+          ) : (
+            <p className="px-4 py-4 text-sm text-muted-foreground">
+              No se encontraron productos.
+            </p>
+          )}
         </div>
       ) : null}
     </form>

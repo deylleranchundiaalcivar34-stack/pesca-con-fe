@@ -70,6 +70,7 @@ export interface ProductImage {
   id: string;
   url: string;
   alt: string;
+  color?: string;
   isMain?: boolean;
   publicId?: string;
 }

@@ -88,6 +88,7 @@ type DbImage = {
   producto_id: string;
   cloudinary_secure_url: string;
   alt: string;
+  color: string | null;
   principal: boolean;
   orden: number;
   activo: boolean;
@@ -418,6 +419,7 @@ function mapImages(rows: DbImage[]) {
       id: row.id,
       url: row.cloudinary_secure_url,
       alt: row.alt,
+      color: row.color?.trim() || undefined,
       isMain: row.principal,
     }));
 }
@@ -433,7 +435,7 @@ async function getProductImagesByProductIds(
 
   const { data, error } = await supabase
     .from("producto_imagenes")
-    .select("id, producto_id, cloudinary_secure_url, alt, principal, orden, activo")
+    .select("id, producto_id, cloudinary_secure_url, alt, color, principal, orden, activo")
     .in("producto_id", productIds)
     .eq("activo", true)
     .order("principal", { ascending: false })
@@ -1042,7 +1044,12 @@ export async function getAdminProducts() {
   const supabase = await createClient();
   const { data: products, error: productsError } = await supabase
     .from("productos")
-    .select("*")
+    // La tabla expone únicamente estas columnas al cliente autenticado. Evitamos
+    // `select(*)` para no solicitar campos internos (autorías y metadatos) que
+    // la política de mínimo privilegio protege.
+    .select(
+      "id, categoria_id, subcategoria_id, marca_id, slug, nombre, sku, precio, precio_oferta, stock, descripcion, caracteristicas, youtube_video_id, destacado, activo, catalogo_nodo_id",
+    )
     .order("nombre", { ascending: true });
 
   if (productsError) throw new Error(productsError.message);

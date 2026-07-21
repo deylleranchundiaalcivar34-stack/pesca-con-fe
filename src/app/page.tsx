@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { getProductPricingSummary } from "@/lib/precios-producto";
 import { getCategories, getHomeProducts } from "@/lib/supabase/data";
 
-const categoryOrder = ["canas", "carrete", "senuelos", "indumentaria"];
+const categoryOrder = ["canas", "carretes", "senuelos", "indumentaria"];
 
 // Ordena categorias de inicio en el orden comercial deseado.
 function getCategoryPosition(slug: string) {

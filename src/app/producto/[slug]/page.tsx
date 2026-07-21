@@ -3,8 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { PublicShell } from "@/components/layout/contenedor-publico";
-import { ProductGallery } from "@/components/products/galeria-producto";
-import { ProductDetailActions } from "@/components/products/acciones-detalle-producto";
+import { InteractiveProductDetail } from "@/components/products/detalle-producto-interactivo";
 import { VariantComparison } from "@/components/products/comparador-variantes";
 import { RelatedProducts } from "@/components/products/productos-relacionados";
 import { ProductJsonLd } from "@/components/shared/producto-json-ld";
@@ -150,22 +149,8 @@ export default async function ProductDetailPage({
       </nav>
 
       <section className="bg-white pb-10 pt-5 sm:pb-12 sm:pt-6">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
-          <ProductGallery product={product} />
-
-          <div className="rounded-xl border border-border bg-white p-4 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-5 lg:sticky lg:top-24">
-            <h1 className="text-[1.75rem] font-black leading-[1.1] tracking-tight text-dark-blue">
-              {product.name}
-            </h1>
-            <p className="mt-2 text-sm font-semibold text-primary">
-              {product.catalogPath.map((item) => item.name).join(" / ")}
-            </p>
-
-            <div className="mt-5 border-t border-border pt-4">
-              <ProductDetailActions product={product} variantAttributes={variantAttributes} />
-            </div>
-
-          </div>
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(460px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
+          <InteractiveProductDetail product={product} variantAttributes={variantAttributes} />
         </div>
       </section>
 
@@ -174,7 +159,7 @@ export default async function ProductDetailPage({
           <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
             {descriptionPanel}
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-              <div className="overflow-hidden rounded-xl border border-border bg-secondary shadow-sm">
+              <div id="comparar-especificaciones" className="scroll-mt-28 overflow-hidden rounded-xl border border-border bg-secondary shadow-sm">
                 <div className="border-b border-border px-5 py-4 sm:px-6">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Opciones disponibles</p>
                   <h2 className="mt-1 text-lg font-black text-dark-blue">Comparar especificaciones</h2>

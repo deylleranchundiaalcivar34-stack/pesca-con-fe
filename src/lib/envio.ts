@@ -9,7 +9,7 @@ export interface ShippingInputItem {
 // Define el costo base segun la categoria del producto.
 function getProductShipping(categorySlug: Product["categorySlug"]) {
   if (categorySlug === "canas") return 8.5;
-  if (categorySlug === "carrete") return 6.5;
+  if (categorySlug === "carrete" || categorySlug === "carretes") return 6.5;
   return 6.5;
 }
 

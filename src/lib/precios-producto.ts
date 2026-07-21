@@ -30,8 +30,10 @@ export function getDiscountPercentage(source: PriceSource) {
 
 export function getProductPricingSummary(product: Product): ProductPricingSummary {
   const activeVariants = product.variants.filter((variant) => variant.isActive);
+  const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
+  const priceSources = isCurrican ? [product, ...activeVariants] : activeVariants;
 
-  if (!activeVariants.length) {
+  if (!priceSources.length) {
     return {
       hasVariants: false,
       hasOffer: hasActiveOffer(product),
@@ -42,10 +44,10 @@ export function getProductPricingSummary(product: Product): ProductPricingSummar
   }
 
   return {
-    hasVariants: true,
-    hasOffer: activeVariants.some(hasActiveOffer),
-    minimumRegularPrice: Math.min(...activeVariants.map((variant) => variant.price)),
-    minimumEffectivePrice: Math.min(...activeVariants.map(getEffectivePrice)),
-    maximumDiscountPercentage: Math.max(...activeVariants.map(getDiscountPercentage)),
+    hasVariants: activeVariants.length > 0,
+    hasOffer: priceSources.some(hasActiveOffer),
+    minimumRegularPrice: Math.min(...priceSources.map((source) => source.price)),
+    minimumEffectivePrice: Math.min(...priceSources.map(getEffectivePrice)),
+    maximumDiscountPercentage: Math.max(...priceSources.map(getDiscountPercentage)),
   };
 }
