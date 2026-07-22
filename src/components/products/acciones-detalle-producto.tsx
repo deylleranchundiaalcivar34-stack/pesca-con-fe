@@ -123,7 +123,7 @@ export function ProductDetailActions({
         value: currentAttributes[attribute.key]?.trim(),
       }))
       .filter((attribute): attribute is { id: string; label: string; value: string } => Boolean(attribute.value));
-  }, [product.attributes, selectableAttributes, selectedVariant, variantAttributes]);
+  }, [product.attributes, product.categorySlug, selectableAttributes, selectedVariant, variantAttributes]);
   const canCompareVariants = product.variants.length > 1 && ["canas", "carrete", "carretes", "combos"].includes(product.categorySlug);
   const shareUrl = typeof window === "undefined" ? "" : window.location.href;
   const shareText = `Mira ${product.name} en Pesca Con Fe`;

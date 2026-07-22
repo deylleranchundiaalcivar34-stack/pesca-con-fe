@@ -35,7 +35,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
-    "next": "16.2.6",
+    "next": "16.2.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.75.0",
@@ -52,7 +52,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.11",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"
@@ -60,8 +60,11 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.7",
-      "js-yaml": "4.2.0",
-      "postcss": "8.5.19"
+      "brace-expansion@<1.1.16": "1.1.16",
+      "brace-expansion@>=3.0.0 <5.0.7": "5.0.7",
+      "js-yaml": "4.3.0",
+      "postcss": "8.5.19",
+      "sharp": "0.35.3"
     }
   }
 }
