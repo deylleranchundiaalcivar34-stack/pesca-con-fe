@@ -4,10 +4,11 @@ import type { ProductCategory } from "@/types/producto";
 
 interface CategoryCardProps {
   category: ProductCategory;
+  eager?: boolean;
 }
 
 // Enlace visual hacia una categoria del catalogo.
-export function CategoryCard({ category }: CategoryCardProps) {
+export function CategoryCard({ category, eager = false }: CategoryCardProps) {
   return (
     <Link
       href={`/productos/${category.slug}`}
@@ -18,6 +19,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
         src={category.image}
         alt={`Categoría ${category.name}`}
         fill
+        loading={eager ? "eager" : undefined}
         sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, calc(100vw - 32px)"
         className="object-cover transition-transform duration-700 group-hover:scale-105"
       />

@@ -61,9 +61,9 @@ export default async function HomePage() {
             />
           </MotionReveal>
           <div className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-            {homeCategories.map((category) => (
+            {homeCategories.map((category, index) => (
               <MotionReveal key={category.slug}>
-                <CategoryCard category={category} />
+                <CategoryCard category={category} eager={index === 0} />
               </MotionReveal>
             ))}
           </div>

@@ -87,6 +87,7 @@ export function HeroSection() {
               alt={index === activeSlide ? slide.alt : ""}
               fill
               preload={index === 0}
+              loading={index === 1 ? "eager" : undefined}
               sizes="100vw"
               className={slide.imageClassName}
             />
