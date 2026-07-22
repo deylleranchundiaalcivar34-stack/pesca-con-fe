@@ -7,13 +7,9 @@
 --
 -- Orden de ejecucion aprobado:
 --   1. Activar mantenimiento y confirmar una copia de seguridad.
---   2. Generar el manifiesto local:
---        pnpm reset:cloudinary -- preparar
---   3. Ejecutar por separado las consultas de DIAGNOSTICO de este archivo.
---   4. Revisar el manifiesto y los conteos.
---   5. Descomentar el set_config del BLOQUE DE REINICIO y ejecutar el bloque.
---   6. Solo despues de un COMMIT exitoso, limpiar Cloudinary:
---        pnpm reset:cloudinary -- eliminar --confirmar=ELIMINAR_IMAGENES_PESCA_CON_FE
+--   2. Ejecutar por separado las consultas de DIAGNOSTICO de este archivo.
+--   3. Revisar los conteos.
+--   4. Descomentar el set_config del BLOQUE DE REINICIO y ejecutar el bloque.
 --
 -- Los JWT emitidos a usuarios eliminados pueden seguir siendo validos hasta
 -- expirar. Mantener el sitio en mantenimiento durante el TTL configurado.
@@ -57,23 +53,6 @@ select rol, activo, count(*)::bigint as cantidad
 from public.perfiles_admin
 group by rol, activo
 order by rol, activo;
-
--- Inventario redundante para compararlo con el manifiesto local de Cloudinary.
-select
-  'producto'::text as origen,
-  id as registro_imagen_id,
-  producto_id as propietario_id,
-  cloudinary_public_id
-from public.producto_imagenes
-union all
-select
-  'marca',
-  id,
-  id,
-  cloudinary_public_id
-from public.marcas
-where cloudinary_public_id is not null
-order by cloudinary_public_id, registro_imagen_id;
 
 select
   (select count(*) from storage.objects)::bigint as objetos_supabase_storage,

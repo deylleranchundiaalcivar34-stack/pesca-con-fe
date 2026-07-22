@@ -16,9 +16,6 @@
 !/docs/REMEDIACION-SEGURIDAD-2026-07-17.md
 !/docs/reiniciar-base-datos.sql
 
-# manifiestos locales de operaciones destructivas
-/.reinicio-local/
-
 # testing
 /coverage
 

@@ -16,8 +16,7 @@
     "test:watch": "vitest",
     "security:migrations": "node scripts/check-security-migrations.mjs",
     "security:secrets": "node scripts/check-secrets.mjs",
-    "security:ci": "pnpm security:migrations && pnpm security:secrets && pnpm audit --audit-level=moderate",
-    "reset:cloudinary": "node --env-file-if-exists=.env.local scripts/limpiar-cloudinary-reinicio.mjs"
+    "security:ci": "pnpm security:migrations && pnpm security:secrets && pnpm audit --audit-level=moderate"
   },
   "dependencies": {
     "@hcaptcha/react-hcaptcha": "^2.0.2",

@@ -51,8 +51,8 @@ describe("SQL de reinicio de base de datos", () => {
     }
   });
 
-  it("incluye logos de marcas en el inventario previo de Cloudinary", () => {
-    expect(sql).toMatch(/from public\.marcas[\s\S]*cloudinary_public_id is not null/i);
+  it("no depende de inventarios ni procesos externos", () => {
+    expect(sql).not.toMatch(/cloudinary|manifiesto|ELIMINAR_IMAGENES/i);
   });
 
   it("elimina solo usuarios sin perfil administrativo dentro de una transaccion", () => {
