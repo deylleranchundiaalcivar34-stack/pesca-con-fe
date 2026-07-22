@@ -65,14 +65,6 @@ export function HeroSection() {
     setIsPaused(true);
   };
 
-  const showPreviousSlide = () => {
-    showSlide((activeSlide - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
-  };
-
-  const showNextSlide = () => {
-    showSlide((activeSlide + 1) % HERO_SLIDES.length);
-  };
-
   return (
     <section
       className="relative isolate overflow-hidden bg-dark-blue text-white"
@@ -83,8 +75,8 @@ export function HeroSection() {
         {HERO_SLIDES.map((slide, index) => (
           <div
             key={slide.id}
-            aria-label={`Ver productos de ${index === 0 ? "cañas" : index === 1 ? "carretes" : "señuelos"}`}
-            className={`absolute inset-0 block transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none focus-visible:z-10 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold ${
+            aria-hidden={index === activeSlide ? undefined : "true"}
+            className={`absolute inset-0 block transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none ${
               index === activeSlide
                 ? "z-10 scale-100 opacity-100"
                 : "pointer-events-none scale-105 opacity-0"
@@ -102,6 +94,7 @@ export function HeroSection() {
               <Link
                 href={slide.href}
                 aria-label={`Ver productos de ${slide.alt}`}
+                tabIndex={index === activeSlide ? undefined : -1}
                 className="absolute inset-0 z-20 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold"
               />
             ) : null}
@@ -116,12 +109,12 @@ export function HeroSection() {
           <button
             type="button"
             aria-label="Mostrar banner anterior"
-            onClick={showPreviousSlide}
+            onClick={() => showSlide((activeSlide - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
             className="grid size-9 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white"
           >
             <ChevronLeft className="size-5" aria-hidden="true" />
           </button>
-          <div className="flex items-center gap-2" aria-label="Seleccionar banner">
+          <div className="flex items-center gap-0.5" role="group" aria-label="Seleccionar banner">
             {HERO_SLIDES.map((slide, index) => (
               <button
                 key={slide.id}
@@ -129,18 +122,21 @@ export function HeroSection() {
                 aria-label={`Mostrar banner ${index + 1}`}
                 aria-current={index === activeSlide ? "true" : undefined}
                 onClick={() => showSlide(index)}
-                className={`h-2.5 rounded-full transition-all motion-reduce:transition-none ${
-                  index === activeSlide
-                    ? "w-7 bg-dark-blue"
-                    : "w-2.5 bg-dark-blue/30 hover:bg-dark-blue/60"
-                }`}
-              />
+                className="grid size-6 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dark-blue"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-2.5 rounded-full transition-all motion-reduce:transition-none ${
+                    index === activeSlide ? "w-4 bg-dark-blue" : "w-2.5 bg-dark-blue/30"
+                  }`}
+                />
+              </button>
             ))}
           </div>
           <button
             type="button"
             aria-label="Mostrar siguiente banner"
-            onClick={showNextSlide}
+            onClick={() => showSlide((activeSlide + 1) % HERO_SLIDES.length)}
             className="grid size-9 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white"
           >
             <ChevronRight className="size-5" aria-hidden="true" />

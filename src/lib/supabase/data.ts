@@ -25,6 +25,10 @@ type DbProduct = {
   nombre: string;
   sku: string;
   marca: string | null;
+  marca_slug?: string | null;
+  marca_logo_url?: string | null;
+  marca_logo_width?: number | null;
+  marca_logo_height?: number | null;
   categoria: string;
   categoria_slug: string;
   subcategoria: string | null;
@@ -313,6 +317,17 @@ function mapProduct(
     name: row.nombre,
     sku: row.sku,
     brand: row.marca ?? "Sin marca",
+    brandSlug: row.marca_slug ?? undefined,
+    brandLogo:
+      row.marca_logo_url &&
+      Number(row.marca_logo_width) > 0 &&
+      Number(row.marca_logo_height) > 0
+        ? {
+            url: row.marca_logo_url,
+            width: Number(row.marca_logo_width),
+            height: Number(row.marca_logo_height),
+          }
+        : undefined,
     category: row.categoria,
     categorySlug: row.categoria_slug,
     subcategory: row.subcategoria ?? "General",
@@ -1004,12 +1019,29 @@ export async function getAdminBrands() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("marcas")
-    .select("id, nombre, slug, activa")
+    .select(
+      "id, nombre, slug, activa, cloudinary_secure_url, cloudinary_width, cloudinary_height",
+    )
     .order("nombre", { ascending: true });
 
   if (error) throw new Error(error.message);
 
   return data ?? [];
+}
+
+// Busca una marca para su formulario de edición administrativa.
+export async function getAdminBrandById(id: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("marcas")
+    .select(
+      "id, nombre, slug, activa, cloudinary_secure_url, cloudinary_width, cloudinary_height",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 // Lista nodos del catalogo para administracion, incluyendo inactivos.
@@ -1062,7 +1094,11 @@ export async function getAdminProducts() {
     await Promise.all([
       supabase.from("categorias").select("id, nombre, slug"),
       supabase.from("subcategorias").select("id, nombre, slug"),
-      supabase.from("marcas").select("id, nombre, slug"),
+      supabase
+        .from("marcas")
+        .select(
+          "id, nombre, slug, cloudinary_secure_url, cloudinary_width, cloudinary_height",
+        ),
     ]);
   const { data: categories, error: categoriesError } = categoriesResult;
   const { data: subcategories, error: subcategoriesError } = subcategoriesResult;
@@ -1106,6 +1142,10 @@ export async function getAdminProducts() {
         nombre: row.nombre,
         sku: row.sku,
         marca: brand?.nombre ?? null,
+        marca_slug: brand?.slug ?? null,
+        marca_logo_url: brand?.cloudinary_secure_url ?? null,
+        marca_logo_width: brand?.cloudinary_width ?? null,
+        marca_logo_height: brand?.cloudinary_height ?? null,
         categoria: category?.nombre ?? "Sin categoría",
         categoria_slug: category?.slug ?? "sin-categoria",
         subcategoria: subcategory?.nombre ?? null,

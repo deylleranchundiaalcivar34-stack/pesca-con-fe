@@ -116,7 +116,7 @@ export function ProductCard({
             }`}
           >
             {pricing.hasOffer ? (
-              <p className="text-[11px] font-black uppercase tracking-wide text-red-600">
+              <p className="text-[11px] font-black uppercase tracking-wide text-red-700">
                 Precio especial
               </p>
             ) : null}
@@ -137,7 +137,7 @@ export function ProductCard({
               </div>
             ) : null}
             <p
-              className={`min-w-0 whitespace-nowrap font-black ${!pricing.hasOffer ? "mt-auto" : ""} ${pricing.hasOffer ? "text-red-600" : "text-dark-blue"} ${
+              className={`min-w-0 whitespace-nowrap font-black ${!pricing.hasOffer ? "mt-auto" : ""} ${pricing.hasOffer ? "text-red-700" : "text-dark-blue"} ${
                 compactPrice ? "text-base sm:text-lg" : "text-xl sm:text-2xl"
               }`}
             >

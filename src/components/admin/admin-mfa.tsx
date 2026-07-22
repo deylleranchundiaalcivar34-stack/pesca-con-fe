@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, KeyRound, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,45 +9,59 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
-type MfaMode = "loading" | "enroll" | "challenge" | "secure";
+type MfaMode = "enroll" | "challenge" | "secure" | "error";
+type MfaStatus = "checking" | "idle" | "enrolling" | "verifying" | "redirecting";
 
 export function AdminMfa({ nextPath }: { nextPath: string }) {
-  const router = useRouter();
-  const [mode, setMode] = useState<MfaMode>("loading");
+  const [mode, setMode] = useState<MfaMode | null>(null);
+  const [status, setStatus] = useState<MfaStatus>("checking");
   const [factorId, setFactorId] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
 
   const loadStatus = useCallback(async () => {
-    const supabase = createClient();
-    const [aalResult, factorsResult] = await Promise.all([
-      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-      supabase.auth.mfa.listFactors(),
-    ]);
+    setStatus("checking");
+    setMessage(null);
 
-    if (aalResult.error || factorsResult.error) {
-      setMessage("No pudimos comprobar la verificación en dos pasos.");
+    try {
+      const supabase = createClient();
+      const [aalResult, factorsResult] = await Promise.all([
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        supabase.auth.mfa.listFactors(),
+      ]);
+
+      if (aalResult.error || factorsResult.error) {
+        setMode("error");
+        setMessage(
+          "No pudimos comprobar la verificación en dos pasos. Revisa tu conexión e inténtalo nuevamente.",
+        );
+        return;
+      }
+
+      if (aalResult.data.currentLevel === "aal2") {
+        setMode("secure");
+        return;
+      }
+
+      const verifiedFactor = factorsResult.data.totp[0];
+
+      if (verifiedFactor) {
+        setFactorId(verifiedFactor.id);
+        setMode("challenge");
+        return;
+      }
+
       setMode("enroll");
-      return;
+    } catch {
+      setMode("error");
+      setMessage(
+        "No pudimos comprobar la verificación en dos pasos. Revisa tu conexión e inténtalo nuevamente.",
+      );
+    } finally {
+      setStatus("idle");
     }
-
-    if (aalResult.data.currentLevel === "aal2") {
-      setMode("secure");
-      return;
-    }
-
-    const verifiedFactor = factorsResult.data.totp[0];
-
-    if (verifiedFactor) {
-      setFactorId(verifiedFactor.id);
-      setMode("challenge");
-      return;
-    }
-
-    setMode("enroll");
   }, []);
 
   useEffect(() => {
@@ -57,66 +70,180 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
   }, [loadStatus]);
 
   const startEnrollment = async () => {
-    setPending(true);
-    setMessage(null);
-    const supabase = createClient();
-    const factors = await supabase.auth.mfa.listFactors();
+    if (status !== "idle") return;
 
-    if (!factors.error) {
+    setStatus("enrolling");
+    setMessage(null);
+
+    try {
+      const supabase = createClient();
+      const factors = await supabase.auth.mfa.listFactors();
+
+      if (factors.error) {
+        setMessage("No pudimos preparar el enrolamiento. Vuelve a intentarlo.");
+        return;
+      }
+
       const unverified = factors.data.all.filter(
         (factor) => factor.factor_type === "totp" && factor.status === "unverified",
       );
-      await Promise.all(
+      const cleanupResults = await Promise.all(
         unverified.map((factor) => supabase.auth.mfa.unenroll({ factorId: factor.id })),
       );
+
+      if (cleanupResults.some((result) => result.error)) {
+        setMessage("No pudimos preparar el enrolamiento. Vuelve a intentarlo.");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: "Panel Pesca Con Fe",
+      });
+
+      if (error) {
+        setMessage("No se pudo iniciar el enrolamiento. Vuelve a intentarlo.");
+        return;
+      }
+
+      setFactorId(data.id);
+      // Supabase entrega un SVG data URI terminado en salto de línea. Next/Image
+      // rechaza fuentes que terminan en caracteres de control.
+      setQrCode(data.totp.qr_code.trimEnd());
+      setSecret(data.totp.secret);
+    } catch {
+      setMessage(
+        "No pudimos comunicarnos con el servicio de verificación. Revisa tu conexión y vuelve a intentarlo.",
+      );
+    } finally {
+      setStatus("idle");
     }
+  };
 
-    const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: "totp",
-      friendlyName: "Panel Pesca Con Fe",
-    });
-    setPending(false);
+  const redirectToAdmin = async () => {
+    setStatus("redirecting");
+    setMessage(null);
 
-    if (error) {
-      setMessage("No se pudo iniciar el enrolamiento. Vuelve a intentarlo.");
-      return;
+    try {
+      // Cede un turno al navegador para mostrar el estado antes de iniciar
+      // la nueva petición protegida por la cookie con AAL2.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      window.location.replace(nextPath);
+    } catch {
+      setStatus("idle");
+      setMessage("No pudimos abrir el panel. Inténtalo nuevamente.");
     }
-
-    setFactorId(data.id);
-    // Supabase entrega un SVG data URI terminado en salto de línea. Next/Image
-    // rechaza fuentes que terminan en caracteres de control.
-    setQrCode(data.totp.qr_code.trimEnd());
-    setSecret(data.totp.secret);
   };
 
   const verify = async () => {
+    if (status !== "idle") return;
+
     if (!factorId || !/^\d{6}$/.test(code)) {
       setMessage("Escribe el código de 6 dígitos de tu aplicación.");
       return;
     }
 
-    setPending(true);
+    setStatus("verifying");
     setMessage(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
-    setPending(false);
 
-    if (error) {
-      setCode("");
-      setMessage("El código no es válido o expiró. Usa el código más reciente.");
-      return;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
+
+      if (error) {
+        setCode("");
+        setMessage("El código no es válido o expiró. Usa el código más reciente.");
+        setStatus("idle");
+        return;
+      }
+
+      const aalResult = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+      if (aalResult.error || aalResult.data.currentLevel !== "aal2") {
+        setMode("error");
+        setMessage(
+          "El código fue aceptado, pero no pudimos confirmar la sesión segura. Reintenta la comprobación.",
+        );
+        setStatus("idle");
+        return;
+      }
+
+      await redirectToAdmin();
+    } catch {
+      setMessage(
+        "No pudimos verificar el código por un problema de conexión. Vuelve a intentarlo.",
+      );
+      setStatus("idle");
     }
-
-    router.replace(nextPath);
-    router.refresh();
   };
 
-  if (mode === "loading") {
+  if (status === "checking") {
     return (
-      <Card>
-        <CardContent className="flex items-center gap-3 py-10 text-muted-foreground">
+      <Card aria-busy="true">
+        <CardContent
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 py-10 text-muted-foreground"
+        >
           <Loader2 className="size-5 animate-spin" aria-hidden="true" />
           Comprobando protección de la cuenta…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (status === "verifying" || status === "redirecting") {
+    const isRedirecting = status === "redirecting";
+
+    return (
+      <Card aria-busy="true">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound aria-hidden="true" />
+            Verificación en dos pasos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center gap-4 rounded-lg border border-primary/20 bg-secondary/60 px-6 py-10 text-center"
+          >
+            <Loader2 className="size-8 animate-spin text-primary" aria-hidden="true" />
+            <div className="space-y-1">
+              <p className="font-semibold text-dark-blue">
+                {isRedirecting ? "Código confirmado. Abriendo panel…" : "Verificando código…"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isRedirecting
+                  ? "La sesión segura está lista. Espera mientras cargamos el panel."
+                  : "Estamos confirmando el código con tu autenticador."}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (mode === "error" || !mode) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert aria-hidden="true" /> No pudimos comprobar tu sesión
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {message ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            >
+              {message}
+            </p>
+          ) : null}
+          <Button onClick={() => void loadStatus()}>Reintentar comprobación</Button>
         </CardContent>
       </Card>
     );
@@ -133,7 +260,7 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
         <CardContent className="space-y-4 text-sm text-emerald-900">
           <p>Esta sesión alcanzó AAL2 y puede realizar operaciones administrativas.</p>
           {nextPath !== "/admin/seguridad" ? (
-            <Button onClick={() => router.replace(nextPath)}>Continuar al panel</Button>
+            <Button onClick={() => void redirectToAdmin()}>Continuar al panel</Button>
           ) : null}
         </CardContent>
       </Card>
@@ -141,7 +268,7 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <Card>
+    <Card aria-busy={status !== "idle"}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {mode === "challenge" ? <KeyRound aria-hidden="true" /> : <ShieldAlert aria-hidden="true" />}
@@ -156,9 +283,11 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
               Authenticator o 1Password. El acceso administrativo quedará bloqueado hasta
               completar este paso.
             </p>
-            <Button onClick={startEnrollment} disabled={pending}>
-              {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
-              Generar código QR
+            <Button onClick={startEnrollment} disabled={status !== "idle"}>
+              {status === "enrolling" ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : null}
+              {status === "enrolling" ? "Generando código QR…" : "Generar código QR"}
             </Button>
           </>
         ) : null}
@@ -187,9 +316,9 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
               pattern="[0-9]{6}"
               maxLength={6}
               placeholder="123456"
+              disabled={status !== "idle"}
             />
-            <Button onClick={verify} disabled={pending || code.length !== 6}>
-              {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
+            <Button onClick={verify} disabled={status !== "idle" || code.length !== 6}>
               Verificar y continuar
             </Button>
           </div>

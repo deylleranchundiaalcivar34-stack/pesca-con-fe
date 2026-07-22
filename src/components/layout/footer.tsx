@@ -38,9 +38,11 @@ export function Footer() {
           >
             <Image
               src="/images/logos/logo-negro-nuevo2.webp"
-              alt="Pesca Con Fe"
+              alt=""
+              aria-hidden="true"
               width={909}
               height={827}
+              sizes="(min-width: 640px) 112px, 96px"
               className="h-auto w-24 shrink-0 sm:w-28"
             />
             <span className="whitespace-nowrap text-xl font-black text-white xl:text-2xl">Pesca Con Fe</span>

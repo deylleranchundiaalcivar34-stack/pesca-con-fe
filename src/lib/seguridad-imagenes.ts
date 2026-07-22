@@ -3,6 +3,9 @@ export const MAX_PRODUCT_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_PRODUCT_IMAGE_BATCH_BYTES = 5 * 1024 * 1024;
 export const MAX_PRODUCT_IMAGE_DIMENSION = 8_000;
 export const MAX_PRODUCT_IMAGES = 20;
+export const MAX_BRAND_IMAGE_FILES = 1;
+export const MAX_BRAND_IMAGE_BYTES = MAX_PRODUCT_IMAGE_BYTES;
+export const MAX_BRAND_IMAGE_DIMENSION = MAX_PRODUCT_IMAGE_DIMENSION;
 
 const allowedMimeTypes = new Set([
   "image/jpeg",
@@ -30,6 +33,20 @@ function matchesDeclaredImageType(bytes: Uint8Array, type: string) {
   return false;
 }
 
+async function validateImageFile(file: File) {
+  if (!allowedMimeTypes.has(file.type)) {
+    throw new Error("Solo se permiten imágenes JPEG, PNG, WebP o AVIF.");
+  }
+  if (file.size <= 0 || file.size > MAX_PRODUCT_IMAGE_BYTES) {
+    throw new Error("Cada imagen debe pesar como máximo 4 MB.");
+  }
+
+  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  if (!matchesDeclaredImageType(header, file.type)) {
+    throw new Error("El contenido de una imagen no coincide con su tipo declarado.");
+  }
+}
+
 // Valida tanto el MIME declarado como la firma binaria antes de generar costos
 // o recursos externos en Cloudinary.
 export async function validateProductImageFiles(files: File[]) {
@@ -43,16 +60,21 @@ export async function validateProductImageFiles(files: File[]) {
   }
 
   for (const file of files) {
-    if (!allowedMimeTypes.has(file.type)) {
-      throw new Error("Solo se permiten imágenes JPEG, PNG, WebP o AVIF.");
-    }
-    if (file.size <= 0 || file.size > MAX_PRODUCT_IMAGE_BYTES) {
-      throw new Error("Cada imagen debe pesar como máximo 4 MB.");
-    }
+    await validateImageFile(file);
+  }
+}
 
-    const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-    if (!matchesDeclaredImageType(header, file.type)) {
-      throw new Error("El contenido de una imagen no coincide con su tipo declarado.");
-    }
+// Las marcas admiten exactamente un logo por operación. El formulario de
+// edición puede enviar cero archivos para conservar el logo actual.
+export async function validateBrandImageFiles(files: File[], required = false) {
+  if (files.length > MAX_BRAND_IMAGE_FILES) {
+    throw new Error("Solo se permite una imagen por marca.");
+  }
+  if (required && files.length !== MAX_BRAND_IMAGE_FILES) {
+    throw new Error("Selecciona una imagen para la marca.");
+  }
+
+  for (const file of files) {
+    await validateImageFile(file);
   }
 }

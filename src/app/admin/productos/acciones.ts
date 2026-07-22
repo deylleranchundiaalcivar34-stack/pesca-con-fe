@@ -102,6 +102,7 @@ function getYouTubeVideoId(value: string) {
 async function resolveFlexibleProductRelations(
   supabase: AdminClient,
   formData: FormData,
+  productId: string,
 ) {
   const brandName = getText(formData, "brand");
   const catalogNodeIdInput = getText(formData, "catalogNodeId");
@@ -137,7 +138,7 @@ async function resolveFlexibleProductRelations(
   }
 
   const [brandResult, categoryResult] = await Promise.all([
-    supabase.from("marcas").select("id").eq("nombre", brandName).maybeSingle(),
+    supabase.from("marcas").select("id, activa").eq("nombre", brandName).maybeSingle(),
     supabase.from("categorias").select("id").eq("slug", categorySlug).maybeSingle(),
   ]);
   const { data: brand, error: brandError } = brandResult;
@@ -149,6 +150,29 @@ async function resolveFlexibleProductRelations(
 
   if (!catalogNodeId || !category || !brand) {
     throw new ProductFormError("Selecciona una categoría y una marca válidas.");
+  }
+
+  if (!brand.activa) {
+    if (!productId) {
+      throw new ProductFormError("La marca seleccionada ya no está disponible.");
+    }
+
+    const { data: currentProduct, error: currentProductError } = await supabase
+      .from("productos")
+      .select("marca_id")
+      .eq("id", productId)
+      .maybeSingle();
+
+    if (currentProductError) {
+      throw publicServerError(
+        "Inactive product brand validation failed",
+        currentProductError,
+        "No se pudo validar la marca actual.",
+      );
+    }
+    if (currentProduct?.marca_id !== brand.id) {
+      throw new ProductFormError("La marca seleccionada ya no está disponible.");
+    }
   }
 
   const { data: subcategory, error: subcategoryError } = await supabase
@@ -657,7 +681,7 @@ async function persistProduct(formData: FormData) {
     throw new ProductFormError("El slug del producto no es válido.");
   }
 
-  const relations = await resolveFlexibleProductRelations(supabase, formData);
+  const relations = await resolveFlexibleProductRelations(supabase, formData, productId);
   const features = getText(formData, "features")
     .split("\n")
     .map((feature) => feature.trim())

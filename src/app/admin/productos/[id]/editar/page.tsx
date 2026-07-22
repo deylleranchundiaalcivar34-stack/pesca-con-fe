@@ -43,7 +43,9 @@ export default async function EditProductPage({
         variants={variants}
         categories={categories}
         catalogNodes={catalogNodes}
-        brands={brands.map((brand) => brand.nombre)}
+        brands={Array.from(
+          new Set([product.brand, ...brands.map((brand) => brand.nombre)]),
+        )}
         catalogAttributes={catalogAttributes}
         initialAttributes={productAttributes}
       />

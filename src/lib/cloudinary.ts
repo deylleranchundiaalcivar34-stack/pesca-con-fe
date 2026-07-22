@@ -33,8 +33,7 @@ function getCloudinaryClient() {
   return cloudinary;
 }
 
-// Sube una imagen de producto y devuelve los datos que se guardan en Supabase.
-export async function uploadProductImage(file: File, folder = "pesca-con-fe/productos") {
+async function uploadImage(file: File, folder: string) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const client = getCloudinaryClient();
 
@@ -57,6 +56,16 @@ export async function uploadProductImage(file: File, folder = "pesca-con-fe/prod
 
     stream.end(bytes);
   });
+}
+
+// Sube una imagen de producto y devuelve los datos que se guardan en Supabase.
+export async function uploadProductImage(file: File, folder = "pesca-con-fe/productos") {
+  return uploadImage(file, folder);
+}
+
+// Mantiene los logos administrados separados de las imágenes de productos.
+export async function uploadBrandImage(file: File) {
+  return uploadImage(file, "pesca-con-fe/marcas");
 }
 
 // Elimina de Cloudinary una imagen que ya no debe usarse en el producto.

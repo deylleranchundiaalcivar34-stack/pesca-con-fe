@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
   if (!allowed) {
     return NextResponse.json(
       { user: null },
-      { status: 429, headers: { ...noStoreHeaders, "Retry-After": "60" } },
+      {
+        // La consulta sigue limitada, pero se degrada como sesion anonima para
+        // no generar un error de red visible en cada pestana del navegador.
+        headers: { ...noStoreHeaders, "Retry-After": "60", "X-RateLimit-Limited": "true" },
+      },
     );
   }
 

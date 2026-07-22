@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_BRAND_IMAGE_FILES,
   MAX_PRODUCT_IMAGE_BYTES,
   MAX_PRODUCT_IMAGE_FILES,
+  validateBrandImageFiles,
   validateProductImageFiles,
 } from "./seguridad-imagenes";
 
@@ -64,5 +66,33 @@ describe("validateProductImageFiles", () => {
     );
 
     await expect(validateProductImageFiles(files)).rejects.toThrow("como máximo");
+  });
+});
+
+describe("validateBrandImageFiles", () => {
+  const validPng = () =>
+    new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+      "marca.png",
+      { type: "image/png" },
+    );
+
+  it("exige una imagen al crear una marca", async () => {
+    await expect(validateBrandImageFiles([], true)).rejects.toThrow("Selecciona");
+  });
+
+  it("permite conservar la imagen al editar", async () => {
+    await expect(validateBrandImageFiles([], false)).resolves.toBeUndefined();
+  });
+
+  it("acepta un solo logo válido", async () => {
+    await expect(validateBrandImageFiles([validPng()], true)).resolves.toBeUndefined();
+    expect(MAX_BRAND_IMAGE_FILES).toBe(1);
+  });
+
+  it("rechaza más de una imagen", async () => {
+    await expect(validateBrandImageFiles([validPng(), validPng()])).rejects.toThrow(
+      "Solo se permite una imagen",
+    );
   });
 });

@@ -77,7 +77,14 @@ export function ProductDetailActions({
   const wishlistHydrated = useWishlistHydrated();
   const isWishlisted = wishlistHydrated && wishlistedProductIds.includes(product.id);
   const outOfStock = currentStock === 0;
-  const brandLogo = brandLogos.find((brand) => brand.name === product.brand);
+  const fixedBrandLogo = brandLogos.find((brand) => brand.slug === product.brandSlug);
+  const brandLogo = product.brandLogo
+    ? {
+        image: product.brandLogo.url,
+        width: product.brandLogo.width,
+        height: product.brandLogo.height,
+      }
+    : fixedBrandLogo;
   const selectableAttributes = useMemo(
     () =>
       variantAttributes
@@ -343,7 +350,7 @@ export function ProductDetailActions({
         <div className="flex h-12 w-24 items-center justify-center rounded-md border border-border bg-white px-2">
           <Image
             src={brandLogo.image}
-            alt={`Logo de ${brandLogo.name}`}
+            alt={`Logo de ${product.brand}`}
             width={brandLogo.width}
             height={brandLogo.height}
             className="max-h-8 w-auto max-w-full object-contain"

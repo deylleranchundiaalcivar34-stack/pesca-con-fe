@@ -1,11 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Save, Trash2 } from "lucide-react";
-import { deactivateBrand, updateBrand } from "@/app/admin/marcas/acciones";
+import { Pencil } from "lucide-react";
+import { setBrandActive } from "@/app/admin/marcas/acciones";
+import { BrandStatusButton } from "@/components/admin/boton-estado-marca";
 import { BrandForm } from "@/components/admin/formulario-marca";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { brandLogos } from "@/data/datos-negocio";
 import { getAdminBrands } from "@/lib/supabase/data";
 import { cn } from "@/lib/utilidades";
 
@@ -25,18 +27,12 @@ const filterLinks: Array<{ href: string; label: string; value: BrandFilter }> = 
   { href: "/admin/marcas?estado=todas", label: "Todas", value: "todas" },
 ];
 
-// Normaliza el filtro de marcas recibido desde la URL.
 function getBrandFilter(value?: string | string[]): BrandFilter {
   const filter = Array.isArray(value) ? value[0] : value;
-
-  if (filter === "inactivas" || filter === "todas") {
-    return filter;
-  }
-
-  return "activas";
+  return filter === "inactivas" || filter === "todas" ? filter : "activas";
 }
 
-// Pagina admin para crear, editar y desactivar marcas.
+// Página admin para crear, editar, desactivar y reactivar marcas.
 export default async function AdminBrandsPage({
   searchParams,
 }: {
@@ -56,7 +52,7 @@ export default async function AdminBrandsPage({
       <div>
         <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Marcas</h1>
         <p className="mt-1 text-muted-foreground">
-          Agrega marcas para asignarlas a productos del inventario.
+          Administra las marcas asignables a productos y sus logos.
         </p>
       </div>
 
@@ -69,7 +65,6 @@ export default async function AdminBrandsPage({
             <div className="flex flex-wrap gap-2">
               {filterLinks.map((item) => {
                 const isActive = activeFilter === item.value;
-
                 return (
                   <Link
                     key={item.value}
@@ -92,61 +87,82 @@ export default async function AdminBrandsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Slug automático</TableHead>
+                <TableHead>Logo</TableHead>
+                <TableHead>Marca</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredBrands.map((brand) => (
-                <TableRow key={brand.id}>
-                  <TableCell>
-                    <form id={`brand-${brand.id}`} action={updateBrand}>
-                      <input type="hidden" name="id" value={brand.id} />
-                      <Input name="name" defaultValue={brand.nombre} aria-label="Nombre" />
-                    </form>
-                  </TableCell>
-                  <TableCell>
-                    <input form={`brand-${brand.id}`} type="hidden" name="slug" value={brand.slug} />
-                    <Input value={brand.slug} aria-label="Slug automático" readOnly disabled />
-                  </TableCell>
-                  <TableCell>
-                    <label className="flex items-center gap-3 text-sm font-semibold text-dark-blue">
-                      <input
-                        form={`brand-${brand.id}`}
-                        type="checkbox"
-                        name="isActive"
-                        defaultChecked={brand.activa}
-                        className="size-4 rounded border-border"
-                      />
+              {filteredBrands.map((brand) => {
+                const fixedLogo = brandLogos.find((item) => item.slug === brand.slug);
+                const databaseLogo =
+                  brand.cloudinary_secure_url &&
+                  Number(brand.cloudinary_width) > 0 &&
+                  Number(brand.cloudinary_height) > 0
+                    ? {
+                        image: brand.cloudinary_secure_url,
+                        width: Number(brand.cloudinary_width),
+                        height: Number(brand.cloudinary_height),
+                      }
+                    : null;
+                const logo = databaseLogo ?? fixedLogo;
+
+                return (
+                  <TableRow key={brand.id}>
+                    <TableCell>
+                      <div className="flex min-w-36 items-center gap-3">
+                        <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-white">
+                          {logo ? (
+                            <Image
+                              src={logo.image}
+                              alt={`Logo de ${brand.nombre}`}
+                              fill
+                              sizes="64px"
+                              className="object-contain p-2"
+                            />
+                          ) : (
+                            <span className="px-1 text-center text-[10px] font-semibold text-muted-foreground">
+                              Sin imagen
+                            </span>
+                          )}
+                        </div>
+                        <Badge variant={databaseLogo ? "success" : fixedLogo ? "outline" : "muted"}>
+                          {databaseLogo
+                            ? "Administrado"
+                            : fixedLogo
+                              ? "Fijo del inicio"
+                              : "Sin imagen"}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-semibold text-dark-blue">{brand.nombre}</p>
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">{brand.slug}</p>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={brand.activa ? "success" : "muted"}>
                         {brand.activa ? "Activa" : "Inactiva"}
                       </Badge>
-                    </label>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button form={`brand-${brand.id}`} type="submit" size="sm">
-                        <Save aria-hidden="true" />
-                        Guardar
-                      </Button>
-                      <form action={deactivateBrand}>
-                        <input type="hidden" name="id" value={brand.id} />
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          size="sm"
-                          disabled={!brand.activa}
-                        >
-                          <Trash2 aria-hidden="true" />
-                          Quitar
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/admin/marcas/${brand.id}/editar`}>
+                            <Pencil aria-hidden="true" />
+                            Editar
+                          </Link>
                         </Button>
-                      </form>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <form action={setBrandActive}>
+                          <input type="hidden" name="id" value={brand.id} />
+                          <input type="hidden" name="active" value={brand.activa ? "false" : "true"} />
+                          <BrandStatusButton active={brand.activa} />
+                        </form>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {!filteredBrands.length ? (

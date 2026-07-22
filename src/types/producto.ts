@@ -110,6 +110,12 @@ export interface Product {
   name: string;
   sku: string;
   brand: BrandName;
+  brandSlug?: string;
+  brandLogo?: {
+    url: string;
+    width: number;
+    height: number;
+  };
   category: string;
   categorySlug: CategorySlug;
   subcategory: string;

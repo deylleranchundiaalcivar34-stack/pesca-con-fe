@@ -146,6 +146,7 @@ export const brands = [
 export const brandLogos = [
   {
     name: "Bass Pro Shops",
+    slug: "bass-pro-shops",
     image: "/images/marcas/bass-pro-shop.webp",
     width: 1170,
     height: 922,
@@ -153,12 +154,14 @@ export const brandLogos = [
   },
   {
     name: "Daiwa",
+    slug: "daiwa",
     image: "/images/marcas/daiwa.webp",
     width: 1023,
     height: 209,
   },
   {
     name: "PENN",
+    slug: "penn",
     image: "/images/marcas/penn.webp",
     width: 860,
     height: 499,
@@ -166,6 +169,7 @@ export const brandLogos = [
   },
   {
     name: "Rapala",
+    slug: "rapala",
     image: "/images/marcas/rapala-wordmark.webp",
     width: 1200,
     height: 468,
@@ -173,24 +177,28 @@ export const brandLogos = [
   },
   {
     name: "Shimano",
+    slug: "shimano",
     image: "/images/marcas/shimano.webp",
     width: 1129,
     height: 202,
   },
   {
     name: "Ugly Stik",
+    slug: "ugly-stik",
     image: "/images/marcas/ugly-stik.webp",
     width: 1008,
     height: 846,
   },
   {
     name: "Okuma inspired Fishing",
+    slug: "okuma-inspired-fishing",
     image: "/images/marcas/okuma.webp",
     width: 733,
     height: 240,
   },
   {
     name: "Marine High Performance",
+    slug: "marine-high-performance",
     image: "/images/marcas/marine.webp",
     width: 1116,
     height: 330,
