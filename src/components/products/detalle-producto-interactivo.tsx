@@ -12,14 +12,40 @@ interface InteractiveProductDetailProps {
 
 // Sincroniza la galería y las muestras de color sin convertir la página entera en cliente.
 export function InteractiveProductDetail({ product, variantAttributes }: InteractiveProductDetailProps) {
-  const [selectedImageId, setSelectedImageId] = useState(product.images[0]?.id);
+  const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
+  const isColorVariantLure =
+    product.categorySlug === "senuelos" &&
+    !isCurrican &&
+    product.variants.some((variant) => Boolean(variant.attributes.color));
+  const initialColorVariant = isColorVariantLure
+    ? product.variants.find((variant) => variant.stock > 0) ?? product.variants[0]
+    : undefined;
+  const [selectedVariantId, setSelectedVariantId] = useState(initialColorVariant?.id ?? "");
+  const [selectedImageId, setSelectedImageId] = useState(
+    product.images.find((image) => image.variantId === initialColorVariant?.id)?.id ??
+      product.images[0]?.id,
+  );
+
+  const selectImage = (imageId: string) => {
+    setSelectedImageId(imageId);
+    if (!isColorVariantLure) return;
+
+    const variantId = product.images.find((image) => image.id === imageId)?.variantId;
+    if (variantId) setSelectedVariantId(variantId);
+  };
+
+  const selectVariant = (variantId: string) => {
+    setSelectedVariantId(variantId);
+    const firstVariantImage = product.images.find((image) => image.variantId === variantId);
+    if (firstVariantImage) setSelectedImageId(firstVariantImage.id);
+  };
 
   return (
     <>
       <ProductGallery
         product={product}
         selectedImageId={selectedImageId}
-        onSelectedImageIdChange={setSelectedImageId}
+        onSelectedImageIdChange={selectImage}
       />
 
       <div className="rounded-xl border border-border bg-white p-4 shadow-[0_18px_45px_rgb(13_110_253_/_0.1)] sm:p-5 lg:sticky lg:top-24">
@@ -35,7 +61,9 @@ export function InteractiveProductDetail({ product, variantAttributes }: Interac
             product={product}
             variantAttributes={variantAttributes}
             selectedImageId={selectedImageId}
-            onSelectedImageIdChange={setSelectedImageId}
+            onSelectedImageIdChange={selectImage}
+            selectedVariantId={isColorVariantLure ? selectedVariantId : undefined}
+            onSelectedVariantIdChange={isColorVariantLure ? selectVariant : undefined}
           />
         </div>
       </div>

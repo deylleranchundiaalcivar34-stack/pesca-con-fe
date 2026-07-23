@@ -10,7 +10,7 @@ export default async function AdminProductsPage() {
       <div>
         <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Productos</h1>
         <p className="mt-1 text-muted-foreground">
-          Busca, filtra, edita, desactiva u oculta productos.
+          Busca, filtra, edita, desactiva o elimina productos inactivos.
         </p>
       </div>
       <AdminProductTable products={products} />

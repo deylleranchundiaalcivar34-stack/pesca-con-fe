@@ -71,6 +71,7 @@ export interface ProductImage {
   url: string;
   alt: string;
   color?: string;
+  variantId?: string;
   isMain?: boolean;
   publicId?: string;
 }

@@ -5,9 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Edit, PackagePlus, Power, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteProduct, toggleProductActive } from "@/app/admin/productos/acciones";
+import {
+  deleteProductPermanently,
+  toggleProductActive,
+} from "@/app/admin/productos/acciones";
 import type { Product } from "@/types/producto";
 import { brands, categories } from "@/data/datos-negocio";
+import { DeleteProductDialog } from "@/components/admin/dialogo-eliminar-producto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +76,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
   const [category, setCategory] = useState("all");
   const [brand, setBrand] = useState("all");
   const [stock, setStock] = useState("all");
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase().trim();
@@ -86,7 +91,8 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
         stock === "all" ||
         (stock === "low" && product.stock > 0 && product.stock <= 4) ||
         (stock === "out" && product.stock === 0) ||
-        (stock === "active" && product.isActive);
+        (stock === "active" && product.isActive) ||
+        (stock === "inactive" && !product.isActive);
 
       return matchesSearch && matchesCategory && matchesBrand && matchesStock;
     });
@@ -129,27 +135,34 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
     });
   };
 
-  const hideProduct = (product: Product) => {
+  const permanentlyDeleteProduct = () => {
+    const product = productToDelete;
+    if (!product) return;
+
     const formData = new FormData();
     formData.set("id", product.id);
 
     setProductPending(product.id, true);
-    setRows((current) =>
-      current.map((item) =>
-        item.id === product.id ? { ...item, isActive: false } : item,
-      ),
-    );
 
     startTransition(async () => {
       try {
-        await deleteProduct(formData);
+        const result = await deleteProductPermanently(formData);
+
+        if (result.status === "error") {
+          toast.error(result.message);
+          return;
+        }
+
+        setRows((current) => current.filter((item) => item.id !== product.id));
+        setProductToDelete(null);
+
+        if (result.status === "warning") {
+          toast.warning(result.message);
+        } else {
+          toast.success(result.message);
+        }
       } catch {
-        setRows((current) =>
-          current.map((item) =>
-            item.id === product.id ? { ...item, isActive: product.isActive } : item,
-          ),
-        );
-        toast.error("No se pudo ocultar el producto.");
+        toast.error("No se pudo completar la eliminación. Intenta nuevamente.");
       } finally {
         setProductPending(product.id, false);
       }
@@ -217,6 +230,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               <SelectContent>
                 <SelectItem value="all">Todo</SelectItem>
                 <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="inactive">Inactivos</SelectItem>
                 <SelectItem value="low">Bajo stock</SelectItem>
                 <SelectItem value="out">Agotado</SelectItem>
               </SelectContent>
@@ -303,11 +317,15 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               <Button
                 type="button"
                 size="icon"
-                variant="ghost"
-                disabled={pendingProductIds.includes(product.id) || !product.isActive}
-                onClick={() => hideProduct(product)}
-                aria-label={`Ocultar ${product.name}`}
-                title={`Ocultar ${product.name}`}
+                variant={product.isActive ? "ghost" : "destructive"}
+                disabled={pendingProductIds.includes(product.id) || product.isActive}
+                onClick={() => setProductToDelete(product)}
+                aria-label={`Eliminar definitivamente ${product.name}`}
+                title={
+                  product.isActive
+                    ? `Desactiva ${product.name} antes de eliminarlo`
+                    : `Eliminar definitivamente ${product.name}`
+                }
               >
                 <Trash2 aria-hidden="true" />
               </Button>
@@ -392,11 +410,15 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                     <Button
                       type="button"
                       size="icon"
-                      variant="ghost"
-                      disabled={pendingProductIds.includes(product.id) || !product.isActive}
-                      onClick={() => hideProduct(product)}
-                      aria-label={`Ocultar ${product.name}`}
-                      title={`Ocultar ${product.name}`}
+                      variant={product.isActive ? "ghost" : "destructive"}
+                      disabled={pendingProductIds.includes(product.id) || product.isActive}
+                      onClick={() => setProductToDelete(product)}
+                      aria-label={`Eliminar definitivamente ${product.name}`}
+                      title={
+                        product.isActive
+                          ? `Desactiva ${product.name} antes de eliminarlo`
+                          : `Eliminar definitivamente ${product.name}`
+                      }
                     >
                       <Trash2 aria-hidden="true" />
                     </Button>
@@ -407,6 +429,18 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {productToDelete ? (
+        <DeleteProductDialog
+          key={productToDelete.id}
+          product={productToDelete}
+          pending={pendingProductIds.includes(productToDelete.id)}
+          onOpenChange={(open) => {
+            if (!open) setProductToDelete(null);
+          }}
+          onConfirm={permanentlyDeleteProduct}
+        />
+      ) : null}
     </div>
   );
 }

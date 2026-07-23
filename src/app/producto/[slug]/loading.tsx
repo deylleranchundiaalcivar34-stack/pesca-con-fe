@@ -5,7 +5,7 @@ import { PublicShell } from "@/components/layout/contenedor-publico";
 export default function ProductDetailLoading() {
   return (
     <PublicShell>
-      <section className="border-b border-border bg-white py-3">
+      <section className="border-b border-border bg-white py-4">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
             <Link href="/productos" className="shrink-0 hover:text-primary">
@@ -18,8 +18,8 @@ export default function ProductDetailLoading() {
       </section>
 
       <section className="bg-white pb-10 pt-5 sm:pb-12 sm:pt-6">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(390px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
-          <div className="lg:h-[540px] xl:h-[560px]">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(460px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
+          <div className="lg:h-[640px] xl:h-[680px]">
             <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
               <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
                 {Array.from({ length: 2 }).map((_, index) => (

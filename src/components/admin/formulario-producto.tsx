@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import {
   deleteProductImage,
   saveProduct,
-  setProductImageColor,
+  setProductImageVariant,
   setMainImage,
   type ProductActionState,
 } from "@/app/admin/productos/acciones";
@@ -61,6 +61,7 @@ type SelectedImagePreview = {
   url: string;
   alt: string;
   color: string;
+  variantId: string;
 };
 
 interface ProductFormProps {
@@ -196,6 +197,7 @@ export function ProductForm({
   const name = useWatch({ control, name: "name" });
   const brand = useWatch({ control, name: "brand" });
   const price = useWatch({ control, name: "price" });
+  const stock = useWatch({ control, name: "stock" });
   const isActive = useWatch({ control, name: "isActive" });
   const isFeatured = useWatch({ control, name: "isFeatured" });
   const selectedCatalogPath = getCatalogPathByIds(catalogNodes, selectedCatalogPathIds);
@@ -222,6 +224,16 @@ export function ProductForm({
       ),
     [attributeValues, categoryAttributes],
   );
+  const colorVariantSummary = useMemo(() => {
+    const activeVariants = productVariants.filter((variant) => variant.isActive);
+    const priceSources = activeVariants.length ? activeVariants : productVariants;
+    return {
+      price: priceSources.length
+        ? Math.min(...priceSources.map((variant) => variant.price))
+        : 0,
+      stock: activeVariants.reduce((total, variant) => total + variant.stock, 0),
+    };
+  }, [productVariants]);
 
   useEffect(() => {
     if (mode === "create") {
@@ -283,12 +295,14 @@ export function ProductForm({
       return;
     }
 
+    const defaultColorVariant = isColorSelectableLure ? productVariants[0] : undefined;
     const previews = imageFiles.map((file, index) => ({
       id: `${file.name}-${file.lastModified}-${Date.now()}-${index}`,
       file,
       url: URL.createObjectURL(file),
       alt: file.name.replace(/\.[^/.]+$/, ""),
-      color: "",
+      color: defaultColorVariant?.attributes.color ?? defaultColorVariant?.name ?? "",
+      variantId: defaultColorVariant?.id ?? "",
     }));
     const nextImages = [...currentImages, ...previews];
 
@@ -344,16 +358,20 @@ export function ProductForm({
     }
   };
 
-  const saveExistingImageColor = async (imageId: string, color: string) => {
+  const saveExistingImageVariant = async (imageId: string, variantId: string) => {
     if (!product) return;
 
     setPendingExistingImageId(imageId);
     try {
-      await setProductImageColor(product.id, imageId, color);
+      await setProductImageVariant(
+        product.id,
+        imageId,
+        variantId === "__none" ? null : variantId,
+      );
       router.refresh();
-      toast.success("Color de imagen actualizado.");
+      toast.success("Imagen relacionada con el color.");
     } catch {
-      toast.error("No pudimos actualizar el color de la imagen.");
+      toast.error("No pudimos relacionar la imagen con el color.");
     } finally {
       setPendingExistingImageId(null);
     }
@@ -381,6 +399,7 @@ export function ProductForm({
       <input type="hidden" name="variants" value={JSON.stringify(productVariants)} />
       <input type="hidden" name="attributes" value={serializedAttributes} />
       <input type="hidden" name="newImageColors" value={JSON.stringify(selectedImagePreviews.map((image) => image.color))} />
+      <input type="hidden" name="newImageVariantIds" value={JSON.stringify(selectedImagePreviews.map((image) => image.variantId))} />
 
       {actionState.status === "error" ? (
         <div
@@ -412,7 +431,7 @@ export function ProductForm({
             <Field id="slug" label="Slug automatico" error={errors.slug?.message}>
               <Input id="slug" value={product?.slug ?? slugify(name)} readOnly disabled />
             </Field>
-            <Field id="sku" label="SKU" error={errors.sku?.message}>
+            <Field id="sku" label={isColorSelectableLure ? "SKU del modelo o familia" : "SKU"} error={errors.sku?.message}>
               <Input id="sku" {...register("sku")} name="sku" required />
             </Field>
             <Field id="brand" label="Marca" error={errors.brand?.message}>
@@ -442,7 +461,7 @@ export function ProductForm({
                 }}
               />
             </Field>
-            <Field id="price" label={isCurrican ? "Señuelo base — precio base" : "Precio"} error={errors.price?.message}>
+            <Field id="price" label={isColorSelectableLure ? "Precio mínimo calculado" : isCurrican ? "Señuelo base — precio base" : "Precio"} error={errors.price?.message}>
               <Input
                 id="price"
                 type="number"
@@ -450,8 +469,19 @@ export function ProductForm({
                 step="0.01"
                 {...register("price", { valueAsNumber: true })}
                 name="price"
+                value={
+                  isColorSelectableLure
+                    ? colorVariantSummary.price
+                    : Number.isFinite(price)
+                      ? price
+                      : ""
+                }
+                readOnly={isColorSelectableLure}
                 required
               />
+              {isColorSelectableLure ? (
+                <p className="text-xs text-muted-foreground">Se calcula automáticamente a partir de los colores activos.</p>
+              ) : null}
             </Field>
             <Field id="offerPrice" label={isCurrican ? "Oferta del señuelo base (opcional)" : "Precio de oferta (opcional)"} error={errors.offerPrice?.message}>
               <Input
@@ -480,15 +510,26 @@ export function ProductForm({
                 </p>
               ) : null}
             </Field>
-            <Field id="stock" label={isCurrican ? "Stock del señuelo base" : "Stock"} error={errors.stock?.message}>
+            <Field id="stock" label={isColorSelectableLure ? "Stock total calculado" : isCurrican ? "Stock del señuelo base" : "Stock"} error={errors.stock?.message}>
               <Input
                 id="stock"
                 type="number"
                 min="0"
                 {...register("stock", { valueAsNumber: true })}
                 name="stock"
+                value={
+                  isColorSelectableLure
+                    ? colorVariantSummary.stock
+                    : Number.isFinite(stock)
+                      ? stock
+                      : ""
+                }
+                readOnly={isColorSelectableLure}
                 required
               />
+              {isColorSelectableLure ? (
+                <p className="text-xs text-muted-foreground">Suma el inventario de todos los colores activos.</p>
+              ) : null}
             </Field>
             <Field id="youtubeVideoId" label="Link o ID de YouTube" error={errors.youtubeVideoId?.message}>
               <Input
@@ -513,12 +554,14 @@ export function ProductForm({
                   <p className="mt-1 text-sm text-muted-foreground">
                     {curricanOptions
                       ? "Completa estos datos una sola vez: serán la ficha técnica y los filtros de todo el curricán."
+                      : isColorSelectableLure
+                      ? "Completa estos datos una sola vez: técnica, medidas y ficha técnica se comparten entre todos los colores."
                       : hasProductVariants
                       ? "Este producto usa opciones. Sus especificaciones, selectores y filtros se toman de cada opción más abajo."
                       : "Completa los datos técnicos del modelo general para los filtros de esta categoría."}
                   </p>
                 </div>
-                <fieldset disabled={hasProductVariants && !isCurrican} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
+                <fieldset disabled={hasProductVariants && !isCurrican && !isColorSelectableLure} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
                   {categoryAttributes.map((attribute) => {
                     const inputId = `attribute-${attribute.id}`;
                     const value = attributeValues[attribute.key] ?? "";
@@ -537,7 +580,7 @@ export function ProductForm({
                           type={attribute.type === "numero" ? "number" : "text"}
                           value={value}
                           list={dataListId}
-                          required={attribute.isRequired && !hasProductVariants}
+                          required={attribute.isRequired && (!hasProductVariants || isCurrican || isColorSelectableLure)}
                           onChange={(event) =>
                             setAttributeValues((current) => ({
                               ...current,
@@ -583,10 +626,18 @@ export function ProductForm({
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>{isCurrican ? "Configuraciones adicionales" : "Opciones del producto"}</CardTitle>
+              <CardTitle>
+                {isCurrican
+                  ? "Configuraciones adicionales"
+                  : isColorSelectableLure
+                    ? "Colores disponibles"
+                    : "Opciones del producto"}
+              </CardTitle>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {isCurrican
                   ? "El señuelo sin aparejo se configura arriba como precio base. Aquí agrega solamente armados o extras, como uno o dos anzuelos o faldas adicionales."
+                  : isColorSelectableLure
+                    ? "Cada color tiene identidad propia: SKU, precio, oferta, stock e imágenes. Todos se muestran dentro de este mismo producto."
                   : "Úsalas cuando el mismo producto se venda en diferentes medidas, colores, capacidades o configuraciones."}
               </p>
             </div>
@@ -600,11 +651,11 @@ export function ProductForm({
                   return [
                     ...current,
                     {
-                      id: `new-${crypto.randomUUID()}`,
+                      id: crypto.randomUUID(),
                       productId: product?.id ?? "",
                       name: "",
                       description: "",
-                      attributes: {},
+                      attributes: isColorSelectableLure ? { color: "" } : {},
                       sku: "",
                       price: price ?? product?.price ?? 0,
                       additionalPrice: 0,
@@ -618,7 +669,7 @@ export function ProductForm({
               }
             >
               <Plus aria-hidden="true" />
-              {isCurrican ? "Agregar configuración" : "Agregar opción"}
+              {isCurrican ? "Agregar configuración" : isColorSelectableLure ? "Agregar color" : "Agregar opción"}
             </Button>
           </CardHeader>
           <CardContent>
@@ -627,7 +678,13 @@ export function ProductForm({
                 {productVariants.map((variant, index) => (
                   <div key={variant.id} className="rounded-lg border border-border bg-secondary/20 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="font-bold text-dark-blue">{isCurrican ? `Configuración adicional ${index + 1}` : `Opción ${index + 1}`}</p>
+                      <p className="font-bold text-dark-blue">
+                        {isCurrican
+                          ? `Configuración adicional ${index + 1}`
+                          : isColorSelectableLure
+                            ? `Color ${index + 1}`
+                            : `Opción ${index + 1}`}
+                      </p>
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
@@ -670,11 +727,20 @@ export function ProductForm({
                           className="size-8 text-destructive"
                           aria-label={`Quitar opción ${index + 1}`}
                           onClick={() =>
-                            setProductVariants((current) =>
-                              current
-                                .filter((item) => item.id !== variant.id)
-                                .map((item, itemIndex) => ({ ...item, sortOrder: itemIndex + 1 })),
-                            )
+                            {
+                              setProductVariants((current) =>
+                                current
+                                  .filter((item) => item.id !== variant.id)
+                                  .map((item, itemIndex) => ({ ...item, sortOrder: itemIndex + 1 })),
+                              );
+                              setSelectedImagePreviews((current) =>
+                                current.map((image) =>
+                                  image.variantId === variant.id
+                                    ? { ...image, variantId: "", color: "" }
+                                    : image,
+                                ),
+                              );
+                            }
                           }
                         >
                           <Trash2 aria-hidden="true" />
@@ -738,24 +804,34 @@ export function ProductForm({
                       </div>
                     ) : (
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <Field id={`variant-name-${index}`} label={isCurrican ? "Configuración de venta" : "Nombre de la opción"}>
+                      <Field id={`variant-name-${index}`} label={isColorSelectableLure ? "Nombre del color" : "Nombre de la opción"}>
                         <Input
                           id={`variant-name-${index}`}
                           value={variant.name}
-                          placeholder={isCurrican ? "Ejemplo: Aparejo con 2 anzuelos Mustad 10/0" : "Ejemplo: 7 pies · Medium Heavy · 15-30 lb"}
+                          placeholder={isColorSelectableLure ? "Ejemplo: Negro / Rojo" : "Ejemplo: 7 pies · Medium Heavy · 15-30 lb"}
+                          required={isColorSelectableLure && variant.isActive}
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
-                                item.id === variant.id ? { ...item, name: event.target.value } : item,
+                                item.id === variant.id
+                                  ? {
+                                      ...item,
+                                      name: event.target.value,
+                                      attributes: isColorSelectableLure
+                                        ? { ...item.attributes, color: event.target.value }
+                                        : item.attributes,
+                                    }
+                                  : item,
                               ),
                             )
                           }
                         />
                       </Field>
-                      <Field id={`variant-sku-${index}`} label="SKU opcional">
+                      <Field id={`variant-sku-${index}`} label={isColorSelectableLure ? "SKU del color" : "SKU opcional"}>
                         <Input
                           id={`variant-sku-${index}`}
                           value={variant.sku}
+                          required={isColorSelectableLure && variant.isActive}
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -831,7 +907,7 @@ export function ProductForm({
                           }
                         />
                       </Field>
-                      {categoryAttributes.length ? (
+                      {categoryAttributes.length && !isColorSelectableLure ? (
                         <div className="sm:col-span-2 rounded-md border border-primary/20 bg-white p-3">
                           <p className="text-sm font-bold text-dark-blue">Especificaciones del modelo u opción</p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -985,7 +1061,7 @@ export function ProductForm({
                 <ImagePlus className="size-8 text-primary" aria-hidden="true" />
                 <span className="mt-2 font-semibold text-dark-blue">Subir imagenes</span>
                 <span className="mt-1 text-sm text-muted-foreground">
-                  JPEG, PNG, WebP o AVIF. Máximo 6 imágenes, 4 MB cada una y 5 MB por lote.
+                  JPEG, PNG, WebP o AVIF. Hasta 6 por carga, 4 MB cada una, 5 MB por lote y {MAX_PRODUCT_IMAGES} guardadas.
                 </span>
                 {selectedImagePreviews.length > 0 ? (
                   <span className="mt-3 rounded-md bg-white px-3 py-1 text-xs font-semibold text-primary">
@@ -1061,20 +1137,40 @@ export function ProductForm({
                         {index + 1}. {image.alt}
                       </p>
                       {isColorSelectableLure ? (
-                        <Field id={`new-image-color-${image.id}`} label="Color de esta imagen" className="mt-3">
-                          <Input
-                            id={`new-image-color-${image.id}`}
-                            value={image.color}
-                            placeholder="Ejemplo: Negro / Rojo"
-                            maxLength={80}
-                            onChange={(event) =>
+                        <Field id={`new-image-color-${image.id}`} label="Color al que pertenece" className="mt-3">
+                          <Select
+                            value={image.variantId}
+                            onValueChange={(variantId) => {
+                              const selectedVariant = productVariants.find(
+                                (variant) => variant.id === variantId,
+                              );
                               setSelectedImagePreviews((current) =>
                                 current.map((item) =>
-                                  item.id === image.id ? { ...item, color: event.target.value } : item,
+                                  item.id === image.id
+                                    ? {
+                                        ...item,
+                                        variantId,
+                                        color:
+                                          selectedVariant?.attributes.color ??
+                                          selectedVariant?.name ??
+                                          "",
+                                      }
+                                    : item,
                                 ),
-                              )
-                            }
-                          />
+                              );
+                            }}
+                          >
+                            <SelectTrigger id={`new-image-color-${image.id}`}>
+                              <SelectValue placeholder="Selecciona un color" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productVariants.map((variant) => (
+                                <SelectItem key={variant.id} value={variant.id}>
+                                  {variant.attributes.color || variant.name || "Color sin nombre"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </Field>
                       ) : null}
                     </div>
@@ -1132,15 +1228,26 @@ export function ProductForm({
                         </div>
                       </div>
                       {isColorSelectableLure ? (
-                        <Field id={`existing-image-color-${image.id}`} label="Color de esta imagen" className="mt-3">
-                          <Input
-                            id={`existing-image-color-${image.id}`}
-                            defaultValue={image.color ?? ""}
-                            placeholder="Ejemplo: Negro / Rojo"
-                            maxLength={80}
+                        <Field id={`existing-image-color-${image.id}`} label="Color al que pertenece" className="mt-3">
+                          <Select
+                            value={image.variantId ?? "__none"}
                             disabled={pendingExistingImageId !== null}
-                            onBlur={(event) => void saveExistingImageColor(image.id, event.target.value)}
-                          />
+                            onValueChange={(variantId) =>
+                              void saveExistingImageVariant(image.id, variantId)
+                            }
+                          >
+                            <SelectTrigger id={`existing-image-color-${image.id}`}>
+                              <SelectValue placeholder="Selecciona un color" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin color relacionado</SelectItem>
+                              {productVariants.map((variant) => (
+                                <SelectItem key={variant.id} value={variant.id}>
+                                  {variant.attributes.color || variant.name || "Color sin nombre"}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </Field>
                       ) : null}
                     </div>

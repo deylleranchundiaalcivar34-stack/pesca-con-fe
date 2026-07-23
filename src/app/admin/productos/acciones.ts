@@ -24,6 +24,16 @@ export type ProductActionState = {
   message: string;
 };
 
+export type PermanentProductDeleteResult = {
+  status: "success" | "warning" | "error";
+  message: string;
+};
+
+type PermanentProductDeleteRpcResult = {
+  status?: unknown;
+  cloudinary_public_ids?: unknown;
+};
+
 class ProductFormError extends Error {
   constructor(message: string) {
     super(message);
@@ -111,6 +121,7 @@ async function resolveFlexibleProductRelations(
     : catalogNodeIdInput;
   let categorySlug = getText(formData, "categorySlug");
   let subcategorySlug = getText(formData, "subcategorySlug");
+  let catalogPathSlugs: string[] = [];
 
   if (catalogNodeId) {
     const { data: nodes, error: nodesError } = await supabase
@@ -135,6 +146,7 @@ async function resolveFlexibleProductRelations(
 
     categorySlug = path[0]?.slug ?? categorySlug;
     subcategorySlug = path[1]?.slug ?? subcategorySlug;
+    catalogPathSlugs = path.map((node) => node.slug);
   }
 
   const [brandResult, categoryResult] = await Promise.all([
@@ -189,6 +201,8 @@ async function resolveFlexibleProductRelations(
     categoryId: category?.id ?? null,
     subcategoryId: subcategory?.id ?? null,
     catalogNodeId: catalogNodeId || null,
+    categorySlug,
+    isCurrican: catalogPathSlugs.includes("curricanes"),
   };
 }
 
@@ -215,6 +229,30 @@ function getNewImageColors(formData: FormData, imageCount: number) {
   return colors.map((color, index) =>
     requireTextLength(String(color ?? "").trim(), `El color de la imagen ${index + 1}`, 80),
   );
+}
+
+function getNewImageVariantIds(formData: FormData, imageCount: number) {
+  const rawVariantIds = getText(formData, "newImageVariantIds");
+  if (!rawVariantIds) return Array.from({ length: imageCount }, () => "");
+
+  let variantIds: unknown;
+  try {
+    variantIds = JSON.parse(rawVariantIds);
+  } catch {
+    throw new ProductFormError("Las variantes de las imágenes no tienen un formato válido.");
+  }
+
+  if (!Array.isArray(variantIds) || variantIds.length !== imageCount) {
+    throw new ProductFormError("Las variantes de las imágenes no coinciden con los archivos seleccionados.");
+  }
+
+  return variantIds.map((variantId, index) => {
+    const value = String(variantId ?? "").trim().replace(/^new-/, "");
+    if (value && !UUID_PATTERN.test(value)) {
+      throw new ProductFormError(`La variante de la imagen ${index + 1} no es válida.`);
+    }
+    return value;
+  });
 }
 
 // Ejecuta todas las validaciones locales de las imágenes antes de modificar el
@@ -290,9 +328,32 @@ async function uploadImagesForProduct(
         : 0;
   const rows = [];
   const imageColors = getNewImageColors(formData, files.length);
+  const imageVariantIds = getNewImageVariantIds(formData, files.length);
   const uploadedPublicIds: string[] = [];
 
   try {
+    const submittedVariantIds = Array.from(
+      new Set(imageVariantIds.filter((variantId) => Boolean(variantId))),
+    );
+    if (submittedVariantIds.length) {
+      const { data: matchingVariants, error: matchingVariantsError } = await supabase
+        .from("producto_variantes")
+        .select("id")
+        .eq("producto_id", productId)
+        .in("id", submittedVariantIds);
+
+      if (matchingVariantsError) {
+        throw publicServerError(
+          "Product image variant validation failed",
+          matchingVariantsError,
+          "No se pudieron validar los colores de las imágenes.",
+        );
+      }
+      if ((matchingVariants?.length ?? 0) !== submittedVariantIds.length) {
+        throw new ProductFormError("Una imagen está vinculada a un color que no pertenece al producto.");
+      }
+    }
+
     for (const [index, file] of files.entries()) {
       const result = await uploadProductImage(file);
       uploadedPublicIds.push(result.public_id);
@@ -318,6 +379,7 @@ async function uploadImagesForProduct(
         cloudinary_bytes: result.bytes,
         alt: getText(formData, "imageAlt") || getText(formData, "name") || file.name,
         color: imageColors[index] || null,
+        variante_id: imageVariantIds[index] || null,
         orden: existingImages.length + index,
         principal: index === mainImageIndex,
         activo: true,
@@ -501,7 +563,12 @@ async function saveProductVariants(
   supabase: AdminClient,
   productId: string,
   formData: FormData,
-  pricing: { basePrice: number; baseOfferPrice: number | null; usesAdditionalPrice: boolean },
+  pricing: {
+    basePrice: number;
+    baseOfferPrice: number | null;
+    usesAdditionalPrice: boolean;
+    usesColorVariants: boolean;
+  },
 ) {
   const rawVariants = getText(formData, "variants");
   let variants: VariantInput[] = [];
@@ -549,6 +616,9 @@ async function saveProductVariants(
     const stock = Number(variant.stock);
 
     if (!name) throw new ProductFormError(`Completa el nombre de la opción ${index + 1}.`);
+    if (pricing.usesColorVariants && !variantSku) {
+      throw new ProductFormError(`Completa el SKU del color ${index + 1}.`);
+    }
     if (!Number.isFinite(price) || price < 0) {
       throw new ProductFormError(`El precio de la opción ${index + 1} no es válido.`);
     }
@@ -566,13 +636,32 @@ async function saveProductVariants(
       throw new ProductFormError(`El stock de la opción ${index + 1} no es válido.`);
     }
 
-    const id = String(variant.id ?? "").trim();
+    const id = String(variant.id ?? "").trim().replace(/^new-/, "");
 
-    if (!UUID_PATTERN.test(id) && !/^new-[0-9a-f-]{36}$/i.test(id)) {
+    if (!UUID_PATTERN.test(id)) {
       throw new ProductFormError(`El identificador de la opción ${index + 1} no es válido.`);
     }
     if (attributeEntries.length > 20) {
       throw new ProductFormError(`La opción ${index + 1} contiene demasiados atributos.`);
+    }
+
+    const normalizedAttributes = Object.fromEntries(
+      attributeEntries.flatMap(([key, value]) => {
+        const normalizedKey = String(key).trim();
+        const normalizedValue = typeof value === "string" ? value.trim() : "";
+        if (!/^[a-z0-9_-]{1,60}$/i.test(normalizedKey)) {
+          throw new ProductFormError(`La opción ${index + 1} contiene un atributo no válido.`);
+        }
+        requireTextLength(
+          normalizedValue,
+          `Un atributo de la opción ${index + 1}`,
+          200,
+        );
+        return normalizedValue ? [[normalizedKey, normalizedValue]] : [];
+      }),
+    );
+    if (pricing.usesColorVariants && !String(normalizedAttributes.color ?? "").trim()) {
+      throw new ProductFormError(`Completa el nombre del color ${index + 1}.`);
     }
 
     return {
@@ -580,21 +669,7 @@ async function saveProductVariants(
       producto_id: productId,
       nombre: name,
       descripcion: variantDescription || null,
-      atributos: Object.fromEntries(
-        attributeEntries.flatMap(([key, value]) => {
-          const normalizedKey = String(key).trim();
-          const normalizedValue = typeof value === "string" ? value.trim() : "";
-          if (!/^[a-z0-9_-]{1,60}$/i.test(normalizedKey)) {
-            throw new ProductFormError(`La opción ${index + 1} contiene un atributo no válido.`);
-          }
-          requireTextLength(
-            normalizedValue,
-            `Un atributo de la opción ${index + 1}`,
-            200,
-          );
-          return normalizedValue ? [[normalizedKey, normalizedValue]] : [];
-        }),
-      ),
+      atributos: normalizedAttributes,
       imagen: variantImage || null,
       sku: variantSku || null,
       precio: price,
@@ -605,10 +680,6 @@ async function saveProductVariants(
       orden: index + 1,
     };
   });
-  const existingRows = normalized.filter((variant) => !variant.id.startsWith("new-"));
-  const newRows = normalized.filter((variant) => variant.id.startsWith("new-"));
-  const submittedExistingIds = existingRows.map((variant) => variant.id);
-
   const { data: storedVariants, error: storedError } = await supabase
     .from("producto_variantes")
     .select("id")
@@ -617,6 +688,10 @@ async function saveProductVariants(
   if (storedError) throw publicServerError("Product variants lookup failed", storedError, "No se pudieron validar las variantes.");
 
   const storedIds = (storedVariants ?? []).map((variant) => variant.id);
+  const storedIdSet = new Set(storedIds);
+  const existingRows = normalized.filter((variant) => storedIdSet.has(variant.id));
+  const newRows = normalized.filter((variant) => !storedIdSet.has(variant.id));
+  const submittedExistingIds = existingRows.map((variant) => variant.id);
   const removedIds = storedIds.filter((id) => !submittedExistingIds.includes(id));
 
   if (removedIds.length) {
@@ -641,6 +716,7 @@ async function saveProductVariants(
   if (newRows.length) {
     const { error } = await supabase.from("producto_variantes").insert(
       newRows.map((variant) => ({
+        id: variant.id,
         producto_id: variant.producto_id,
         nombre: variant.nombre,
         descripcion: variant.descripcion,
@@ -690,8 +766,8 @@ async function persistProduct(formData: FormData) {
     throw new ProductFormError("Un producto no puede tener más de treinta características.");
   }
   features.forEach((feature) => requireTextLength(feature, "Una característica", 300));
-  const price = Number(getText(formData, "price"));
-  const stock = Number(getText(formData, "stock"));
+  let price = Number(getText(formData, "price"));
+  let stock = Number(getText(formData, "stock"));
   const rawVariants = getText(formData, "variants");
   let submittedVariants: unknown = [];
 
@@ -701,6 +777,32 @@ async function persistProduct(formData: FormData) {
     throw new ProductFormError("Las opciones del producto no tienen un formato válido.");
   }
 
+  const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
+  const usesCurricanPricing = relations.isCurrican;
+  const usesColorVariants = relations.categorySlug === "senuelos" && !relations.isCurrican;
+
+  if (usesColorVariants) {
+    if (!Array.isArray(submittedVariants) || !submittedVariants.length) {
+      throw new ProductFormError("Agrega por lo menos un color con su SKU, precio y stock.");
+    }
+
+    const colorVariants = submittedVariants as VariantInput[];
+    const activeColorVariants = colorVariants.filter((variant) => variant.isActive !== false);
+    const priceSources = activeColorVariants.length ? activeColorVariants : colorVariants;
+    const prices = priceSources.map((variant) => Number(variant.price));
+    const stocks = activeColorVariants.map((variant) => Number(variant.stock));
+
+    if (prices.some((value) => !Number.isFinite(value) || value < 0)) {
+      throw new ProductFormError("El precio de uno de los colores no es válido.");
+    }
+    if (stocks.some((value) => !Number.isInteger(value) || value < 0)) {
+      throw new ProductFormError("El stock de uno de los colores no es válido.");
+    }
+
+    price = Math.min(...prices);
+    stock = stocks.reduce((total, value) => total + value, 0);
+  }
+
   if (!Number.isFinite(price) || price < 0) {
     throw new ProductFormError("El precio del producto no es válido.");
   }
@@ -708,8 +810,6 @@ async function persistProduct(formData: FormData) {
     throw new ProductFormError("El stock del producto no es válido.");
   }
 
-  const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
-  const usesCurricanPricing = getText(formData, "curricanConfiguration") === "true";
   const offerPrice = hasVariants && !usesCurricanPricing
     ? null
     : parseOfferPrice(getText(formData, "offerPrice"), price, "El precio de oferta");
@@ -748,13 +848,20 @@ async function persistProduct(formData: FormData) {
       .select("id")
       .maybeSingle();
     if (error || !data) throw publicServerError("Product update failed", error, "No se pudo actualizar el producto.");
-    await uploadImagesForProduct(supabase, productId, formData, userId, preparedImages);
     await saveProductVariants(supabase, productId, formData, {
       basePrice: price,
       baseOfferPrice: offerPrice,
       usesAdditionalPrice: usesCurricanPricing,
+      usesColorVariants,
     });
-    await saveProductAttributes(supabase, productId, relations.catalogNodeId, formData, usesCurricanPricing);
+    await uploadImagesForProduct(supabase, productId, formData, userId, preparedImages);
+    await saveProductAttributes(
+      supabase,
+      productId,
+      relations.catalogNodeId,
+      formData,
+      usesCurricanPricing || usesColorVariants,
+    );
   } else {
     const { data, error } = await supabase
       .from("productos")
@@ -766,13 +873,20 @@ async function persistProduct(formData: FormData) {
       throw publicServerError("Product creation failed", error, "No se pudo crear el producto.");
     }
 
-    await uploadImagesForProduct(supabase, data.id, formData, userId, preparedImages);
     await saveProductVariants(supabase, data.id, formData, {
       basePrice: price,
       baseOfferPrice: offerPrice,
       usesAdditionalPrice: usesCurricanPricing,
+      usesColorVariants,
     });
-    await saveProductAttributes(supabase, data.id, relations.catalogNodeId, formData, usesCurricanPricing);
+    await uploadImagesForProduct(supabase, data.id, formData, userId, preparedImages);
+    await saveProductAttributes(
+      supabase,
+      data.id,
+      relations.catalogNodeId,
+      formData,
+      usesCurricanPricing || usesColorVariants,
+    );
   }
 
   revalidatePublicProducts();
@@ -821,22 +935,113 @@ export async function toggleProductActive(formData: FormData) {
   revalidatePath("/admin/productos");
 }
 
-// Desactiva un producto para ocultarlo del catalogo.
-export async function deleteProduct(formData: FormData) {
-  const { supabase, userId } = await requireAdmin("catalog.write");
-  const id = requireUuid(getText(formData, "id"), "Producto");
+// Elimina un producto inactivo solo si no forma parte del historial comercial.
+export async function deleteProductPermanently(
+  formData: FormData,
+): Promise<PermanentProductDeleteResult> {
+  try {
+    const { supabase } = await requireAdmin("catalog.write");
+    const id = requireUuid(getText(formData, "id"), "Producto");
 
-  const { data, error } = await supabase
-    .from("productos")
-    .update({ activo: false, actualizado_por: userId })
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
+    const { data, error } = await supabase.rpc("eliminar_producto_inactivo", {
+      producto_id_input: id,
+    });
 
-  if (error || !data) throw publicServerError("Product featured state update failed", error, "No se pudo actualizar el producto.");
+    if (error) {
+      throw publicServerError(
+        "Permanent product delete failed",
+        error,
+        "No se pudo eliminar el producto.",
+      );
+    }
 
-  revalidatePublicProducts();
-  revalidatePath("/admin/productos");
+    const result =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as PermanentProductDeleteRpcResult)
+        : {};
+
+    if (result.status === "not_found") {
+      return { status: "error", message: "El producto ya no existe." };
+    }
+
+    if (result.status === "active") {
+      return {
+        status: "error",
+        message: "Desactiva el producto antes de eliminarlo definitivamente.",
+      };
+    }
+
+    if (result.status === "active_reservation") {
+      return {
+        status: "error",
+        message: "El producto tiene una reserva de stock vigente. Intenta nuevamente cuando finalice.",
+      };
+    }
+
+    if (result.status === "order_history") {
+      return {
+        status: "error",
+        message: "No se puede eliminar porque aparece en pedidos. Puedes mantenerlo inactivo.",
+      };
+    }
+
+    if (result.status === "sale_history") {
+      return {
+        status: "error",
+        message: "No se puede eliminar porque aparece en ventas físicas. Puedes mantenerlo inactivo.",
+      };
+    }
+
+    if (result.status !== "deleted") {
+      throw publicServerError(
+        "Permanent product delete returned an invalid result",
+        result,
+        "No se pudo confirmar la eliminación del producto.",
+      );
+    }
+
+    const publicIds = Array.isArray(result.cloudinary_public_ids)
+      ? result.cloudinary_public_ids.filter(
+          (publicId): publicId is string =>
+            typeof publicId === "string" && publicId.length > 0,
+        )
+      : [];
+    const cleanupResults = await Promise.allSettled(
+      publicIds.map((publicId) => deleteCloudinaryImage(publicId)),
+    );
+    const cleanupFailure = cleanupResults.find(
+      (cleanupResult) => cleanupResult.status === "rejected",
+    );
+
+    revalidatePublicProducts();
+    revalidatePath("/admin/productos");
+
+    if (cleanupFailure?.status === "rejected") {
+      reportServerError(
+        "Cloudinary cleanup after permanent product delete failed",
+        cleanupFailure.reason,
+      );
+      return {
+        status: "warning",
+        message: "Producto eliminado. Algunas imágenes no pudieron limpiarse de Cloudinary.",
+      };
+    }
+
+    return { status: "success", message: "Producto eliminado definitivamente." };
+  } catch (error) {
+    if (error instanceof ProductFormError || error instanceof PublicServerError) {
+      return { status: "error", message: error.message };
+    }
+
+    const correlationId = reportServerError(
+      "Unexpected permanent product delete failure",
+      error,
+    );
+    return {
+      status: "error",
+      message: `No se pudo eliminar el producto. Intenta nuevamente. Referencia: ${correlationId}`,
+    };
+  }
 }
 
 // Marca una imagen existente como principal.
@@ -920,6 +1125,63 @@ export async function setProductImageColor(productId: string, imageId: string, c
 
   if (error || !data) {
     throw publicServerError("Product image color update failed", error, "No se pudo actualizar el color de la imagen.");
+  }
+
+  revalidatePublicProducts();
+  revalidatePath(`/admin/productos/${productId}/editar`);
+}
+
+// Relaciona una imagen existente con la variante de color del mismo producto.
+export async function setProductImageVariant(
+  productId: string,
+  imageId: string,
+  variantId: string | null,
+) {
+  const { supabase, userId } = await requireAdmin("catalog.write");
+  requireUuid(productId, "Producto");
+  requireUuid(imageId, "Imagen");
+
+  let color: string | null = null;
+  if (variantId) {
+    requireUuid(variantId, "Color");
+    const { data: variant, error: variantError } = await supabase
+      .from("producto_variantes")
+      .select("id, nombre, atributos")
+      .eq("id", variantId)
+      .eq("producto_id", productId)
+      .maybeSingle();
+
+    if (variantError || !variant) {
+      throw publicServerError(
+        "Product image variant lookup failed",
+        variantError,
+        "No se pudo validar el color seleccionado.",
+      );
+    }
+
+    const attributes = variant.atributos as Record<string, unknown> | null;
+    color = String(attributes?.color ?? variant.nombre).trim() || null;
+  }
+
+  const { data, error } = await supabase
+    .from("producto_imagenes")
+    .update({
+      variante_id: variantId,
+      color,
+      actualizado_por: userId,
+    })
+    .eq("id", imageId)
+    .eq("producto_id", productId)
+    .eq("activo", true)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw publicServerError(
+      "Product image variant update failed",
+      error,
+      "No se pudo relacionar la imagen con el color.",
+    );
   }
 
   revalidatePublicProducts();

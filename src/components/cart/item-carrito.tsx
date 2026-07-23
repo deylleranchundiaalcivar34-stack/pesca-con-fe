@@ -25,7 +25,7 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
     <div className="grid grid-cols-[80px_1fr] gap-4 rounded-lg border border-border bg-white p-3">
       <div className="relative aspect-square overflow-hidden rounded-md bg-secondary">
         <Image
-          src={item.product.mainImage}
+          src={item.variant?.image ?? item.product.mainImage}
           alt={item.product.imageAlt}
           fill
           priority

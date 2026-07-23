@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicClient } from "@/lib/supabase/publico";
 import { createClient } from "@/lib/supabase/server";
+import { productBelongsToCatalogLanding } from "@/lib/productos-por-clasificacion";
 import { bankAccounts as fallbackBankAccounts, businessConfig as fallbackBusinessConfig, categories as fallbackCategories } from "@/data/datos-negocio";
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { Order, OrderItem } from "@/types/pedido";
@@ -90,6 +91,7 @@ type DbCatalogAttribute = {
 type DbImage = {
   id: string;
   producto_id: string;
+  variante_id: string | null;
   cloudinary_secure_url: string;
   alt: string;
   color: string | null;
@@ -273,34 +275,20 @@ function findCatalogNodeByPath(nodes: CatalogNode[], slugs: string[]) {
   return currentNode ? { node: currentNode, breadcrumbs } : null;
 }
 
-// Comprueba que el producto pertenezca al nodo solicitado o a uno de sus descendientes.
-function catalogPathStartsWith(
-  productPath: CatalogPathItem[],
-  selectedPath: CatalogPathItem[],
-) {
-  return selectedPath.every((selectedNode, index) => {
-    const productNode = productPath[index];
-
-    if (!productNode) {
-      return false;
-    }
-
-    if (selectedNode.id && productNode.id) {
-      return selectedNode.id === productNode.id;
-    }
-
-    return selectedNode.slug === productNode.slug;
-  });
-}
-
 // Convierte una fila publica de producto al modelo que renderiza la tienda.
 function mapProduct(
   row: DbProduct,
   images: ProductImage[] = [],
   variants: ProductVariant[] = [],
 ): Product {
-  const safeImages = images.length
-    ? images
+  const activeVariantIds = new Set(
+    variants.filter((variant) => variant.isActive).map((variant) => variant.id),
+  );
+  const visibleImages = images.filter(
+    (image) => !image.variantId || activeVariantIds.has(image.variantId),
+  );
+  const safeImages = visibleImages.length
+    ? visibleImages
     : [
         {
           id: `${row.id}-placeholder`,
@@ -345,7 +333,12 @@ function mapProduct(
       ),
     ),
     images: safeImages,
-    variants,
+    variants: variants.map((variant) => ({
+      ...variant,
+      image:
+        safeImages.find((image) => image.variantId === variant.id)?.url ??
+        variant.image,
+    })),
     mainImage: mainImage.url,
     imageAlt: mainImage.alt,
     youtubeVideoId: row.youtube_video_id ?? undefined,
@@ -435,6 +428,7 @@ function mapImages(rows: DbImage[]) {
       url: row.cloudinary_secure_url,
       alt: row.alt,
       color: row.color?.trim() || undefined,
+      variantId: row.variante_id ?? undefined,
       isMain: row.principal,
     }));
 }
@@ -450,7 +444,7 @@ async function getProductImagesByProductIds(
 
   const { data, error } = await supabase
     .from("producto_imagenes")
-    .select("id, producto_id, cloudinary_secure_url, alt, color, principal, orden, activo")
+    .select("id, producto_id, variante_id, cloudinary_secure_url, alt, color, principal, orden, activo")
     .in("producto_id", productIds)
     .eq("activo", true)
     .order("principal", { ascending: false })
@@ -987,8 +981,8 @@ export async function getCatalogLanding(slugs: string[]): Promise<CatalogLanding
     node: resolved.node,
     breadcrumbs: resolved.breadcrumbs,
     children: resolved.node.children,
-    products: products.filter(
-      (product) => product.isActive && catalogPathStartsWith(product.catalogPath, resolved.breadcrumbs),
+    products: products.filter((product) =>
+      productBelongsToCatalogLanding(product, resolved.breadcrumbs),
     ),
     content: {
       title,

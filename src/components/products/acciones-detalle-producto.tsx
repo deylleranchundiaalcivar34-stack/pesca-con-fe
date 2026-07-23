@@ -26,6 +26,8 @@ interface ProductDetailActionsProps {
   variantAttributes: CatalogAttribute[];
   selectedImageId?: string;
   onSelectedImageIdChange?: (imageId: string) => void;
+  selectedVariantId?: string;
+  onSelectedVariantIdChange?: (variantId: string) => void;
 }
 
 const PRODUCT_OPTION_PRIORITY: Record<string, string[]> = {
@@ -53,24 +55,40 @@ export function ProductDetailActions({
   variantAttributes,
   selectedImageId,
   onSelectedImageIdChange,
+  selectedVariantId: controlledSelectedVariantId,
+  onSelectedVariantIdChange,
 }: ProductDetailActionsProps) {
   const isCurrican = product.catalogPath.some(
     (node) => normalizeOptionName(node.slug) === "curricanes",
   );
-  const colorImages = isCurrican || normalizeOptionName(product.categorySlug) !== "senuelos"
+  const isColorVariantLure =
+    !isCurrican &&
+    normalizeOptionName(product.categorySlug) === "senuelos" &&
+    product.variants.some((variant) => Boolean(variant.attributes.color));
+  const colorImages = isCurrican || normalizeOptionName(product.categorySlug) !== "senuelos" || isColorVariantLure
     ? []
     : product.images.filter((image) => image.color);
-  const [selectedVariantId, setSelectedVariantId] = useState(
+  const [internalSelectedVariantId, setInternalSelectedVariantId] = useState(
     isCurrican && product.stock > 0
       ? CURRICAN_BASE_OPTION
       : product.variants.find((variant) => variant.stock > 0)?.id ?? product.variants[0]?.id ?? "",
   );
+  const selectedVariantId = controlledSelectedVariantId ?? internalSelectedVariantId;
+  const setSelectedVariantId = (variantId: string) => {
+    if (onSelectedVariantIdChange) {
+      onSelectedVariantIdChange(variantId);
+      return;
+    }
+    setInternalSelectedVariantId(variantId);
+  };
   const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId);
   const currentSource = selectedVariant ?? product;
   const currentPrice = getEffectivePrice(currentSource);
   const currentHasOffer = hasActiveOffer(currentSource);
   const currentStock = selectedVariant?.stock ?? product.stock;
   const [quantity, setQuantity] = useState(currentStock > 0 ? 1 : 0);
+  const selectedQuantity =
+    currentStock > 0 ? Math.min(Math.max(quantity, 1), currentStock) : 0;
   const addItem = useCartStore((state) => state.addItem);
   const wishlistedProductIds = useWishlistStore((state) => state.productIds);
   const toggleWishlist = useWishlistStore((state) => state.toggleProduct);
@@ -211,7 +229,47 @@ export function ProductDetailActions({
 
       {product.variants.length ? (
         <div className="border-y border-border py-4">
-          {isCurrican ? (
+          {isColorVariantLure ? (
+            <div>
+              <p className="text-sm font-bold text-dark-blue">
+                Color:{" "}
+                <span className="font-medium text-muted-foreground">
+                  {selectedVariant?.attributes.color ?? selectedVariant?.name}
+                </span>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.variants.map((variant) => {
+                  const variantImage =
+                    product.images.find((image) => image.variantId === variant.id) ??
+                    product.images.find((image) => image.url === variant.image);
+                  const colorName = variant.attributes.color || variant.name;
+                  const selected = variant.id === selectedVariantId;
+
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => selectVariant(variant)}
+                      className={`relative size-12 overflow-hidden rounded-md border-2 bg-white p-0.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        selected ? "border-dark-blue" : "border-border hover:border-primary"
+                      }`}
+                      aria-label={`Seleccionar color ${colorName}`}
+                      aria-pressed={selected}
+                      title={`${colorName}${variant.stock === 0 ? " · Agotado" : ""}`}
+                    >
+                      {variantImage ? (
+                        <Image src={variantImage.url} alt="" fill sizes="48px" className="object-contain" />
+                      ) : (
+                        <span className="flex size-full items-center justify-center px-1 text-[9px] font-bold leading-tight text-dark-blue">
+                          {colorName}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : isCurrican ? (
             <label htmlFor="lure-sale-configuration" className="text-sm font-bold text-dark-blue">
               Configuración de venta
             </label>
@@ -253,6 +311,7 @@ export function ProductDetailActions({
               Selecciona una opción
             </label>
           )}
+          {!isColorVariantLure ? (
           <Select
             value={selectedVariantId}
             onValueChange={(value) => {
@@ -289,6 +348,7 @@ export function ProductDetailActions({
             ))}
             </SelectContent>
           </Select>
+          ) : null}
           {selectedVariant?.description && !isCurrican ? (
             <p className="mt-3 whitespace-pre-line text-sm leading-5 text-muted-foreground">
               {selectedVariant.description}
@@ -366,21 +426,19 @@ export function ProductDetailActions({
             type="button"
             variant="ghost"
             size="icon"
-            disabled={quantity <= 1}
-            onClick={() => setQuantity((current) => Math.max(current - 1, 1))}
+            disabled={selectedQuantity <= 1}
+            onClick={() => setQuantity(Math.max(selectedQuantity - 1, 1))}
             aria-label="Disminuir cantidad"
           >
             <Minus aria-hidden="true" />
           </Button>
-          <span className="w-10 text-center text-sm font-semibold">{quantity}</span>
+          <span className="w-10 text-center text-sm font-semibold">{selectedQuantity}</span>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            disabled={quantity >= currentStock}
-            onClick={() =>
-              setQuantity((current) => Math.min(current + 1, currentStock))
-            }
+            disabled={selectedQuantity >= currentStock}
+            onClick={() => setQuantity(Math.min(selectedQuantity + 1, currentStock))}
             aria-label="Aumentar cantidad"
           >
             <Plus aria-hidden="true" />
@@ -392,8 +450,8 @@ export function ProductDetailActions({
           className="h-11 w-full"
           disabled={outOfStock}
           onClick={() => {
-            addItem(product, quantity, selectedVariant);
-            toast.success(`${quantity} producto(s) agregado(s) al carrito`);
+            addItem(product, selectedQuantity, selectedVariant);
+            toast.success(`${selectedQuantity} producto(s) agregado(s) al carrito`);
           }}
         >
           <ShoppingCart aria-hidden="true" />
