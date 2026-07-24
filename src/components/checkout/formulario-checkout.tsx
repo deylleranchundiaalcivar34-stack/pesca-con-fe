@@ -44,6 +44,10 @@ import {
 } from "@/lib/checkout-envio";
 import { formatCurrency } from "@/lib/utilidades";
 import { getEffectivePrice } from "@/lib/precios-producto";
+import {
+  getProductBaseOptionName,
+  isCurricanProduct,
+} from "@/lib/opciones-producto";
 import { getInitialCheckoutAddress } from "@/lib/direcciones-cliente";
 import {
   buildCheckoutWhatsAppMessage,
@@ -835,7 +839,13 @@ export function CheckoutForm({
               {visibleItems.map((item) => (
                 <div key={item.lineId ?? `${item.product.id}:base`} className="flex justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">
-                    {item.product.name} x{item.quantity}
+                    {item.product.name}
+                    {item.variant
+                      ? ` · ${item.variant.name}`
+                      : isCurricanProduct(item.product)
+                        ? ` · ${getProductBaseOptionName(item.product)}`
+                        : ""}{" "}
+                    x{item.quantity}
                   </span>
                   <span className="font-semibold">
                     {formatCurrency(getEffectivePrice(item.variant ?? item.product) * item.quantity)}

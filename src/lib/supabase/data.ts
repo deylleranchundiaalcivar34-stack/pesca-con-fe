@@ -41,6 +41,7 @@ type DbProduct = {
   catalogo_ruta_niveles?: string[] | null;
   precio: number | string;
   precio_oferta: number | string | null;
+  nombre_opcion_base?: string | null;
   stock: number;
   descripcion: string;
   caracteristicas: string[] | null;
@@ -324,6 +325,7 @@ function mapProduct(
     catalogPath: buildCatalogPath(row),
     price: toNumber(row.precio),
     offerPrice: row.precio_oferta == null ? undefined : toNumber(row.precio_oferta),
+    baseOptionName: row.nombre_opcion_base?.trim() || undefined,
     stock: row.stock,
     description: row.descripcion,
     features: row.caracteristicas ?? [],

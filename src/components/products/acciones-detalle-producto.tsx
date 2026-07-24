@@ -19,6 +19,10 @@ import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { formatCurrency } from "@/lib/utilidades";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
 import { getDiscountPercentage, getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
+import {
+  getProductBaseOptionName,
+  isCurricanProduct,
+} from "@/lib/opciones-producto";
 import { brandLogos } from "@/data/datos-negocio";
 
 interface ProductDetailActionsProps {
@@ -58,9 +62,8 @@ export function ProductDetailActions({
   selectedVariantId: controlledSelectedVariantId,
   onSelectedVariantIdChange,
 }: ProductDetailActionsProps) {
-  const isCurrican = product.catalogPath.some(
-    (node) => normalizeOptionName(node.slug) === "curricanes",
-  );
+  const isCurrican = isCurricanProduct(product);
+  const baseOptionName = getProductBaseOptionName(product);
   const isColorVariantLure =
     !isCurrican &&
     normalizeOptionName(product.categorySlug) === "senuelos" &&
@@ -336,7 +339,7 @@ export function ProductDetailActions({
             <SelectContent>
             {isCurrican ? (
               <SelectItem value={CURRICAN_BASE_OPTION} disabled={product.stock === 0}>
-                Señuelo base · {formatCurrency(getEffectivePrice(product))}
+                {baseOptionName} · {formatCurrency(getEffectivePrice(product))}
                 {product.stock === 0 ? " · Agotado" : ""}
               </SelectItem>
             ) : null}

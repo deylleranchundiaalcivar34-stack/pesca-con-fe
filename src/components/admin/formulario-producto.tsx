@@ -32,6 +32,10 @@ import {
   MAX_PRODUCT_IMAGES,
   validateProductImageFiles,
 } from "@/lib/seguridad-imagenes";
+import {
+  DEFAULT_CURRICAN_BASE_OPTION_NAME,
+  MAX_PRODUCT_BASE_OPTION_NAME_LENGTH,
+} from "@/lib/opciones-producto";
 import { cn, slugify } from "@/lib/utilidades";
 
 const initialProductActionState: ProductActionState = {
@@ -47,6 +51,7 @@ type ProductFormValues = {
   catalogNodeId: string;
   price: number;
   offerPrice?: number;
+  baseOptionName: string;
   stock: number;
   description: string;
   features: string;
@@ -185,6 +190,8 @@ export function ProductForm({
       catalogNodeId: initialCatalogPathIds.at(-1) ?? "",
       price: product?.price ?? 0,
       offerPrice: variants.length ? undefined : product?.offerPrice,
+      baseOptionName:
+        product?.baseOptionName ?? DEFAULT_CURRICAN_BASE_OPTION_NAME,
       stock: product?.stock ?? 0,
       description: product?.description ?? "",
       features: product?.features.join("\n") ?? "",
@@ -197,6 +204,7 @@ export function ProductForm({
   const name = useWatch({ control, name: "name" });
   const brand = useWatch({ control, name: "brand" });
   const price = useWatch({ control, name: "price" });
+  const baseOptionName = useWatch({ control, name: "baseOptionName" });
   const stock = useWatch({ control, name: "stock" });
   const isActive = useWatch({ control, name: "isActive" });
   const isFeatured = useWatch({ control, name: "isFeatured" });
@@ -204,6 +212,8 @@ export function ProductForm({
   const selectedCatalogNodeId = selectedCatalogPathIds.at(-1) ?? "";
   const categorySlug = selectedCatalogPath[0]?.slug ?? product?.categorySlug ?? categories[0]?.slug ?? "";
   const isCurrican = selectedCatalogPath.some((node) => node.slug === "curricanes");
+  const displayedBaseOptionName =
+    baseOptionName?.trim() || DEFAULT_CURRICAN_BASE_OPTION_NAME;
   const isColorSelectableLure = categorySlug === "senuelos" && !isCurrican;
   const curricanOptions = isCurrican && productVariants.length > 0;
   const subcategorySlug = selectedCatalogPath[1]?.slug ?? product?.subcategorySlug ?? "";
@@ -461,7 +471,32 @@ export function ProductForm({
                 }}
               />
             </Field>
-            <Field id="price" label={isColorSelectableLure ? "Precio mínimo calculado" : isCurrican ? "Señuelo base — precio base" : "Precio"} error={errors.price?.message}>
+            {isCurrican ? (
+              <Field
+                id="baseOptionName"
+                label="Nombre de la primera opción o configuración base"
+                error={errors.baseOptionName?.message}
+                className="sm:col-span-2"
+              >
+                <Input
+                  id="baseOptionName"
+                  {...register("baseOptionName", {
+                    validate: (value) =>
+                      value.trim().length > 0 ||
+                      "Completa el nombre de la opción base.",
+                  })}
+                  name="baseOptionName"
+                  maxLength={MAX_PRODUCT_BASE_OPTION_NAME_LENGTH}
+                  placeholder="Ejemplo: Señuelo con cabeza y dos faldas, sin aparejos"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este texto será la primera opción que verá el cliente antes de
+                  las configuraciones con adicionales.
+                </p>
+              </Field>
+            ) : null}
+            <Field id="price" label={isColorSelectableLure ? "Precio mínimo calculado" : isCurrican ? `Precio base de “${displayedBaseOptionName}”` : "Precio"} error={errors.price?.message}>
               <Input
                 id="price"
                 type="number"
@@ -483,7 +518,7 @@ export function ProductForm({
                 <p className="text-xs text-muted-foreground">Se calcula automáticamente a partir de los colores activos.</p>
               ) : null}
             </Field>
-            <Field id="offerPrice" label={isCurrican ? "Oferta del señuelo base (opcional)" : "Precio de oferta (opcional)"} error={errors.offerPrice?.message}>
+            <Field id="offerPrice" label={isCurrican ? `Oferta de “${displayedBaseOptionName}” (opcional)` : "Precio de oferta (opcional)"} error={errors.offerPrice?.message}>
               <Input
                 id="offerPrice"
                 type="number"
@@ -510,7 +545,7 @@ export function ProductForm({
                 </p>
               ) : null}
             </Field>
-            <Field id="stock" label={isColorSelectableLure ? "Stock total calculado" : isCurrican ? "Stock del señuelo base" : "Stock"} error={errors.stock?.message}>
+            <Field id="stock" label={isColorSelectableLure ? "Stock total calculado" : isCurrican ? `Stock de “${displayedBaseOptionName}”` : "Stock"} error={errors.stock?.message}>
               <Input
                 id="stock"
                 type="number"

@@ -125,6 +125,7 @@ export interface Product {
   catalogPath: CatalogPathItem[];
   price: number;
   offerPrice?: number;
+  baseOptionName?: string;
   stock: number;
   description: string;
   features: string[];

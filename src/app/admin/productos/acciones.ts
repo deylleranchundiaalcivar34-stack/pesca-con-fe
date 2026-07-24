@@ -15,6 +15,9 @@ import {
   publicServerError,
   reportServerError,
 } from "@/lib/safe-server-error";
+import {
+  MAX_PRODUCT_BASE_OPTION_NAME_LENGTH,
+} from "@/lib/opciones-producto";
 
 type AdminClient = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -758,6 +761,17 @@ async function persistProduct(formData: FormData) {
   }
 
   const relations = await resolveFlexibleProductRelations(supabase, formData, productId);
+  const baseOptionNameInput = getText(formData, "baseOptionName");
+  const baseOptionName = relations.isCurrican
+    ? requireTextLength(
+        baseOptionNameInput,
+        "El nombre de la opción base",
+        MAX_PRODUCT_BASE_OPTION_NAME_LENGTH,
+      )
+    : null;
+  if (relations.isCurrican && !baseOptionName) {
+    throw new ProductFormError("Completa el nombre de la opción base.");
+  }
   const features = getText(formData, "features")
     .split("\n")
     .map((feature) => feature.trim())
@@ -828,6 +842,7 @@ async function persistProduct(formData: FormData) {
     sku,
     precio: price,
     precio_oferta: offerPrice,
+    nombre_opcion_base: baseOptionName,
     stock,
     descripcion: description,
     caracteristicas: features,

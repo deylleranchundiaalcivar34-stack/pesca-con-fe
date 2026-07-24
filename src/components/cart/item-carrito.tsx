@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utilidades";
 import { useCartStore } from "@/store/tienda-carrito";
 import { getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
+import {
+  getProductBaseOptionName,
+  isCurricanProduct,
+} from "@/lib/opciones-producto";
 
 interface CartLineItemProps {
   item: CartItem;
@@ -20,6 +24,10 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
   const removeItem = useCartStore((state) => state.removeItem);
   const priceSource = item.variant ?? item.product;
   const effectivePrice = getEffectivePrice(priceSource);
+  const optionName = item.variant?.name ??
+    (isCurricanProduct(item.product)
+      ? getProductBaseOptionName(item.product)
+      : undefined);
 
   return (
     <div className="grid grid-cols-[80px_1fr] gap-4 rounded-lg border border-border bg-white p-3">
@@ -42,8 +50,8 @@ export function CartLineItem({ item, compact = false }: CartLineItemProps) {
             >
               {item.product.name}
             </Link>
-            {item.variant ? (
-              <p className="mt-1 text-sm font-semibold text-primary">Opción: {item.variant.name}</p>
+            {optionName ? (
+              <p className="mt-1 text-sm font-semibold text-primary">Opción: {optionName}</p>
             ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
               {hasActiveOffer(priceSource) ? (
