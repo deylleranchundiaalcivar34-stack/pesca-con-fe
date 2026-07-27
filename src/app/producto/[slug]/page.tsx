@@ -65,6 +65,12 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const related = await getRelatedProducts(product);
+  const closestCatalogNode = product.catalogPath[product.catalogPath.length - 1];
+  const relatedCatalogHref = product.catalogPath.length
+    ? `/productos/${product.catalogPath.map((item) => item.slug).join("/")}`
+    : "/productos";
+  const relatedCatalogLabel =
+    closestCatalogNode?.name || product.subcategory || product.category;
   const variantAttributes = catalogAttributes.filter(
     (attribute) => attribute.catalogNodeId === product.catalogPath[0]?.id,
   );
@@ -201,7 +207,11 @@ export default async function ProductDetailPage({
               description="Productos de la misma rama del catálogo, priorizados desde la clasificación más cercana."
             />
             <div className="mt-8">
-              <RelatedProducts products={related} />
+              <RelatedProducts
+                products={related}
+                viewMoreHref={relatedCatalogHref}
+                viewMoreLabel={relatedCatalogLabel}
+              />
             </div>
           </div>
         </section>
