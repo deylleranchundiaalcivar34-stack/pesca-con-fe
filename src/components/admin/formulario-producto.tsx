@@ -539,6 +539,7 @@ export function ProductForm({
   return (
     <form
       action={formAction}
+      autoComplete="off"
       onSubmitCapture={() => {
         isSubmittingFormRef.current = true;
       }}

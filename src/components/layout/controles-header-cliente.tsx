@@ -325,6 +325,7 @@ export function HeaderSearch() {
     <form
       action="/productos"
       method="get"
+      autoComplete="off"
       className="relative hidden min-w-44 flex-1 xl:block"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
@@ -335,6 +336,7 @@ export function HeaderSearch() {
         id="header-search"
         name="busqueda"
         type="search"
+        autoComplete="off"
         value={query}
         onChange={(event) => {
           const nextQuery = event.target.value;
@@ -480,8 +482,8 @@ export function MobileMenu() {
           {navItems.map((item) => (
             <Button key={item.href} asChild variant="ghost" className="justify-start"><Link href={item.href}>{item.label}</Link></Button>
           ))}
-          <form action="/productos" method="get" className="relative my-2">
-            <input name="busqueda" type="search" placeholder="Buscar productos..." className="h-10 w-full rounded-md border border-border pl-3 pr-10 text-sm" />
+          <form action="/productos" method="get" autoComplete="off" className="relative my-2">
+            <input name="busqueda" type="search" autoComplete="off" placeholder="Buscar productos..." className="h-10 w-full rounded-md border border-border pl-3 pr-10 text-sm" />
             <button type="submit" className="absolute right-1 top-1 flex size-8 items-center justify-center" aria-label="Buscar productos"><Search className="size-4" aria-hidden="true" /></button>
           </form>
           <MobileFixedNavigation />

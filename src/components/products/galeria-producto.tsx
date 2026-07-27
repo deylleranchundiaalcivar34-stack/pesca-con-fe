@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type SyntheticEvent } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductImageLightbox } from "@/components/products/visor-imagen-producto";
@@ -28,28 +28,18 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
       ];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
+  const [displayedImageId, setDisplayedImageId] = useState(
+    selectedImageId ?? images[0].id,
+  );
   const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
   const controlledIndex = selectedImageId
     ? images.findIndex((image) => image.id === selectedImageId)
     : -1;
   const activeIndex = controlledIndex >= 0 ? controlledIndex : selectedIndex;
   const selected = images[activeIndex] ?? images[0];
-  const selectedImageRatio = imageRatios[selected.id];
-
-  const preserveImageRatio = (event: SyntheticEvent<HTMLImageElement>) => {
-    if (isCurrican) return;
-
-    const { naturalWidth, naturalHeight } = event.currentTarget;
-    if (!naturalWidth || !naturalHeight) return;
-
-    const ratio = naturalWidth / naturalHeight;
-    setImageRatios((currentRatios) =>
-      currentRatios[selected.id] === ratio
-        ? currentRatios
-        : { ...currentRatios, [selected.id]: ratio },
-    );
-  };
+  const displayed = images.find((image) => image.id === displayedImageId) ?? selected;
+  const displayedImages =
+    displayed.id === selected.id ? [selected] : [displayed, selected];
 
   const selectImage = (index: number) => {
     setSelectedIndex(index);
@@ -65,8 +55,8 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
   };
 
   return (
-    <div className={cn(isCurrican && "lg:h-[640px] xl:h-[680px]")}>
-      <div className={cn("flex flex-col gap-3 sm:flex-row", isCurrican && "lg:h-full")}>
+    <div className="lg:h-[640px] xl:h-[680px]">
+      <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
         {images.length > 1 ? (
           <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
             {images.map((image, index) => (
@@ -95,26 +85,33 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
         ) : null}
 
         <div
-          className={cn(
-            "relative aspect-square min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition-[border-color,aspect-ratio] duration-300 hover:border-primary/40 sm:order-2",
-            isCurrican && "lg:aspect-auto lg:h-full",
-          )}
-          style={
-            !isCurrican && selectedImageRatio
-              ? { aspectRatio: selectedImageRatio }
-              : undefined
-          }
+          className="relative aspect-[4/3] min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition-colors duration-300 hover:border-primary/40 sm:order-2 sm:aspect-[5/4] lg:aspect-auto lg:h-full"
         >
-          <Image
-            key={selected.id}
-            src={selected.url}
-            alt={selected.alt}
-            fill
-            preload
-            sizes="(min-width: 1024px) 48vw, 100vw"
-            onLoad={preserveImageRatio}
-            className={cn("object-contain", isCurrican && "p-2")}
-          />
+          {displayedImages.map((image) => {
+            const isDisplayed = image.id === displayed.id;
+            const isTarget = image.id === selected.id;
+
+            return (
+              <Image
+                key={image.id}
+                src={image.url}
+                alt={isDisplayed ? image.alt : ""}
+                fill
+                loading="eager"
+                fetchPriority={isTarget ? "high" : "auto"}
+                decoding="sync"
+                sizes="(min-width: 1600px) 880px, (min-width: 1024px) 58vw, (min-width: 640px) calc(100vw - 8rem), calc(100vw - 2rem)"
+                onLoad={() => {
+                  if (isTarget) setDisplayedImageId(image.id);
+                }}
+                className={cn(
+                  "object-contain",
+                  isDisplayed ? "opacity-100" : "opacity-0",
+                  isCurrican && "p-2",
+                )}
+              />
+            );
+          })}
           <button
             type="button"
             onClick={() => setIsLightboxOpen(true)}

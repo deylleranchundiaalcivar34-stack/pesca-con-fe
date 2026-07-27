@@ -286,7 +286,7 @@ export function LoginPanel({
           ) : null}
 
           {isLogin ? (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
               <div>
                 <Label htmlFor="login-email">Correo</Label>
                 <Input
@@ -294,7 +294,7 @@ export function LoginPanel({
                   name="email"
                   type="email"
                   className="mt-2"
-                  autoComplete="email"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -305,7 +305,7 @@ export function LoginPanel({
                   name="password"
                   type="password"
                   className="mt-2"
-                  autoComplete="current-password"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -318,7 +318,7 @@ export function LoginPanel({
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form onSubmit={handleRegister} autoComplete="off" className="space-y-4">
               <div className="absolute -left-[10000px] h-px w-px overflow-hidden opacity-0" aria-hidden="true">
                 <Label htmlFor="register-website">Sitio web</Label>
                 <Input
@@ -336,7 +336,7 @@ export function LoginPanel({
                     id="register-first-name"
                     name="firstName"
                     className="mt-2"
-                    autoComplete="given-name"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -346,7 +346,7 @@ export function LoginPanel({
                     id="register-last-name"
                     name="lastName"
                     className="mt-2"
-                    autoComplete="family-name"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -358,7 +358,7 @@ export function LoginPanel({
                   name="email"
                   type="email"
                   className="mt-2"
-                  autoComplete="email"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -369,7 +369,7 @@ export function LoginPanel({
                   name="password"
                   type="password"
                   className="mt-2"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   minLength={8}
                   aria-describedby="register-password-help"
                   required
@@ -385,7 +385,7 @@ export function LoginPanel({
                   name="confirmPassword"
                   type="password"
                   className="mt-2"
-                  autoComplete="new-password"
+                  autoComplete="off"
                   minLength={8}
                   required
                 />

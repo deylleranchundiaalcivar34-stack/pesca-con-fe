@@ -103,7 +103,7 @@ export function CustomerQuestionForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} autoComplete="off" className="mt-6 space-y-4">
         <div>
           <Label htmlFor="customer-question">Tu pregunta</Label>
           <Textarea

@@ -59,7 +59,7 @@ function AddressForm({
   }, [onCancel, router, state]);
 
   return (
-    <form action={action} className="grid gap-4 sm:grid-cols-2">
+    <form action={action} autoComplete="off" className="grid gap-4 sm:grid-cols-2">
       {address ? <input type="hidden" name="id" value={address.id} /> : null}
       {address ? (
         <input type="hidden" name="currentIsPrimary" value={String(address.isPrimary)} />
@@ -83,7 +83,7 @@ function AddressForm({
           type="tel"
           className="mt-2"
           defaultValue={address?.contactPhone ?? ""}
-          autoComplete="tel"
+          autoComplete="off"
         />
       </div>
       <div>
@@ -93,7 +93,7 @@ function AddressForm({
           name="province"
           className="mt-2"
           defaultValue={address?.province ?? ""}
-          autoComplete="address-level1"
+          autoComplete="off"
           required
         />
       </div>
@@ -104,7 +104,7 @@ function AddressForm({
           name="city"
           className="mt-2"
           defaultValue={address?.city ?? ""}
-          autoComplete="address-level2"
+          autoComplete="off"
           required
         />
       </div>
@@ -115,7 +115,7 @@ function AddressForm({
           name="address"
           className="mt-2"
           defaultValue={address?.address ?? ""}
-          autoComplete="street-address"
+          autoComplete="off"
           required
         />
       </div>

@@ -46,7 +46,7 @@ export function ProfileForm({ user }: { user: PublicUserSummary }) {
         <CardTitle>Información personal</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={action} className="grid gap-4 sm:grid-cols-2">
+        <form action={action} autoComplete="off" className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="firstName">Nombre</Label>
             <Input
@@ -54,7 +54,7 @@ export function ProfileForm({ user }: { user: PublicUserSummary }) {
               name="firstName"
               className="mt-2"
               defaultValue={user.firstName ?? ""}
-              autoComplete="given-name"
+              autoComplete="off"
               required
             />
           </div>
@@ -65,7 +65,7 @@ export function ProfileForm({ user }: { user: PublicUserSummary }) {
               name="lastName"
               className="mt-2"
               defaultValue={user.lastName ?? ""}
-              autoComplete="family-name"
+              autoComplete="off"
               required
             />
           </div>

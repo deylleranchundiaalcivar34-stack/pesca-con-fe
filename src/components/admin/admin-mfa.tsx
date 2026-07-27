@@ -312,7 +312,7 @@ export function AdminMfa({ nextPath }: { nextPath: string }) {
               value={code}
               onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
               inputMode="numeric"
-              autoComplete="one-time-code"
+              autoComplete="off"
               pattern="[0-9]{6}"
               maxLength={6}
               placeholder="123456"

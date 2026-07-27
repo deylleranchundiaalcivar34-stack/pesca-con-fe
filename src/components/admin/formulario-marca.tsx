@@ -155,7 +155,7 @@ export function BrandForm({
         <CardTitle>{mode === "create" ? "Agregar marca" : "Editar marca"}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-5">
+        <form action={formAction} autoComplete="off" className="space-y-5">
           {brand ? <input type="hidden" name="id" value={brand.id} /> : null}
           {mode === "edit" ? (
             <input

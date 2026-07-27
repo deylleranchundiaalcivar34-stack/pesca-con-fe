@@ -96,7 +96,7 @@ export function PasswordRecoveryRequestForm() {
             {message}
           </p>
         ) : null}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div className="absolute -left-[10000px] h-px w-px overflow-hidden opacity-0" aria-hidden="true">
             <Label htmlFor="recovery-website">Sitio web</Label>
             <Input
@@ -114,7 +114,7 @@ export function PasswordRecoveryRequestForm() {
               name="email"
               type="email"
               className="mt-2"
-              autoComplete="email"
+              autoComplete="off"
               required
             />
           </div>

@@ -438,7 +438,11 @@ export function CheckoutForm({
 
   return (
     <>
-    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="grid gap-8 lg:grid-cols-[1fr_390px]">
+    <form
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      autoComplete="off"
+      className="grid gap-8 lg:grid-cols-[1fr_390px]"
+    >
       <input type="hidden" {...register("addressId")} />
       <input type="hidden" {...register("fullName")} />
       <input type="hidden" {...register("phone")} />
@@ -501,7 +505,7 @@ export function CheckoutForm({
                     id="contactPhone"
                     {...contactPhoneField}
                     inputMode="tel"
-                    autoComplete="tel"
+                    autoComplete="off"
                     placeholder="Ejemplo: 0991234567"
                   />
                 </Field>
@@ -688,7 +692,7 @@ export function CheckoutForm({
                     error={errors.address?.message}
                   >
                     <>
-                      <Input id="address" {...addressField} autoComplete="street-address" />
+                      <Input id="address" {...addressField} autoComplete="off" />
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         Si no indicas una dirección, enviaremos el pedido a la oficina de
                         Servientrega de la ciudad seleccionada.
@@ -717,7 +721,7 @@ export function CheckoutForm({
                       id="contactPhone"
                       {...contactPhoneField}
                       inputMode="tel"
-                      autoComplete="tel"
+                      autoComplete="off"
                     />
                   </Field>
                   {canSaveAddresses && isManualAddress ? (

@@ -91,7 +91,7 @@ export function PasswordResetForm() {
             Este enlace no es válido o expiró. Solicita uno nuevo para continuar.
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
             {message ? <p className="text-sm text-destructive">{message}</p> : null}
             <div>
               <Label htmlFor="new-password">Nueva contraseña</Label>
@@ -100,7 +100,7 @@ export function PasswordResetForm() {
                 name="password"
                 type="password"
                 className="mt-2"
-                autoComplete="new-password"
+                autoComplete="off"
                 minLength={8}
                 aria-describedby="new-password-help"
                 required
@@ -116,7 +116,7 @@ export function PasswordResetForm() {
                 name="confirmPassword"
                 type="password"
                 className="mt-2"
-                autoComplete="new-password"
+                autoComplete="off"
                 minLength={8}
                 required
               />
