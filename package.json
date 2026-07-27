@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "security:migrations": "node scripts/check-security-migrations.mjs",
     "security:secrets": "node scripts/check-secrets.mjs",
-    "security:ci": "pnpm security:migrations && pnpm security:secrets && pnpm audit --audit-level=moderate"
+    "security:audit": "pnpm audit --prod --audit-level=moderate",
+    "security:ci": "pnpm security:migrations && pnpm security:secrets && pnpm security:audit"
   },
   "dependencies": {
     "@hcaptcha/react-hcaptcha": "^2.0.2",
@@ -61,7 +62,7 @@
     "overrides": {
       "@babel/core": "7.29.7",
       "brace-expansion@<1.1.16": "1.1.16",
-      "brace-expansion@>=3.0.0 <5.0.7": "5.0.7",
+      "brace-expansion@>=3.0.0 <5.0.8": "5.0.8",
       "js-yaml": "4.3.0",
       "postcss": "8.5.19",
       "sharp": "0.35.3"

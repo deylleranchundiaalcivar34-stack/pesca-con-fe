@@ -49,4 +49,4 @@ jobs:
         run: pnpm security:migrations && pnpm security:secrets
 
       - name: Auditar dependencias
-        run: pnpm audit --audit-level=moderate
+        run: pnpm security:audit

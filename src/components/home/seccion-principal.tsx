@@ -12,34 +12,34 @@ const HERO_SLIDES = [
     id: "info-pesca-portada",
     src: infoPescaPortada,
     alt: "Información de Pesca Con Fe",
-    imageClassName: "object-cover object-center",
+    imageClassName: "object-contain object-center lg:object-cover",
   },
   {
     id: "canas",
     src: "/images/banners/banner_canas1.webp",
     alt: "Pescador realizando pesca deportiva desde una lancha",
     href: "/productos?categoria=canas",
-    imageClassName: "object-cover object-center",
+    imageClassName: "object-contain object-center lg:object-cover",
   },
   {
     id: "carretes",
     src: "/images/banners/banner_carretes1.webp",
     alt: "Selección de cañas, carretes y señuelos para pesca",
     href: "/productos?categoria=carretes",
-    imageClassName: "object-cover object-center",
+    imageClassName: "object-contain object-center lg:object-cover",
   },
   {
     id: "senuelos",
     src: "/images/banners/banner_senuelos.webp",
     alt: "Equipamiento de pesca disponible en Pesca Con Fe",
     href: "/productos?categoria=senuelos",
-    imageClassName: "object-cover object-left",
+    imageClassName: "object-contain object-center lg:object-cover lg:object-left",
   },
   {
     id: "info-pesca",
     src: infoPesca,
     alt: "Información de pesca",
-    imageClassName: "object-cover object-center",
+    imageClassName: "object-contain object-center lg:object-cover",
   },
 ] as const;
 
@@ -71,7 +71,7 @@ export function HeroSection() {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="absolute inset-0">
+      <div className="relative h-[clamp(10rem,35vw,42rem)] overflow-hidden bg-black">
         {HERO_SLIDES.map((slide, index) => (
           <div
             key={slide.id}
@@ -103,15 +103,13 @@ export function HeroSection() {
         ))}
       </div>
 
-      <div className="min-h-[28rem] sm:min-h-[36rem] lg:min-h-[42rem]" />
-
-      <div className="absolute inset-x-0 bottom-5 z-30 flex justify-center px-4 sm:bottom-7">
-        <div className="flex items-center gap-3 rounded-full border border-white/80 bg-white/80 px-2 py-2 shadow-lg shadow-black/15 backdrop-blur-md">
+      <div className="relative z-30 flex justify-center bg-dark-blue px-4 py-2.5 sm:py-3">
+        <div className="flex items-center gap-1 rounded-full border border-white/80 bg-white/90 px-1.5 py-1 shadow-lg shadow-black/15 backdrop-blur-md sm:gap-3 sm:px-2 sm:py-2">
           <button
             type="button"
             aria-label="Mostrar banner anterior"
             onClick={() => showSlide((activeSlide - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
-            className="grid size-9 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white"
+            className="grid size-8 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white sm:size-9"
           >
             <ChevronLeft className="size-5" aria-hidden="true" />
           </button>
@@ -138,7 +136,7 @@ export function HeroSection() {
             type="button"
             aria-label="Mostrar siguiente banner"
             onClick={() => showSlide((activeSlide + 1) % HERO_SLIDES.length)}
-            className="grid size-9 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white"
+            className="grid size-8 place-items-center rounded-full text-dark-blue transition hover:bg-dark-blue hover:text-white sm:size-9"
           >
             <ChevronRight className="size-5" aria-hidden="true" />
           </button>
