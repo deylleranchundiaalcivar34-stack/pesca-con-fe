@@ -119,7 +119,7 @@ export default async function ProductDetailPage({
       <ProductJsonLd product={product} />
 
       <nav className="border-b border-border bg-white py-4" aria-label="Migas de pan">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 overflow-hidden text-sm text-muted-foreground">
             <Link href="/" className="shrink-0 hover:text-primary">
               Inicio
@@ -149,7 +149,7 @@ export default async function ProductDetailPage({
       </nav>
 
       <section className="bg-white pb-10 pt-5 sm:pb-12 sm:pt-6">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.03fr)_minmax(460px,0.97fr)] lg:items-start lg:gap-10 lg:px-8">
+        <div className="mx-auto grid max-w-[1600px] gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.9fr)] lg:items-start lg:gap-8 lg:px-8">
           <InteractiveProductDetail product={product} variantAttributes={variantAttributes} />
         </div>
       </section>

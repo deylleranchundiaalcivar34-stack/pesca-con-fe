@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductImageLightbox } from "@/components/products/visor-imagen-producto";
@@ -28,11 +28,28 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
       ];
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
+  const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
   const controlledIndex = selectedImageId
     ? images.findIndex((image) => image.id === selectedImageId)
     : -1;
   const activeIndex = controlledIndex >= 0 ? controlledIndex : selectedIndex;
   const selected = images[activeIndex] ?? images[0];
+  const selectedImageRatio = imageRatios[selected.id];
+
+  const preserveImageRatio = (event: SyntheticEvent<HTMLImageElement>) => {
+    if (isCurrican) return;
+
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    if (!naturalWidth || !naturalHeight) return;
+
+    const ratio = naturalWidth / naturalHeight;
+    setImageRatios((currentRatios) =>
+      currentRatios[selected.id] === ratio
+        ? currentRatios
+        : { ...currentRatios, [selected.id]: ratio },
+    );
+  };
 
   const selectImage = (index: number) => {
     setSelectedIndex(index);
@@ -48,8 +65,8 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
   };
 
   return (
-    <div className="lg:h-[640px] xl:h-[680px]">
-      <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
+    <div className={cn(isCurrican && "lg:h-[640px] xl:h-[680px]")}>
+      <div className={cn("flex flex-col gap-3 sm:flex-row", isCurrican && "lg:h-full")}>
         {images.length > 1 ? (
           <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
             {images.map((image, index) => (
@@ -77,14 +94,26 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
           </div>
         ) : null}
 
-        <div className="relative aspect-square min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition hover:border-primary/40 sm:order-2 lg:aspect-auto lg:h-full">
+        <div
+          className={cn(
+            "relative aspect-square min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-white shadow-[0_18px_45px_rgb(5_44_101_/_0.12)] transition-[border-color,aspect-ratio] duration-300 hover:border-primary/40 sm:order-2",
+            isCurrican && "lg:aspect-auto lg:h-full",
+          )}
+          style={
+            !isCurrican && selectedImageRatio
+              ? { aspectRatio: selectedImageRatio }
+              : undefined
+          }
+        >
           <Image
+            key={selected.id}
             src={selected.url}
             alt={selected.alt}
             fill
             preload
             sizes="(min-width: 1024px) 48vw, 100vw"
-            className="object-contain p-2"
+            onLoad={preserveImageRatio}
+            className={cn("object-contain", isCurrican && "p-2")}
           />
           <button
             type="button"

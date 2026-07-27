@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { CatalogAttribute, Product } from "@/types/producto";
 import { ProductDetailActions } from "@/components/products/acciones-detalle-producto";
 import { ProductGallery } from "@/components/products/galeria-producto";
+import { hasColorVariants } from "@/lib/opciones-producto";
 
 interface InteractiveProductDetailProps {
   product: Product;
@@ -12,12 +13,8 @@ interface InteractiveProductDetailProps {
 
 // Sincroniza la galería y las muestras de color sin convertir la página entera en cliente.
 export function InteractiveProductDetail({ product, variantAttributes }: InteractiveProductDetailProps) {
-  const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
-  const isColorVariantLure =
-    product.categorySlug === "senuelos" &&
-    !isCurrican &&
-    product.variants.some((variant) => Boolean(variant.attributes.color));
-  const initialColorVariant = isColorVariantLure
+  const isColorVariantProduct = hasColorVariants(product);
+  const initialColorVariant = isColorVariantProduct
     ? product.variants.find((variant) => variant.stock > 0) ?? product.variants[0]
     : undefined;
   const [selectedVariantId, setSelectedVariantId] = useState(initialColorVariant?.id ?? "");
@@ -28,7 +25,7 @@ export function InteractiveProductDetail({ product, variantAttributes }: Interac
 
   const selectImage = (imageId: string) => {
     setSelectedImageId(imageId);
-    if (!isColorVariantLure) return;
+    if (!isColorVariantProduct) return;
 
     const variantId = product.images.find((image) => image.id === imageId)?.variantId;
     if (variantId) setSelectedVariantId(variantId);
@@ -62,8 +59,8 @@ export function InteractiveProductDetail({ product, variantAttributes }: Interac
             variantAttributes={variantAttributes}
             selectedImageId={selectedImageId}
             onSelectedImageIdChange={selectImage}
-            selectedVariantId={isColorVariantLure ? selectedVariantId : undefined}
-            onSelectedVariantIdChange={isColorVariantLure ? selectVariant : undefined}
+            selectedVariantId={isColorVariantProduct ? selectedVariantId : undefined}
+            onSelectedVariantIdChange={isColorVariantProduct ? selectVariant : undefined}
           />
         </div>
       </div>

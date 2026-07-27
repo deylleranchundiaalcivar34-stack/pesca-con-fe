@@ -21,7 +21,10 @@ import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
 import { getDiscountPercentage, getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
 import {
   getProductBaseOptionName,
+  hasColorVariants,
+  hasSizeVariants,
   isCurricanProduct,
+  SIZE_VARIANT_ATTRIBUTE_KEY,
 } from "@/lib/opciones-producto";
 import { brandLogos } from "@/data/datos-negocio";
 
@@ -39,6 +42,7 @@ const PRODUCT_OPTION_PRIORITY: Record<string, string[]> = {
   carrete: ["tamano", "size", "relacion", "ratio", "peso", "weight"],
   carretes: ["tamano", "size", "relacion", "ratio", "peso", "weight"],
   combos: ["poder", "power", "longitud", "length", "libraje", "linea", "line", "lb", "tamano", "size", "relacion", "ratio", "peso", "weight"],
+  senuelos: ["tamano", "size", "longitud", "length"],
 };
 const CURRICAN_BASE_OPTION = "__currican-base";
 const TECHNICAL_SUMMARY_CATEGORIES = new Set(["canas", "carrete", "carretes", "combos", "senuelos"]);
@@ -64,11 +68,9 @@ export function ProductDetailActions({
 }: ProductDetailActionsProps) {
   const isCurrican = isCurricanProduct(product);
   const baseOptionName = getProductBaseOptionName(product);
-  const isColorVariantLure =
-    !isCurrican &&
-    normalizeOptionName(product.categorySlug) === "senuelos" &&
-    product.variants.some((variant) => Boolean(variant.attributes.color));
-  const colorImages = isCurrican || normalizeOptionName(product.categorySlug) !== "senuelos" || isColorVariantLure
+  const isColorVariantProduct = hasColorVariants(product);
+  const isSizeVariantProduct = hasSizeVariants(product);
+  const colorImages = isCurrican || normalizeOptionName(product.categorySlug) !== "senuelos" || isColorVariantProduct
     ? []
     : product.images.filter((image) => image.color);
   const [internalSelectedVariantId, setInternalSelectedVariantId] = useState(
@@ -107,8 +109,30 @@ export function ProductDetailActions({
       }
     : fixedBrandLogo;
   const selectableAttributes = useMemo(
-    () =>
-      variantAttributes
+    () => {
+      const sizeAttribute: CatalogAttribute = variantAttributes.find(
+        (attribute) => attribute.key === SIZE_VARIANT_ATTRIBUTE_KEY,
+      ) ?? {
+        id: "managed-size-variant",
+        catalogNodeId: product.catalogPath[0]?.id ?? "",
+        key: SIZE_VARIANT_ATTRIBUTE_KEY,
+        label: "Tamaño",
+        type: "seleccion",
+        options: [],
+        isRequired: true,
+        isFilterable: false,
+        sortOrder: -1,
+      };
+      const attributes = isSizeVariantProduct
+        ? [
+            sizeAttribute,
+            ...variantAttributes.filter(
+              (attribute) => attribute.key !== SIZE_VARIANT_ATTRIBUTE_KEY,
+            ),
+          ]
+        : variantAttributes;
+
+      return attributes
         .map((attribute) => ({
           ...attribute,
           values: Array.from(
@@ -119,17 +143,23 @@ export function ProductDetailActions({
             ),
           ),
         }))
-        .filter((attribute) => attribute.values.length > 0),
-    [product.variants, variantAttributes],
+        .filter((attribute) => attribute.values.length > 0);
+    },
+    [
+      isSizeVariantProduct,
+      product.catalogPath,
+      product.variants,
+      variantAttributes,
+    ],
   );
   const optionSelectors = useMemo(() => {
-    const changingAttributes = selectableAttributes.filter((attribute) => attribute.values.length > 1);
-    const prioritizedAttributes = changingAttributes.filter((attribute) =>
+    const prioritizedAttributes = selectableAttributes.filter((attribute) =>
       isPriorityOption(attribute, product.categorySlug),
     );
 
-    // Preservamos una vía de selección para catálogos que aún no tienen atributos prioritarios.
-    return prioritizedAttributes.length ? prioritizedAttributes : changingAttributes;
+    // Incluso un único valor debe conservar el selector visual para que todas las
+    // opciones, salvo las configuraciones de curricanes, usen el mismo formato.
+    return prioritizedAttributes.length ? prioritizedAttributes : selectableAttributes;
   }, [product.categorySlug, selectableAttributes]);
   const selectedSpecs = useMemo(() => {
     if (!TECHNICAL_SUMMARY_CATEGORIES.has(normalizeOptionName(product.categorySlug))) {
@@ -232,7 +262,7 @@ export function ProductDetailActions({
 
       {product.variants.length ? (
         <div className="border-y border-border py-4">
-          {isColorVariantLure ? (
+          {isColorVariantProduct ? (
             <div>
               <p className="text-sm font-bold text-dark-blue">
                 Color:{" "}
@@ -310,47 +340,67 @@ export function ProductDetailActions({
               ))}
             </div>
           ) : (
-            <label htmlFor="product-option" className="text-xs font-bold text-dark-blue">
-              Selecciona una opción
-            </label>
+            <fieldset>
+              <legend className="text-sm font-bold text-dark-blue">Opciones</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.variants.map((variant) => {
+                  const selected = variant.id === selectedVariantId;
+
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      disabled={variant.stock === 0}
+                      onClick={() => selectVariant(variant)}
+                      className={`min-h-10 rounded-md border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                        selected
+                          ? "border-primary bg-primary text-white"
+                          : "border-border bg-white text-dark-blue hover:border-primary"
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      {variant.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
           )}
-          {!isColorVariantLure ? (
-          <Select
-            value={selectedVariantId}
-            onValueChange={(value) => {
-              const nextVariant = product.variants.find(
-                (variant) => variant.id === value,
-              );
-              setSelectedVariantId(value);
-              setQuantity(
-                value === CURRICAN_BASE_OPTION
-                  ? product.stock > 0 ? 1 : 0
-                  : nextVariant && nextVariant.stock > 0 ? 1 : 0,
-              );
-            }}
-          >
-            <SelectTrigger
-              id={isCurrican ? "lure-sale-configuration" : "product-option"}
-              aria-label={isCurrican ? "Configuración de venta" : "Selecciona una opción"}
-              className={isCurrican || !optionSelectors.length ? "mt-2" : "hidden"}
+          {isCurrican ? (
+            <Select
+              value={selectedVariantId}
+              onValueChange={(value) => {
+                const nextVariant = product.variants.find(
+                  (variant) => variant.id === value,
+                );
+                setSelectedVariantId(value);
+                setQuantity(
+                  value === CURRICAN_BASE_OPTION
+                    ? product.stock > 0 ? 1 : 0
+                    : nextVariant && nextVariant.stock > 0 ? 1 : 0,
+                );
+              }}
             >
-              <SelectValue placeholder="Selecciona una opción" />
-            </SelectTrigger>
-            <SelectContent>
-            {isCurrican ? (
-              <SelectItem value={CURRICAN_BASE_OPTION} disabled={product.stock === 0}>
-                {baseOptionName} · {formatCurrency(getEffectivePrice(product))}
-                {product.stock === 0 ? " · Agotado" : ""}
-              </SelectItem>
-            ) : null}
-            {product.variants.map((variant) => (
-              <SelectItem key={variant.id} value={variant.id} disabled={variant.stock === 0}>
-                {variant.name} · {formatCurrency(getEffectivePrice(variant))}
-                {variant.stock === 0 ? " · Agotado" : ""}
-              </SelectItem>
-            ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                id="lure-sale-configuration"
+                aria-label="Configuración de venta"
+                className="mt-2"
+              >
+                <SelectValue placeholder="Selecciona una opción" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CURRICAN_BASE_OPTION} disabled={product.stock === 0}>
+                  {baseOptionName} · {formatCurrency(getEffectivePrice(product))}
+                  {product.stock === 0 ? " · Agotado" : ""}
+                </SelectItem>
+                {product.variants.map((variant) => (
+                  <SelectItem key={variant.id} value={variant.id} disabled={variant.stock === 0}>
+                    {variant.name} · {formatCurrency(getEffectivePrice(variant))}
+                    {variant.stock === 0 ? " · Agotado" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : null}
           {selectedVariant?.description && !isCurrican ? (
             <p className="mt-3 whitespace-pre-line text-sm leading-5 text-muted-foreground">

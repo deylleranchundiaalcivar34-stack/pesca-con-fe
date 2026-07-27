@@ -2,7 +2,8 @@ import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
 
-const elfsightWidgetUrl = "https://e2ead8180c3f41bba2ee32fe52a21a53.elf.site";
+const elfsightWidgetUrl = process.env.INSTAGRAM_FEED_URL?.trim();
+const instagramProfileUrl = "https://www.instagram.com/pesca_con_fe";
 
 const featuredPlaylists = [
   {
@@ -22,6 +23,25 @@ const featuredPlaylists = [
     alt: "Señuelos de pesca frente al mar",
     href: "https://www.facebook.com/pescaconfe1",
     label: "Ver playlist de señuelos",
+  },
+] as const;
+
+const instagramGallery = [
+  {
+    image: "/images/fotos/foto-cuadrada1.webp",
+    alt: "Pesca deportiva compartida por Pesca Con Fe",
+  },
+  {
+    image: "/images/fotos/foto-bagre.webp",
+    alt: "Captura de pesca compartida por Pesca Con Fe",
+  },
+  {
+    image: "/images/fotos/foto-pesca10.webp",
+    alt: "Jornada de pesca de la comunidad Pesca Con Fe",
+  },
+  {
+    image: "/images/fotos/foto-pesca14.webp",
+    alt: "Experiencia de pesca compartida por Pesca Con Fe",
   },
 ] as const;
 
@@ -62,16 +82,65 @@ export function InstagramNewsSection() {
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-border bg-white shadow-soft">
-          <iframe
-            title="Novedades de Instagram de Pesca Con Fe"
-            src={elfsightWidgetUrl}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="origin"
-            loading="lazy"
-            className="h-[440px] w-full border-0 sm:h-[500px]"
-          />
-        </div>
+        {elfsightWidgetUrl ? (
+          <div className="overflow-hidden rounded-lg border border-border bg-white shadow-soft">
+            <iframe
+              title="Novedades de Instagram de Pesca Con Fe"
+              src={elfsightWidgetUrl}
+              sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              referrerPolicy="origin"
+              loading="lazy"
+              className="h-[440px] w-full border-0 sm:h-[500px]"
+            />
+          </div>
+        ) : (
+          <a
+            href={instagramProfileUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Ver novedades de Pesca Con Fe en Instagram"
+            className="group relative block min-h-[380px] overflow-hidden rounded-xl border border-white/35 bg-dark-blue shadow-xl shadow-dark-blue/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-dark-blue sm:min-h-[440px]"
+          >
+            <span className="absolute inset-0 grid grid-cols-2 sm:grid-cols-4">
+              {instagramGallery.map((photo) => (
+                <span key={photo.image} className="relative min-h-48 overflow-hidden">
+                  <Image
+                    src={photo.image}
+                    alt={photo.alt}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 25vw"
+                    className="object-cover transition duration-700 group-hover:scale-105"
+                  />
+                </span>
+              ))}
+            </span>
+            <span className="absolute inset-0 bg-[linear-gradient(90deg,rgb(5_44_101_/_0.9),rgb(5_44_101_/_0.58),rgb(5_44_101_/_0.24))]" />
+            <span className="absolute inset-0 flex max-w-xl flex-col justify-center p-6 text-white sm:p-10 lg:p-12">
+              <span className="mb-5 grid size-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)] shadow-lg sm:size-16">
+                <Image
+                  src="/images/redes-sociales/instagram-icon.webp"
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="size-7 rounded-lg object-contain sm:size-8"
+                />
+              </span>
+              <span className="text-sm font-black uppercase tracking-[0.2em] text-gold">
+                @pesca_con_fe
+              </span>
+              <span className="mt-3 text-3xl font-black leading-tight sm:text-4xl">
+                Capturas, productos y jornadas de nuestra comunidad
+              </span>
+              <span className="mt-4 max-w-lg text-sm leading-6 text-white/85 sm:text-base">
+                Visita nuestro perfil para descubrir las publicaciones y novedades más recientes.
+              </span>
+              <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-black text-dark-blue shadow-lg transition group-hover:-translate-y-0.5 group-hover:bg-gold">
+                Ver novedades en Instagram
+                <ExternalLink className="size-4" aria-hidden="true" />
+              </span>
+            </span>
+          </a>
+        )}
       </div>
     </section>
   );

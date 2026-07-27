@@ -16,7 +16,12 @@ import {
   reportServerError,
 } from "@/lib/safe-server-error";
 import {
+  getAutomaticVariantSummary,
+  isLureAccessoryPath,
   MAX_PRODUCT_BASE_OPTION_NAME_LENGTH,
+  SIZE_VARIANT_ATTRIBUTE_KEY,
+  SIZE_VARIANT_MODE_VALUE,
+  VARIANT_MODE_ATTRIBUTE_KEY,
 } from "@/lib/opciones-producto";
 
 type AdminClient = Awaited<ReturnType<typeof requireAdmin>>["supabase"];
@@ -416,6 +421,30 @@ async function uploadImagesForProduct(
   }
 }
 
+async function clearProductImageVariantLinks(
+  supabase: AdminClient,
+  productId: string,
+  userId: string,
+) {
+  const { error } = await supabase
+    .from("producto_imagenes")
+    .update({
+      color: null,
+      variante_id: null,
+      actualizado_por: userId,
+    })
+    .eq("producto_id", productId)
+    .or("color.not.is.null,variante_id.not.is.null");
+
+  if (error) {
+    throw publicServerError(
+      "Product image variant links clear failed",
+      error,
+      "No se pudieron desvincular las imágenes de las variantes.",
+    );
+  }
+}
+
 type VariantInput = {
   id?: string;
   name?: string;
@@ -500,7 +529,7 @@ async function saveProductAttributes(
         .from("catalogo_atributos")
         .select("id, catalogo_nodo_id, obligatorio")
         .eq("activo", true),
-      supabase.from("catalogo_nodos").select("id, parent_id"),
+      supabase.from("catalogo_nodos").select("id, parent_id, slug"),
     ]);
 
   if (definitionsError || nodesError) {
@@ -508,12 +537,29 @@ async function saveProductAttributes(
   }
 
   const nodeById = new Map((nodes ?? []).map((node) => [node.id, node]));
-  let rootNodeId = catalogNodeId;
+  const selectedCatalogPath = [];
   let current = catalogNodeId ? nodeById.get(catalogNodeId) : undefined;
-  while (current?.parent_id) {
+  while (current) {
+    selectedCatalogPath.unshift(current);
+    if (!current.parent_id) break;
     current = nodeById.get(current.parent_id);
   }
-  rootNodeId = current?.id ?? rootNodeId;
+  const rootNodeId = selectedCatalogPath[0]?.id ?? catalogNodeId;
+
+  if (isLureAccessoryPath(selectedCatalogPath)) {
+    const { error } = await supabase
+      .from("producto_atributos")
+      .delete()
+      .eq("producto_id", productId);
+    if (error) {
+      throw publicServerError(
+        "Lure accessory attributes clear failed",
+        error,
+        "No se pudieron actualizar las características del accesorio.",
+      );
+    }
+    return;
+  }
 
   const allowedDefinitions = (definitions ?? []).filter(
     (definition) => definition.catalogo_nodo_id === rootNodeId,
@@ -571,6 +617,7 @@ async function saveProductVariants(
     baseOfferPrice: number | null;
     usesAdditionalPrice: boolean;
     usesColorVariants: boolean;
+    usesSizeVariants: boolean;
   },
 ) {
   const rawVariants = getText(formData, "variants");
@@ -619,8 +666,15 @@ async function saveProductVariants(
     const stock = Number(variant.stock);
 
     if (!name) throw new ProductFormError(`Completa el nombre de la opción ${index + 1}.`);
-    if (pricing.usesColorVariants && !variantSku) {
-      throw new ProductFormError(`Completa el SKU del color ${index + 1}.`);
+    if (
+      (pricing.usesColorVariants || pricing.usesSizeVariants) &&
+      !variantSku
+    ) {
+      throw new ProductFormError(
+        `Completa el SKU del ${
+          pricing.usesSizeVariants ? "tamaño" : "color"
+        } ${index + 1}.`,
+      );
     }
     if (!Number.isFinite(price) || price < 0) {
       throw new ProductFormError(`El precio de la opción ${index + 1} no es válido.`);
@@ -660,17 +714,37 @@ async function saveProductVariants(
           `Un atributo de la opción ${index + 1}`,
           200,
         );
+        if (normalizedKey === "color" && !pricing.usesColorVariants) {
+          return [];
+        }
+        if (
+          normalizedKey === VARIANT_MODE_ATTRIBUTE_KEY &&
+          !pricing.usesSizeVariants
+        ) {
+          return [];
+        }
         return normalizedValue ? [[normalizedKey, normalizedValue]] : [];
       }),
     );
     if (pricing.usesColorVariants && !String(normalizedAttributes.color ?? "").trim()) {
       throw new ProductFormError(`Completa el nombre del color ${index + 1}.`);
     }
+    const size = String(
+      normalizedAttributes[SIZE_VARIANT_ATTRIBUTE_KEY] ?? "",
+    ).trim();
+    if (
+      pricing.usesSizeVariants &&
+      (!size ||
+        normalizedAttributes[VARIANT_MODE_ATTRIBUTE_KEY] !==
+          SIZE_VARIANT_MODE_VALUE)
+    ) {
+      throw new ProductFormError(`Completa el tamaño ${index + 1}.`);
+    }
 
     return {
       id,
       producto_id: productId,
-      nombre: name,
+      nombre: pricing.usesSizeVariants ? size : name,
       descripcion: variantDescription || null,
       atributos: normalizedAttributes,
       imagen: variantImage || null,
@@ -683,6 +757,18 @@ async function saveProductVariants(
       orden: index + 1,
     };
   });
+  if (pricing.usesSizeVariants) {
+    const normalizedSizes = normalized.map((variant) =>
+      String(variant.atributos[SIZE_VARIANT_ATTRIBUTE_KEY])
+        .trim()
+        .toLocaleLowerCase("es"),
+    );
+    if (new Set(normalizedSizes).size !== normalizedSizes.length) {
+      throw new ProductFormError(
+        "No puedes repetir el mismo tamaño dentro del producto.",
+      );
+    }
+  }
   const { data: storedVariants, error: storedError } = await supabase
     .from("producto_variantes")
     .select("id")
@@ -793,28 +879,51 @@ async function persistProduct(formData: FormData) {
 
   const hasVariants = Array.isArray(submittedVariants) && submittedVariants.length > 0;
   const usesCurricanPricing = relations.isCurrican;
-  const usesColorVariants = relations.categorySlug === "senuelos" && !relations.isCurrican;
+  const variantMode = getText(formData, "variantMode");
+  if (
+    variantMode !== "options" &&
+    variantMode !== "color" &&
+    variantMode !== "size"
+  ) {
+    throw new ProductFormError("Selecciona una forma válida de administrar las opciones.");
+  }
+  const usesColorVariants = variantMode === "color" && !relations.isCurrican;
+  const usesSizeVariants = variantMode === "size" && !relations.isCurrican;
+  const usesCalculatedVariants = usesColorVariants || usesSizeVariants;
 
-  if (usesColorVariants) {
+  if (usesCalculatedVariants) {
     if (!Array.isArray(submittedVariants) || !submittedVariants.length) {
-      throw new ProductFormError("Agrega por lo menos un color con su SKU, precio y stock.");
+      throw new ProductFormError(
+        `Agrega por lo menos un ${
+          usesSizeVariants ? "tamaño" : "color"
+        } con su SKU, precio y stock.`,
+      );
     }
 
-    const colorVariants = submittedVariants as VariantInput[];
-    const activeColorVariants = colorVariants.filter((variant) => variant.isActive !== false);
-    const priceSources = activeColorVariants.length ? activeColorVariants : colorVariants;
-    const prices = priceSources.map((variant) => Number(variant.price));
-    const stocks = activeColorVariants.map((variant) => Number(variant.stock));
+    const managedVariants = submittedVariants as VariantInput[];
+    const summarySources = managedVariants.map((variant) => ({
+      price: Number(variant.price),
+      stock: Number(variant.stock),
+      isActive: variant.isActive !== false,
+    }));
+    const prices = summarySources.map((variant) => variant.price);
+    const stocks = summarySources.map((variant) => variant.stock);
+    const variantLabel = usesSizeVariants ? "tamaños" : "colores";
 
     if (prices.some((value) => !Number.isFinite(value) || value < 0)) {
-      throw new ProductFormError("El precio de uno de los colores no es válido.");
+      throw new ProductFormError(
+        `El precio de uno de los ${variantLabel} no es válido.`,
+      );
     }
     if (stocks.some((value) => !Number.isInteger(value) || value < 0)) {
-      throw new ProductFormError("El stock de uno de los colores no es válido.");
+      throw new ProductFormError(
+        `El stock de uno de los ${variantLabel} no es válido.`,
+      );
     }
 
-    price = Math.min(...prices);
-    stock = stocks.reduce((total, value) => total + value, 0);
+    const automaticSummary = getAutomaticVariantSummary(summarySources);
+    price = automaticSummary.price;
+    stock = automaticSummary.stock;
   }
 
   if (!Number.isFinite(price) || price < 0) {
@@ -868,14 +977,18 @@ async function persistProduct(formData: FormData) {
       baseOfferPrice: offerPrice,
       usesAdditionalPrice: usesCurricanPricing,
       usesColorVariants,
+      usesSizeVariants,
     });
+    if (!usesColorVariants) {
+      await clearProductImageVariantLinks(supabase, productId, userId);
+    }
     await uploadImagesForProduct(supabase, productId, formData, userId, preparedImages);
     await saveProductAttributes(
       supabase,
       productId,
       relations.catalogNodeId,
       formData,
-      usesCurricanPricing || usesColorVariants,
+      usesCurricanPricing || usesCalculatedVariants,
     );
   } else {
     const { data, error } = await supabase
@@ -893,14 +1006,18 @@ async function persistProduct(formData: FormData) {
       baseOfferPrice: offerPrice,
       usesAdditionalPrice: usesCurricanPricing,
       usesColorVariants,
+      usesSizeVariants,
     });
+    if (!usesColorVariants) {
+      await clearProductImageVariantLinks(supabase, data.id, userId);
+    }
     await uploadImagesForProduct(supabase, data.id, formData, userId, preparedImages);
     await saveProductAttributes(
       supabase,
       data.id,
       relations.catalogNodeId,
       formData,
-      usesCurricanPricing || usesColorVariants,
+      usesCurricanPricing || usesCalculatedVariants,
     );
   }
 

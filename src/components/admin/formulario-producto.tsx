@@ -34,7 +34,12 @@ import {
 } from "@/lib/seguridad-imagenes";
 import {
   DEFAULT_CURRICAN_BASE_OPTION_NAME,
+  getAutomaticVariantSummary,
+  isLureAccessoryPath,
   MAX_PRODUCT_BASE_OPTION_NAME_LENGTH,
+  SIZE_VARIANT_ATTRIBUTE_KEY,
+  SIZE_VARIANT_MODE_VALUE,
+  VARIANT_MODE_ATTRIBUTE_KEY,
 } from "@/lib/opciones-producto";
 import { cn, slugify } from "@/lib/utilidades";
 
@@ -56,6 +61,7 @@ type ProductFormValues = {
   description: string;
   features: string;
   youtubeVideoId?: string;
+  imageAlt: string;
   isActive: boolean;
   isFeatured: boolean;
 };
@@ -68,6 +74,8 @@ type SelectedImagePreview = {
   color: string;
   variantId: string;
 };
+
+type ProductVariantMode = "options" | "color" | "size";
 
 interface ProductFormProps {
   mode: "create" | "edit";
@@ -148,6 +156,21 @@ function getOptionsForLevel(nodes: CatalogNode[], selectedPathIds: string[], lev
   return parentPath.at(-1)?.children ?? [];
 }
 
+function getInitialVariantMode(variants: ProductVariant[]): ProductVariantMode {
+  if (variants.some((variant) => Boolean(variant.attributes.color?.trim()))) {
+    return "color";
+  }
+  if (
+    variants.some(
+      (variant) =>
+        variant.attributes[VARIANT_MODE_ATTRIBUTE_KEY] === SIZE_VARIANT_MODE_VALUE,
+    )
+  ) {
+    return "size";
+  }
+  return "options";
+}
+
 // Formulario principal para crear o editar productos del catalogo.
 export function ProductForm({
   mode,
@@ -164,7 +187,14 @@ export function ProductForm({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const formErrorRef = useRef<HTMLDivElement>(null);
   const selectedImagePreviewsRef = useRef<SelectedImagePreview[]>([]);
+  const isSubmittingFormRef = useRef(false);
   const initialCatalogPathIds = getInitialCatalogPathIds(product, catalogNodes, categories);
+  const [initialCatalogPathKey] = useState(() => JSON.stringify(initialCatalogPathIds));
+  const [initialVariantsKey] = useState(() => JSON.stringify(variants));
+  const [initialVariantMode] = useState(() => getInitialVariantMode(variants));
+  const [initialAttributeValuesKey] = useState(() =>
+    JSON.stringify(initialAttributes ?? product?.attributes ?? {}),
+  );
   const [selectedCatalogPathIds, setSelectedCatalogPathIds] = useState(initialCatalogPathIds);
   const [isDraggingImages, setIsDraggingImages] = useState(false);
   const [selectedImagePreviews, setSelectedImagePreviews] = useState<SelectedImagePreview[]>([]);
@@ -172,6 +202,7 @@ export function ProductForm({
   const [mainSelectedImageId, setMainSelectedImageId] = useState<string | null>(null);
   const [pendingExistingImageId, setPendingExistingImageId] = useState<string | null>(null);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>(variants);
+  const [variantMode, setVariantMode] = useState<ProductVariantMode>(initialVariantMode);
   const hasProductVariants = productVariants.length > 0;
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>(
     initialAttributes ?? product?.attributes ?? {},
@@ -180,7 +211,7 @@ export function ProductForm({
     register,
     control,
     setValue,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ProductFormValues>({
     defaultValues: {
       name: product?.name ?? "",
@@ -196,6 +227,7 @@ export function ProductForm({
       description: product?.description ?? "",
       features: product?.features.join("\n") ?? "",
       youtubeVideoId: product?.youtubeVideoId ?? "",
+      imageAlt: product?.name ?? "",
       isActive: product?.isActive ?? true,
       isFeatured: product?.isFeatured ?? false,
     },
@@ -212,9 +244,12 @@ export function ProductForm({
   const selectedCatalogNodeId = selectedCatalogPathIds.at(-1) ?? "";
   const categorySlug = selectedCatalogPath[0]?.slug ?? product?.categorySlug ?? categories[0]?.slug ?? "";
   const isCurrican = selectedCatalogPath.some((node) => node.slug === "curricanes");
+  const isLureAccessory = isLureAccessoryPath(selectedCatalogPath);
   const displayedBaseOptionName =
     baseOptionName?.trim() || DEFAULT_CURRICAN_BASE_OPTION_NAME;
-  const isColorSelectableLure = categorySlug === "senuelos" && !isCurrican;
+  const usesColorVariants = variantMode === "color" && !isCurrican;
+  const usesSizeVariants = variantMode === "size" && !isCurrican;
+  const usesCalculatedVariants = usesColorVariants || usesSizeVariants;
   const curricanOptions = isCurrican && productVariants.length > 0;
   const subcategorySlug = selectedCatalogPath[1]?.slug ?? product?.subcategorySlug ?? "";
   const categoryAttributes = useMemo(
@@ -225,25 +260,29 @@ export function ProductForm({
     [catalogAttributes, selectedCatalogPath],
   );
   const serializedAttributes = useMemo(
-    () =>
-      JSON.stringify(
+    () => {
+      if (isLureAccessory) return "[]";
+
+      return JSON.stringify(
         categoryAttributes.flatMap((attribute) => {
           const value = attributeValues[attribute.key]?.trim() ?? "";
           return value ? [{ attributeId: attribute.id, value }] : [];
         }),
-      ),
-    [attributeValues, categoryAttributes],
+      );
+    },
+    [attributeValues, categoryAttributes, isLureAccessory],
   );
-  const colorVariantSummary = useMemo(() => {
-    const activeVariants = productVariants.filter((variant) => variant.isActive);
-    const priceSources = activeVariants.length ? activeVariants : productVariants;
-    return {
-      price: priceSources.length
-        ? Math.min(...priceSources.map((variant) => variant.price))
-        : 0,
-      stock: activeVariants.reduce((total, variant) => total + variant.stock, 0),
-    };
-  }, [productVariants]);
+  const automaticVariantSummary = useMemo(
+    () => getAutomaticVariantSummary(productVariants),
+    [productVariants],
+  );
+  const hasUnsavedChanges =
+    isDirty ||
+    JSON.stringify(selectedCatalogPathIds) !== initialCatalogPathKey ||
+    JSON.stringify(productVariants) !== initialVariantsKey ||
+    variantMode !== initialVariantMode ||
+    JSON.stringify(attributeValues) !== initialAttributeValuesKey ||
+    selectedImagePreviews.length > 0;
 
   useEffect(() => {
     if (mode === "create") {
@@ -254,6 +293,70 @@ export function ProductForm({
   useEffect(() => {
     selectedImagePreviewsRef.current = selectedImagePreviews;
   }, [selectedImagePreviews]);
+
+  useEffect(() => {
+    const warningMessage =
+      "Tienes cambios sin guardar. Si sales ahora, se perderán. Presiona Cancelar para volver y guardarlos, o Aceptar para salir.";
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges || isSubmittingFormRef.current) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        !hasUnsavedChanges ||
+        isSubmittingFormRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (
+        !anchor ||
+        anchor.target === "_blank" ||
+        anchor.hasAttribute("download")
+      ) {
+        return;
+      }
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.href === window.location.href) return;
+
+      event.preventDefault();
+      if (!window.confirm(warningMessage)) return;
+
+      isSubmittingFormRef.current = true;
+      if (destination.origin === window.location.origin) {
+        router.push(`${destination.pathname}${destination.search}${destination.hash}`);
+        return;
+      }
+
+      window.location.assign(destination.href);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("click", handleDocumentClick, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [hasUnsavedChanges, router]);
 
   useEffect(() => {
     return () => {
@@ -272,6 +375,7 @@ export function ProductForm({
   useEffect(() => {
     if (actionState.status !== "error") return;
 
+    isSubmittingFormRef.current = false;
     const dataTransfer = new DataTransfer();
     selectedImagePreviewsRef.current.forEach((image) =>
       dataTransfer.items.add(image.file),
@@ -305,7 +409,7 @@ export function ProductForm({
       return;
     }
 
-    const defaultColorVariant = isColorSelectableLure ? productVariants[0] : undefined;
+    const defaultColorVariant = usesColorVariants ? productVariants[0] : undefined;
     const previews = imageFiles.map((file, index) => ({
       id: `${file.name}-${file.lastModified}-${Date.now()}-${index}`,
       file,
@@ -387,9 +491,57 @@ export function ProductForm({
     }
   };
 
+  const changeVariantMode = (nextMode: ProductVariantMode) => {
+    setVariantMode(nextMode);
+    setProductVariants((current) =>
+      current.map((item) => {
+        const attributes = { ...item.attributes };
+        let name = item.name;
+
+        delete attributes.color;
+        delete attributes[VARIANT_MODE_ATTRIBUTE_KEY];
+        delete attributes[SIZE_VARIANT_ATTRIBUTE_KEY];
+
+        if (nextMode === "color") {
+          attributes.color = item.attributes.color?.trim() || item.name;
+        }
+        if (nextMode === "size") {
+          const size =
+            item.attributes[SIZE_VARIANT_ATTRIBUTE_KEY]?.trim() || item.name;
+          attributes[SIZE_VARIANT_ATTRIBUTE_KEY] = size;
+          attributes[VARIANT_MODE_ATTRIBUTE_KEY] = SIZE_VARIANT_MODE_VALUE;
+          name = size;
+        }
+
+        return { ...item, name, attributes };
+      }),
+    );
+
+    const defaultVariant = productVariants[0];
+    setSelectedImagePreviews((current) =>
+      current.map((image) => ({
+        ...image,
+        color:
+          nextMode === "color"
+            ? image.color ||
+              defaultVariant?.attributes.color ||
+              defaultVariant?.name ||
+              ""
+            : "",
+        variantId:
+          nextMode === "color"
+            ? image.variantId || defaultVariant?.id || ""
+            : "",
+      })),
+    );
+  };
+
   return (
     <form
       action={formAction}
+      onSubmitCapture={() => {
+        isSubmittingFormRef.current = true;
+      }}
       className="grid w-full max-w-full min-w-0 grid-cols-1 gap-6 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]"
     >
       <input type="hidden" name="productId" value={product?.id ?? ""} />
@@ -398,6 +550,11 @@ export function ProductForm({
       <input type="hidden" name="categorySlug" value={categorySlug} />
       <input type="hidden" name="subcategorySlug" value={subcategorySlug} />
       <input type="hidden" name="curricanConfiguration" value={isCurrican ? "true" : ""} />
+      <input
+        type="hidden"
+        name="variantMode"
+        value={isCurrican ? "options" : variantMode}
+      />
       <input type="hidden" name="catalogNodeId" value={selectedCatalogNodeId} />
       <input type="hidden" name="isActive" value={isActive ? "on" : ""} />
       <input type="hidden" name="isFeatured" value={isFeatured ? "on" : ""} />
@@ -441,13 +598,21 @@ export function ProductForm({
             <Field id="slug" label="Slug automatico" error={errors.slug?.message}>
               <Input id="slug" value={product?.slug ?? slugify(name)} readOnly disabled />
             </Field>
-            <Field id="sku" label={isColorSelectableLure ? "SKU del modelo o familia" : "SKU"} error={errors.sku?.message}>
+            <Field
+              id="sku"
+              label={
+                usesCalculatedVariants ? "SKU del producto o familia" : "SKU"
+              }
+              error={errors.sku?.message}
+            >
               <Input id="sku" {...register("sku")} name="sku" required />
             </Field>
             <Field id="brand" label="Marca" error={errors.brand?.message}>
               <Select
                 value={brand}
-                onValueChange={(value) => setValue("brand", value, { shouldValidate: true })}
+                onValueChange={(value) =>
+                  setValue("brand", value, { shouldDirty: true, shouldValidate: true })
+                }
               >
                 <SelectTrigger id="brand">
                   <SelectValue />
@@ -467,7 +632,10 @@ export function ProductForm({
                 selectedPathIds={selectedCatalogPathIds}
                 onChange={(pathIds) => {
                   setSelectedCatalogPathIds(pathIds);
-                  setValue("catalogNodeId", pathIds.at(-1) ?? "", { shouldValidate: true });
+                  setValue("catalogNodeId", pathIds.at(-1) ?? "", {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                 }}
               />
             </Field>
@@ -496,7 +664,17 @@ export function ProductForm({
                 </p>
               </Field>
             ) : null}
-            <Field id="price" label={isColorSelectableLure ? "Precio mínimo calculado" : isCurrican ? `Precio base de “${displayedBaseOptionName}”` : "Precio"} error={errors.price?.message}>
+            <Field
+              id="price"
+              label={
+                usesCalculatedVariants
+                  ? "Precio mínimo calculado"
+                  : isCurrican
+                    ? `Precio base de “${displayedBaseOptionName}”`
+                    : "Precio"
+              }
+              error={errors.price?.message}
+            >
               <Input
                 id="price"
                 type="number"
@@ -505,27 +683,44 @@ export function ProductForm({
                 {...register("price", { valueAsNumber: true })}
                 name="price"
                 value={
-                  isColorSelectableLure
-                    ? colorVariantSummary.price
+                  usesCalculatedVariants
+                    ? automaticVariantSummary.price
                     : Number.isFinite(price)
                       ? price
                       : ""
                 }
-                readOnly={isColorSelectableLure}
+                readOnly={usesCalculatedVariants}
+                disabled={usesCalculatedVariants}
                 required
               />
-              {isColorSelectableLure ? (
-                <p className="text-xs text-muted-foreground">Se calcula automáticamente a partir de los colores activos.</p>
+              {usesCalculatedVariants ? (
+                <p className="text-xs text-muted-foreground">
+                  Campo bloqueado: se toma automáticamente el menor precio de las{" "}
+                  {usesSizeVariants ? "medidas" : "variantes de color"} activas.
+                </p>
               ) : null}
             </Field>
-            <Field id="offerPrice" label={isCurrican ? `Oferta de “${displayedBaseOptionName}” (opcional)` : "Precio de oferta (opcional)"} error={errors.offerPrice?.message}>
+            <Field
+              id="offerPrice"
+              label={
+                usesCalculatedVariants
+                  ? "Ofertas administradas por variante"
+                  : isCurrican
+                    ? `Oferta de “${displayedBaseOptionName}” (opcional)`
+                    : "Precio de oferta (opcional)"
+              }
+              error={errors.offerPrice?.message}
+            >
               <Input
                 id="offerPrice"
                 type="number"
                 min="0.01"
                 max={price > 0.01 ? price - 0.01 : 0}
                 step="0.01"
-                disabled={productVariants.length > 0 && !isCurrican}
+                disabled={
+                  usesCalculatedVariants ||
+                  (productVariants.length > 0 && !isCurrican)
+                }
                 {...register("offerPrice", {
                   setValueAs: (value) => (value === "" ? undefined : Number(value)),
                   validate: (value) =>
@@ -535,7 +730,12 @@ export function ProductForm({
                 })}
                 name="offerPrice"
               />
-              {curricanOptions ? (
+              {usesCalculatedVariants ? (
+                <p className="text-xs text-muted-foreground">
+                  Campo bloqueado: si corresponde, configura la oferta dentro de
+                  cada {usesSizeVariants ? "tamaño" : "color"}.
+                </p>
+              ) : curricanOptions ? (
                 <p className="text-xs text-muted-foreground">
                   La oferta se aplica al precio base. Los adicionales de cada configuración se suman sin descuento.
                 </p>
@@ -545,7 +745,17 @@ export function ProductForm({
                 </p>
               ) : null}
             </Field>
-            <Field id="stock" label={isColorSelectableLure ? "Stock total calculado" : isCurrican ? `Stock de “${displayedBaseOptionName}”` : "Stock"} error={errors.stock?.message}>
+            <Field
+              id="stock"
+              label={
+                usesCalculatedVariants
+                  ? "Stock total calculado"
+                  : isCurrican
+                    ? `Stock de “${displayedBaseOptionName}”`
+                    : "Stock"
+              }
+              error={errors.stock?.message}
+            >
               <Input
                 id="stock"
                 type="number"
@@ -553,17 +763,22 @@ export function ProductForm({
                 {...register("stock", { valueAsNumber: true })}
                 name="stock"
                 value={
-                  isColorSelectableLure
-                    ? colorVariantSummary.stock
+                  usesCalculatedVariants
+                    ? automaticVariantSummary.stock
                     : Number.isFinite(stock)
                       ? stock
                       : ""
                 }
-                readOnly={isColorSelectableLure}
+                readOnly={usesCalculatedVariants}
+                disabled={usesCalculatedVariants}
                 required
               />
-              {isColorSelectableLure ? (
-                <p className="text-xs text-muted-foreground">Suma el inventario de todos los colores activos.</p>
+              {usesCalculatedVariants ? (
+                <p className="text-xs text-muted-foreground">
+                  Campo bloqueado: suma automáticamente el inventario de{" "}
+                  {usesSizeVariants ? "todos los tamaños" : "todos los colores"}{" "}
+                  activos.
+                </p>
               ) : null}
             </Field>
             <Field id="youtubeVideoId" label="Link o ID de YouTube" error={errors.youtubeVideoId?.message}>
@@ -582,21 +797,30 @@ export function ProductForm({
                 </p>
               </div>
             </Field>
-            {categoryAttributes.length ? (
+            {categoryAttributes.length && !isLureAccessory ? (
               <div className="sm:col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <div className="mb-4">
                   <h3 className="font-semibold text-dark-blue">Especificaciones base para filtros</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {curricanOptions
                       ? "Completa estos datos una sola vez: serán la ficha técnica y los filtros de todo el curricán."
-                      : isColorSelectableLure
-                      ? "Completa estos datos una sola vez: técnica, medidas y ficha técnica se comparten entre todos los colores."
+                      : usesColorVariants
+                        ? "Completa estos datos una sola vez: técnica, medidas y ficha técnica se comparten entre todos los colores."
+                      : usesSizeVariants
+                        ? "Completa estos datos una sola vez: la ficha técnica se comparte entre todos los tamaños. La medida vendible se configura abajo."
                       : hasProductVariants
                       ? "Este producto usa opciones. Sus especificaciones, selectores y filtros se toman de cada opción más abajo."
                       : "Completa los datos técnicos del modelo general para los filtros de esta categoría."}
                   </p>
                 </div>
-                <fieldset disabled={hasProductVariants && !isCurrican && !isColorSelectableLure} className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2">
+                <fieldset
+                  disabled={
+                    hasProductVariants &&
+                    !isCurrican &&
+                    !usesCalculatedVariants
+                  }
+                  className="grid gap-4 disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-2"
+                >
                   {categoryAttributes.map((attribute) => {
                     const inputId = `attribute-${attribute.id}`;
                     const value = attributeValues[attribute.key] ?? "";
@@ -615,7 +839,12 @@ export function ProductForm({
                           type={attribute.type === "numero" ? "number" : "text"}
                           value={value}
                           list={dataListId}
-                          required={attribute.isRequired && (!hasProductVariants || isCurrican || isColorSelectableLure)}
+                          required={
+                            attribute.isRequired &&
+                            (!hasProductVariants ||
+                              isCurrican ||
+                              usesCalculatedVariants)
+                          }
                           onChange={(event) =>
                             setAttributeValues((current) => ({
                               ...current,
@@ -664,16 +893,20 @@ export function ProductForm({
               <CardTitle>
                 {isCurrican
                   ? "Configuraciones adicionales"
-                  : isColorSelectableLure
+                  : usesColorVariants
                     ? "Colores disponibles"
+                    : usesSizeVariants
+                      ? "Tamaños disponibles"
                     : "Opciones del producto"}
               </CardTitle>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {isCurrican
                   ? "El señuelo sin aparejo se configura arriba como precio base. Aquí agrega solamente armados o extras, como uno o dos anzuelos o faldas adicionales."
-                  : isColorSelectableLure
+                  : usesColorVariants
                     ? "Cada color tiene identidad propia: SKU, precio, oferta, stock e imágenes. Todos se muestran dentro de este mismo producto."
-                  : "Úsalas cuando el mismo producto se venda en diferentes medidas, colores, capacidades o configuraciones."}
+                    : usesSizeVariants
+                      ? "Cada tamaño tiene su propio SKU, precio, oferta y stock. Las imágenes y la ficha comercial pertenecen al producto por color."
+                  : "Úsalas cuando el mismo producto se venda en diferentes medidas, capacidades o configuraciones."}
               </p>
             </div>
             <Button
@@ -690,7 +923,15 @@ export function ProductForm({
                       productId: product?.id ?? "",
                       name: "",
                       description: "",
-                      attributes: isColorSelectableLure ? { color: "" } : {},
+                      attributes: usesColorVariants
+                        ? { color: "" }
+                        : usesSizeVariants
+                          ? {
+                              [SIZE_VARIANT_ATTRIBUTE_KEY]: "",
+                              [VARIANT_MODE_ATTRIBUTE_KEY]:
+                                SIZE_VARIANT_MODE_VALUE,
+                            }
+                          : {},
                       sku: "",
                       price: price ?? product?.price ?? 0,
                       additionalPrice: 0,
@@ -704,10 +945,85 @@ export function ProductForm({
               }
             >
               <Plus aria-hidden="true" />
-              {isCurrican ? "Agregar configuración" : isColorSelectableLure ? "Agregar color" : "Agregar opción"}
+              {isCurrican
+                ? "Agregar configuración"
+                : usesColorVariants
+                  ? "Agregar color"
+                  : usesSizeVariants
+                    ? "Agregar tamaño"
+                    : "Agregar opción"}
             </Button>
           </CardHeader>
           <CardContent>
+            {!isCurrican ? (
+              <div className="mb-5 grid gap-3 md:grid-cols-2">
+                <div
+                  className={cn(
+                    "flex items-start justify-between gap-4 rounded-lg border p-4",
+                    usesColorVariants
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border bg-white",
+                  )}
+                >
+                  <div>
+                    <Label
+                      htmlFor="color-variants"
+                      className="font-bold text-dark-blue"
+                    >
+                      Variantes por color
+                    </Label>
+                    <p
+                      id="color-variants-help"
+                      className="mt-1 text-sm leading-6 text-muted-foreground"
+                    >
+                      Para un mismo modelo disponible en varios colores, cada uno
+                      con inventario e imágenes propias.
+                    </p>
+                  </div>
+                  <Switch
+                    id="color-variants"
+                    checked={usesColorVariants}
+                    onCheckedChange={(checked) =>
+                      changeVariantMode(checked ? "color" : "options")
+                    }
+                    aria-describedby="color-variants-help"
+                  />
+                </div>
+
+                <div
+                  className={cn(
+                    "flex items-start justify-between gap-4 rounded-lg border p-4",
+                    usesSizeVariants
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border bg-white",
+                  )}
+                >
+                  <div>
+                    <Label
+                      htmlFor="size-variants"
+                      className="font-bold text-dark-blue"
+                    >
+                      Variantes por tamaño
+                    </Label>
+                    <p
+                      id="size-variants-help"
+                      className="mt-1 text-sm leading-6 text-muted-foreground"
+                    >
+                      Ideal para una ficha por color con medidas como 9, 10 o 12
+                      pulgadas y stock separado.
+                    </p>
+                  </div>
+                  <Switch
+                    id="size-variants"
+                    checked={usesSizeVariants}
+                    onCheckedChange={(checked) =>
+                      changeVariantMode(checked ? "size" : "options")
+                    }
+                    aria-describedby="size-variants-help"
+                  />
+                </div>
+              </div>
+            ) : null}
             {productVariants.length ? (
               <div className="space-y-4">
                 {productVariants.map((variant, index) => (
@@ -716,8 +1032,10 @@ export function ProductForm({
                       <p className="font-bold text-dark-blue">
                         {isCurrican
                           ? `Configuración adicional ${index + 1}`
-                          : isColorSelectableLure
+                          : usesColorVariants
                             ? `Color ${index + 1}`
+                            : usesSizeVariants
+                              ? `Tamaño ${index + 1}`
                             : `Opción ${index + 1}`}
                       </p>
                       <div className="flex items-center gap-1">
@@ -839,12 +1157,29 @@ export function ProductForm({
                       </div>
                     ) : (
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <Field id={`variant-name-${index}`} label={isColorSelectableLure ? "Nombre del color" : "Nombre de la opción"}>
+                      <Field
+                        id={`variant-name-${index}`}
+                        label={
+                          usesColorVariants
+                            ? "Nombre del color"
+                            : usesSizeVariants
+                              ? "Tamaño o medida"
+                              : "Nombre de la opción"
+                        }
+                      >
                         <Input
                           id={`variant-name-${index}`}
                           value={variant.name}
-                          placeholder={isColorSelectableLure ? "Ejemplo: Negro / Rojo" : "Ejemplo: 7 pies · Medium Heavy · 15-30 lb"}
-                          required={isColorSelectableLure && variant.isActive}
+                          placeholder={
+                            usesColorVariants
+                              ? "Ejemplo: Negro / Rojo"
+                              : usesSizeVariants
+                                ? "Ejemplo: 9 pulgadas"
+                                : "Ejemplo: 7 pies · Medium Heavy · 15-30 lb"
+                          }
+                          required={
+                            usesCalculatedVariants && variant.isActive
+                          }
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -852,9 +1187,17 @@ export function ProductForm({
                                   ? {
                                       ...item,
                                       name: event.target.value,
-                                      attributes: isColorSelectableLure
+                                      attributes: usesColorVariants
                                         ? { ...item.attributes, color: event.target.value }
-                                        : item.attributes,
+                                        : usesSizeVariants
+                                          ? {
+                                              ...item.attributes,
+                                              [SIZE_VARIANT_ATTRIBUTE_KEY]:
+                                                event.target.value,
+                                              [VARIANT_MODE_ATTRIBUTE_KEY]:
+                                                SIZE_VARIANT_MODE_VALUE,
+                                            }
+                                          : item.attributes,
                                     }
                                   : item,
                               ),
@@ -862,11 +1205,25 @@ export function ProductForm({
                           }
                         />
                       </Field>
-                      <Field id={`variant-sku-${index}`} label={isColorSelectableLure ? "SKU del color" : "SKU opcional"}>
+                      <Field
+                        id={`variant-sku-${index}`}
+                        label={
+                          usesColorVariants
+                            ? "SKU del color"
+                            : usesSizeVariants
+                              ? "SKU del tamaño"
+                              : "SKU opcional"
+                        }
+                      >
                         <Input
                           id={`variant-sku-${index}`}
                           value={variant.sku}
-                          required={isColorSelectableLure && variant.isActive}
+                          required={
+                            usesCalculatedVariants && variant.isActive
+                          }
+                          placeholder={
+                            usesSizeVariants ? "Ejemplo: FAL-NAR-09" : undefined
+                          }
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -883,6 +1240,9 @@ export function ProductForm({
                           min="0"
                           step="0.01"
                           value={variant.price}
+                          required={
+                            usesCalculatedVariants && variant.isActive
+                          }
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -933,6 +1293,9 @@ export function ProductForm({
                           min="0"
                           step="1"
                           value={variant.stock}
+                          required={
+                            usesCalculatedVariants && variant.isActive
+                          }
                           onChange={(event) =>
                             setProductVariants((current) =>
                               current.map((item) =>
@@ -942,7 +1305,7 @@ export function ProductForm({
                           }
                         />
                       </Field>
-                      {categoryAttributes.length && !isColorSelectableLure ? (
+                      {categoryAttributes.length && !usesCalculatedVariants ? (
                         <div className="sm:col-span-2 rounded-md border border-primary/20 bg-white p-3">
                           <p className="text-sm font-bold text-dark-blue">Especificaciones del modelo u opción</p>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -1001,7 +1364,13 @@ export function ProductForm({
 
                     <label className="mt-4 flex items-center justify-between rounded-md border border-border bg-white p-3">
                       <span>
-                        <span className="block text-sm font-bold text-dark-blue">Opción activa</span>
+                        <span className="block text-sm font-bold text-dark-blue">
+                          {usesSizeVariants
+                            ? "Tamaño activo"
+                            : usesColorVariants
+                              ? "Color activo"
+                              : "Opción activa"}
+                        </span>
                         <span className="text-xs text-muted-foreground">Disponible para mostrar y vender.</span>
                       </span>
                       <Switch
@@ -1043,7 +1412,9 @@ export function ProductForm({
               <Switch
                 id="isActive"
                 checked={isActive}
-                onCheckedChange={(checked) => setValue("isActive", checked)}
+                onCheckedChange={(checked) =>
+                  setValue("isActive", checked, { shouldDirty: true })
+                }
               />
             </div>
             <div className="mt-4 flex items-center justify-between rounded-lg border border-border p-4">
@@ -1056,7 +1427,9 @@ export function ProductForm({
               <Switch
                 id="isFeatured"
                 checked={isFeatured}
-                onCheckedChange={(checked) => setValue("isFeatured", checked)}
+                onCheckedChange={(checked) =>
+                  setValue("isFeatured", checked, { shouldDirty: true })
+                }
               />
             </div>
             <ProductSubmitButton mode={mode} />
@@ -1126,7 +1499,7 @@ export function ProductForm({
                 </div>
               ) : null}
               <Field id="imageAlt" label="Texto alternativo para imagenes nuevas">
-                <Input id="imageAlt" name="imageAlt" defaultValue={product?.name ?? ""} />
+                <Input id="imageAlt" {...register("imageAlt")} name="imageAlt" />
               </Field>
               {selectedImagePreviews.length ? (
                 <div className="grid gap-3">
@@ -1171,7 +1544,7 @@ export function ProductForm({
                       <p className="mt-2 truncate text-xs text-muted-foreground">
                         {index + 1}. {image.alt}
                       </p>
-                      {isColorSelectableLure ? (
+                      {usesColorVariants ? (
                         <Field id={`new-image-color-${image.id}`} label="Color al que pertenece" className="mt-3">
                           <Select
                             value={image.variantId}
@@ -1262,7 +1635,7 @@ export function ProductForm({
                           </Button>
                         </div>
                       </div>
-                      {isColorSelectableLure ? (
+                      {usesColorVariants ? (
                         <Field id={`existing-image-color-${image.id}`} label="Color al que pertenece" className="mt-3">
                           <Select
                             value={image.variantId ?? "__none"}
