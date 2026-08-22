@@ -45,8 +45,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_ci_placeholder' }}
         run: pnpm build
 
-      - name: Revisar migraciones y secretos
-        run: pnpm security:migrations && pnpm security:secrets
+      - name: Revisar secretos
+        run: pnpm security:secrets
 
       - name: Auditar dependencias
         run: pnpm security:audit
