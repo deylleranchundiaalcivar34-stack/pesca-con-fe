@@ -10,6 +10,7 @@ const order: Order = {
   customer: { fullName: "Cliente de prueba", phone: "0999999999" },
   items: [],
   subtotal: 20,
+  discount: 0,
   shipping: 0,
   paymentFee: 0,
   total: 20,

@@ -11,6 +11,7 @@ interface CheckoutMessageInput {
   customer: CustomerInfo;
   items: OrderItem[];
   subtotal: number;
+  discount?: number;
   shipping: number;
   total: number;
   bankAccount?: BankAccount;
@@ -87,6 +88,9 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
     "",
     "*RESUMEN*",
     `Subtotal: ${formatCurrency(input.subtotal)}`,
+    input.discount && input.discount > 0
+      ? `Descuento de bienvenida: -${formatCurrency(input.discount)}`
+      : undefined,
     isGalapagosDelivery
       ? "Envío: Por confirmar"
       : `Envío: ${formatCurrency(input.shipping)}`,

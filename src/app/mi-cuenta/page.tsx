@@ -210,9 +210,10 @@ function OrdersList({
               ))}
             </div>
             <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-muted-foreground">
-                {DELIVERY_TYPE_LABELS[order.deliveryType]}
-              </span>
+              <div className="text-muted-foreground">
+                <p>{DELIVERY_TYPE_LABELS[order.deliveryType]}</p>
+                {order.discount > 0 ? <p className="font-semibold text-emerald-700">Bienvenida 10%: -{formatCurrency(order.discount)}</p> : null}
+              </div>
               <span className="text-lg font-black text-dark-blue">
                 {formatCurrency(order.total)}
               </span>

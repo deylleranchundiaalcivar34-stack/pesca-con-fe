@@ -43,7 +43,11 @@ import {
   isValidEcuadorianCedula,
 } from "@/lib/checkout-envio";
 import { formatCurrency } from "@/lib/utilidades";
-import { getEffectivePrice } from "@/lib/precios-producto";
+import { getEffectivePrice, hasActiveOffer } from "@/lib/precios-producto";
+import {
+  calculateWelcomePromotion,
+  type WelcomePromotionStatus,
+} from "@/lib/promocion-bienvenida";
 import {
   getProductBaseOptionName,
   isCurricanProduct,
@@ -143,11 +147,13 @@ const deliveryOptions: Array<{
 export function CheckoutForm({
   customerDefaults = {},
   checkoutAddresses,
+  welcomePromotionStatus,
   bankAccounts,
   businessConfig,
 }: {
   customerDefaults?: CheckoutCustomerDefaults;
   checkoutAddresses: CustomerAddress[];
+  welcomePromotionStatus: WelcomePromotionStatus;
   bankAccounts: BankAccount[];
   businessConfig: BusinessConfig;
 }) {
@@ -217,7 +223,16 @@ export function CheckoutForm({
   const displayShipping =
     isClient && deliveryType === "envio_servientrega" && !isGalapagosDelivery ? shipping : 0;
   const displayPayPhoneFee = isClient && paymentMethod === "payphone" ? PAYPHONE_SERVICE_FEE : 0;
-  const displayTotal = displaySubtotal + displayShipping + displayPayPhoneFee;
+  const hasCartOffer = visibleItems.some((item) =>
+    hasActiveOffer(item.variant ?? item.product),
+  );
+  const welcomePromotion = calculateWelcomePromotion({
+    subtotal: displaySubtotal,
+    available: welcomePromotionStatus === "disponible",
+    hasExistingOffer: hasCartOffer,
+  });
+  const displayTotal =
+    displaySubtotal - welcomePromotion.discount + displayShipping + displayPayPhoneFee;
   const cityOptions = useMemo(() => {
     const cities = [
       ...(ECUADOR_UBICACIONES[selectedProvince as keyof typeof ECUADOR_UBICACIONES] ?? []),
@@ -379,6 +394,7 @@ export function CheckoutForm({
       customer: createdOrder.order.customer,
       items: createdOrder.order.items,
       subtotal: createdOrder.order.subtotal,
+      discount: createdOrder.order.discount,
       shipping: createdOrder.order.shipping,
       total: createdOrder.order.total,
       bankAccount: isGalapagosOrder ? undefined : selectedBank,
@@ -867,6 +883,12 @@ export function CheckoutForm({
                 <span>Subtotal</span>
                 <span>{formatCurrency(displaySubtotal)}</span>
               </div>
+              {welcomePromotion.applies ? (
+                <div className="flex justify-between font-semibold text-emerald-700">
+                  <span>Bienvenida 10%</span>
+                  <span>-{formatCurrency(welcomePromotion.discount)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span>{DELIVERY_TYPE_LABELS[deliveryType]}</span>
                 <span>{isGalapagosDelivery ? "Por cotizar" : formatCurrency(displayShipping)}</span>
@@ -882,6 +904,21 @@ export function CheckoutForm({
                 <span>{formatCurrency(displayTotal)}</span>
               </div>
             </div>
+            {welcomePromotionStatus === "disponible" ? (
+              <div className="mt-4 rounded-lg border border-gold/60 bg-gold/10 p-3 text-xs leading-5 text-dark-blue">
+                {welcomePromotion.reason === "aplicada" ? (
+                  <p><strong>¡Beneficio aplicado!</strong> Ahorras {formatCurrency(welcomePromotion.discount)} en tu primera compra.</p>
+                ) : welcomePromotion.reason === "subtotal_insuficiente" ? (
+                  <p>Agrega {formatCurrency(welcomePromotion.amountUntilEligible)} en productos para activar tu 10% de bienvenida.</p>
+                ) : (
+                  <p>Tu carrito ya contiene precios de oferta. El beneficio de bienvenida no se acumula con otras promociones.</p>
+                )}
+              </div>
+            ) : welcomePromotionStatus === "reservada" ? (
+              <p className="mt-4 rounded-lg border border-border bg-secondary p-3 text-xs leading-5 text-muted-foreground">
+                Tu beneficio de bienvenida está reservado en otro pedido pendiente.
+              </p>
+            ) : null}
             <Button
               type="submit"
               variant={paymentMethod === "payphone" ? "dark" : "default"}

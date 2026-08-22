@@ -52,6 +52,8 @@ export interface Order {
   customer: CustomerInfo;
   items: OrderItem[];
   subtotal: number;
+  discount: number;
+  promotionCode?: string;
   shipping: number;
   paymentFee: number;
   total: number;

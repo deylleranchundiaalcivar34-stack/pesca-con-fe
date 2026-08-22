@@ -7,6 +7,7 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getBankAccounts, getBusinessConfig } from "@/lib/supabase/data";
 import { getCustomerAddresses, getCustomerProfile } from "@/lib/usuario";
+import type { WelcomePromotionStatus } from "@/lib/promocion-bienvenida";
 import type { CheckoutCustomerDefaults } from "@/types/cliente";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 async function getAuthenticatedCheckoutData(): Promise<{
   customerDefaults: CheckoutCustomerDefaults;
   checkoutAddresses: Awaited<ReturnType<typeof getCustomerAddresses>>;
+  welcomePromotionStatus: WelcomePromotionStatus;
 }> {
   if (!hasSupabaseEnv()) {
     redirect("/login?error=config&redirect=%2Fcheckout");
@@ -33,9 +35,12 @@ async function getAuthenticatedCheckoutData(): Promise<{
     redirect("/login?redirect=%2Fcheckout");
   }
 
-  const [profile, addresses] = await Promise.all([
+  const [profile, addresses, promotionResult] = await Promise.all([
     getCustomerProfile(supabase, user.id),
     getCustomerAddresses(supabase, user.id),
+    supabase
+      .rpc("obtener_estado_promocion_bienvenida")
+      .single<{ estado: WelcomePromotionStatus }>(),
   ]);
   if (
     !profile?.fullName.trim() ||
@@ -61,6 +66,10 @@ async function getAuthenticatedCheckoutData(): Promise<{
       contactPhone: primaryAddress?.contactPhone ?? profile.phone ?? "",
     },
     checkoutAddresses: addresses,
+    welcomePromotionStatus:
+      promotionResult.error || !promotionResult.data
+        ? "no_autenticado"
+        : promotionResult.data.estado,
   };
 }
 
@@ -88,6 +97,7 @@ export default async function CheckoutPage() {
           <CheckoutForm
             customerDefaults={checkoutData.customerDefaults}
             checkoutAddresses={checkoutData.checkoutAddresses}
+            welcomePromotionStatus={checkoutData.welcomePromotionStatus}
             bankAccounts={bankAccounts}
             businessConfig={businessConfig}
           />

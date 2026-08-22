@@ -70,6 +70,8 @@ type PersistedCheckoutOrder = {
   cliente_direccion: string | null;
   cliente_referencia_entrega: string | null;
   subtotal: number | string;
+  descuento: number | string;
+  promocion_codigo: string | null;
   envio: number | string;
   total: number | string;
   pedido_items: PersistedCheckoutItem[];
@@ -480,7 +482,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const { data: persistedOrder, error: persistedOrderError } = await supabase
     .from("pedidos")
     .select(
-      "codigo, cliente_nombre_completo, cliente_cedula, cliente_celular, cliente_provincia, cliente_ciudad, cliente_direccion, cliente_referencia_entrega, subtotal, envio, total, pedido_items(id, producto_id, variante_id, variante_nombre, variante_sku, producto_nombre, producto_slug, producto_imagen, categoria_slug, precio, cantidad)",
+      "codigo, cliente_nombre_completo, cliente_cedula, cliente_celular, cliente_provincia, cliente_ciudad, cliente_direccion, cliente_referencia_entrega, subtotal, descuento, promocion_codigo, envio, total, pedido_items(id, producto_id, variante_id, variante_nombre, variante_sku, producto_nombre, producto_slug, producto_imagen, categoria_slug, precio, cantidad)",
     )
     .eq("id", rpcOrder.id)
     .single<PersistedCheckoutOrder>();
@@ -525,6 +527,8 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
         categorySlug: item.categoria_slug,
       })),
       subtotal: Number(persistedOrder.subtotal),
+      discount: Number(persistedOrder.descuento),
+      promotionCode: persistedOrder.promocion_codigo ?? undefined,
       shipping: Number(persistedOrder.envio),
       total: Number(persistedOrder.total),
     },
