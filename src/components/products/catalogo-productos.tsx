@@ -4,15 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Filter } from "lucide-react";
-import type { Product, ProductCategory } from "@/types/producto";
+import type {
+  CatalogAttribute,
+  CatalogNode,
+  Product,
+  ProductCategory,
+} from "@/types/producto";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -22,12 +20,36 @@ import {
 } from "@/components/ui/sheet";
 import {
   ProductFilters,
-  type ProductFilterOption,
   type ProductFilterState,
 } from "./filtros-productos";
 import { ProductGrid } from "./cuadricula-productos";
+import { FullCatalogLink } from "./enlace-catalogo-completo";
+import {
+  ProductPagination,
+  ProductSortSelect,
+} from "./controles-listado-productos";
+import {
+  getProductCatalogPathKeys,
+  getRelatedSearchSuggestions,
+  normalizeSearchText,
+  rankProductsForSearch,
+} from "@/lib/busqueda-productos";
+import {
+  readProductListingUrlState,
+  sortProducts,
+  writeProductListingUrlState,
+  type ProductSort,
+} from "@/lib/estado-listado-productos";
 import { getProductPricingSummary } from "@/lib/precios-producto";
-import { getValidCatalogCategory } from "@/lib/filtros-catalogo";
+import {
+  getValidCatalogCategory,
+} from "@/lib/filtros-catalogo";
+import {
+  buildCatalogFilterOptions,
+  buildProductAttributeFacets,
+  getProductFacetValues,
+  type ProductFilterOption,
+} from "@/lib/facetas-productos";
 
 const productsPerPage = 12;
 
@@ -35,6 +57,8 @@ interface ProductCatalogProps {
   products: Product[];
   categories: ProductCategory[];
   brands: string[];
+  catalogAttributes: CatalogAttribute[];
+  catalogNodes: CatalogNode[];
 }
 
 // Coordina filtros, ordenamiento, paginacion y vista movil del catalogo.
@@ -42,6 +66,8 @@ export function ProductCatalog({
   products,
   categories,
   brands,
+  catalogAttributes,
+  catalogNodes,
 }: ProductCatalogProps) {
   const searchParams = useSearchParams();
   const categoryFromUrl = getValidCatalogCategory(
@@ -49,135 +75,135 @@ export function ProductCatalog({
     categories,
   );
   const searchFromUrl = searchParams.get("busqueda") ?? "";
-  const saleFromUrl = searchParams.get("oferta") === "1";
-  const pageFromUrl = Number(searchParams.get("pagina") ?? 1);
 
   return (
     <ProductCatalogInner
-      key={`${categoryFromUrl}:${searchFromUrl}:${saleFromUrl}`}
+      key={searchParams.toString()}
       products={products}
       categories={categories}
       brands={brands}
+      catalogAttributes={catalogAttributes}
+      catalogNodes={catalogNodes}
       initialCategory={categoryFromUrl}
       initialSearch={searchFromUrl}
-      initialOnSale={saleFromUrl}
-      pageFromUrl={Number.isInteger(pageFromUrl) ? pageFromUrl : 1}
     />
   );
 }
-
 interface ProductCatalogInnerProps extends ProductCatalogProps {
   initialCategory: string;
   initialSearch: string;
-  initialOnSale: boolean;
-  pageFromUrl: number;
 }
 
 function ProductCatalogInner({
   products,
-  categories,
   brands,
   initialCategory,
   initialSearch,
-  initialOnSale,
-  pageFromUrl,
+  catalogAttributes,
+  catalogNodes,
 }: ProductCatalogInnerProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchTerm = initialSearch.trim();
+  const rankedSearchResults = useMemo(
+    () => rankProductsForSearch(searchTerm, products),
+    [products, searchTerm],
+  );
+  const searchScopeProducts = useMemo(
+    () => rankedSearchResults.map(({ product }) => product),
+    [rankedSearchResults],
+  );
+  const rankByProductId = useMemo(
+    () => new Map(rankedSearchResults.map(({ product, rank }) => [product.id, rank])),
+    [rankedSearchResults],
+  );
   const maxProductPrice = Math.ceil(
-    products.reduce(
+    searchScopeProducts.reduce(
       (highest, product) => Math.max(highest, getProductPricingSummary(product).minimumEffectivePrice),
       0,
     ),
   );
-  const [filters, setFilters] = useState<ProductFilterState>({
-    search: initialSearch,
-    categories: initialCategory === "all" ? [] : [initialCategory],
-    subcategories: [],
-    brands: [],
-    maxPrice: maxProductPrice,
-    onSale: initialOnSale,
-    sort: "name",
+  const defaultSort: ProductSort = searchTerm ? "relevance" : "name-asc";
+  const initialUrlState = readProductListingUrlState(searchParams, {
+    maximumPrice: maxProductPrice,
+    defaultSort,
+    allowRelevance: Boolean(searchTerm),
+    fallbackCatalogPaths:
+      initialCategory === "all" ? [] : [initialCategory],
   });
-  const [activePage, setActivePage] = useState(
-    pageFromUrl >= 1 ? pageFromUrl : 1,
+  const [filters, setFilters] = useState<ProductFilterState>(() => ({
+    search: initialSearch,
+    catalogPaths: initialUrlState.catalogPaths,
+    brands: initialUrlState.brands,
+    attributes: initialUrlState.attributes,
+    maxPrice: initialUrlState.maxPrice,
+    onSale: initialUrlState.onSale,
+    sort: initialUrlState.sort,
+  }));
+  const [activePage, setActivePage] = useState(initialUrlState.page);
+  const categoryOptions = useMemo<ProductFilterOption[]>(
+    () => buildCatalogFilterOptions(catalogNodes, searchScopeProducts),
+    [catalogNodes, searchScopeProducts],
+  );
+  const attributeFacets = useMemo(
+    () =>
+      buildProductAttributeFacets(
+        searchScopeProducts,
+        catalogAttributes,
+        catalogNodes,
+      ),
+    [catalogAttributes, catalogNodes, searchScopeProducts],
+  );
+  const attributeFacetByKey = useMemo(
+    () => new Map(attributeFacets.map((facet) => [facet.key, facet])),
+    [attributeFacets],
   );
 
   const filteredProducts = useMemo(() => {
-    const query = filters.search.trim().toLowerCase();
-
-    return products
-      .filter((product) => {
-        const matchesSearch =
-          !query ||
-          [
-            product.name,
-            product.brand,
-            product.category,
-            product.subcategory,
-            ...product.catalogPath.map((item) => item.name),
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(query);
-        const pathSlugs = product.catalogPath.map((item) => item.slug);
-        const matchesSelectedCategory = filters.categories.some(
-          (category) => product.categorySlug === category || pathSlugs[0] === category,
-        );
-        const matchesSelectedSubcategory = filters.subcategories.some(
-            (subcategory) =>
-              `${product.categorySlug}/${product.subcategorySlug}` === subcategory ||
-              `${pathSlugs[0]}/${pathSlugs[1]}` === subcategory,
-          );
+    const matches = searchScopeProducts.filter((product) => {
+        const productCatalogPaths = getProductCatalogPathKeys(product);
         const matchesCatalog =
-          (!filters.categories.length && !filters.subcategories.length) ||
-          matchesSelectedCategory ||
-          matchesSelectedSubcategory;
+          !filters.catalogPaths.length ||
+          filters.catalogPaths.some((selectedPath) =>
+            productCatalogPaths.some(
+              (productPath) =>
+                productPath === selectedPath ||
+                productPath.startsWith(`${selectedPath}/`),
+            ),
+          );
         const matchesBrand = !filters.brands.length || filters.brands.includes(product.brand);
+        const matchesAttributes = Object.entries(filters.attributes).every(
+          ([attributeKey, selectedValues]) => {
+            if (!selectedValues.length) return true;
+            const facet = attributeFacetByKey.get(attributeKey);
+            if (!facet) return true;
+            const productValues = getProductFacetValues(product, facet).map(
+              normalizeSearchText,
+            );
+            return selectedValues.some((value) => productValues.includes(value));
+          },
+        );
         const pricing = getProductPricingSummary(product);
         const matchesPrice = pricing.minimumEffectivePrice <= filters.maxPrice;
         const matchesSale = !filters.onSale || pricing.hasOffer;
 
         return (
-          matchesSearch &&
           matchesCatalog &&
           matchesBrand &&
+          matchesAttributes &&
           matchesPrice &&
           matchesSale
         );
-      })
-      .sort((a, b) => {
-        const aPrice = getProductPricingSummary(a).minimumEffectivePrice;
-        const bPrice = getProductPricingSummary(b).minimumEffectivePrice;
-        if (filters.sort === "price-asc") return aPrice - bPrice;
-        if (filters.sort === "price-desc") return bPrice - aPrice;
-        return a.name.localeCompare(b.name, "es");
       });
-  }, [filters, products]);
-  const categoryOptions = useMemo<ProductFilterOption[]>(
+
+    return sortProducts(matches, filters.sort, rankByProductId);
+  }, [attributeFacetByKey, filters, rankByProductId, searchScopeProducts]);
+  const relatedSuggestions = useMemo(
     () =>
-      categories
-        .map((category) => ({
-          value: category.slug,
-          label: category.name,
-          count: products.filter((product) => {
-            const pathSlugs = product.catalogPath.map((item) => item.slug);
-            return product.categorySlug === category.slug || pathSlugs[0] === category.slug;
-          }).length,
-          children: category.subcategories.map((subcategory) => ({
-            value: `${category.slug}/${subcategory.slug}`,
-            label: subcategory.name,
-            count: products.filter((product) => {
-              const pathSlugs = product.catalogPath.map((item) => item.slug);
-              return (
-                (product.categorySlug === category.slug &&
-                  product.subcategorySlug === subcategory.slug) ||
-                (pathSlugs[0] === category.slug && pathSlugs[1] === subcategory.slug)
-              );
-            }).length,
-          })),
-        })),
-    [categories, products],
+      searchTerm && !searchScopeProducts.length
+        ? getRelatedSearchSuggestions(searchTerm, products)
+        : [],
+    [products, searchScopeProducts.length, searchTerm],
   );
   const brandOptions = useMemo<ProductFilterOption[]>(
     () =>
@@ -185,14 +211,14 @@ function ProductCatalogInner({
         .map((brand) => ({
           value: brand,
           label: brand,
-          count: products.filter((product) => product.brand === brand).length,
+          count: searchScopeProducts.filter((product) => product.brand === brand).length,
         }))
         .filter((brand) => brand.count > 0),
-    [brands, products],
+    [brands, searchScopeProducts],
   );
   const saleCount = useMemo(
-    () => products.filter((product) => getProductPricingSummary(product).hasOffer).length,
-    [products],
+    () => searchScopeProducts.filter((product) => getProductPricingSummary(product).hasOffer).length,
+    [searchScopeProducts],
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / productsPerPage));
@@ -204,81 +230,110 @@ function ProductCatalogInner({
   );
   const visibleStart = filteredProducts.length ? pageStartIndex + 1 : 0;
   const visibleEnd = Math.min(pageStartIndex + paginatedProducts.length, filteredProducts.length);
-  const searchTerm = filters.search.trim();
-
+  const getUrlState = (nextFilters: ProductFilterState, page: number) => ({
+    catalogPaths: nextFilters.catalogPaths,
+    brands: nextFilters.brands,
+    attributes: nextFilters.attributes,
+    maxPrice: nextFilters.maxPrice,
+    onSale: nextFilters.onSale,
+    sort: nextFilters.sort,
+    page,
+  });
   const updatePage = (page: number) => {
     const nextPage = Math.min(Math.max(page, 1), totalPages);
-    const nextParams = new URLSearchParams(searchParams.toString());
+    const nextParams = writeProductListingUrlState(
+      searchParams,
+      getUrlState(filters, nextPage),
+      { maximumPrice: maxProductPrice, defaultSort, includePage: true },
+    );
     setActivePage(nextPage);
-
-    if (nextPage <= 1) {
-      nextParams.delete("pagina");
-    } else {
-      nextParams.set("pagina", String(nextPage));
-    }
-
     const query = nextParams.toString();
-    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
-  };
-
-  const resetPagination = () => {
-    setActivePage(1);
-
-    if (searchParams.has("pagina")) {
-      const nextParams = new URLSearchParams(searchParams.toString());
-      nextParams.delete("pagina");
-      const query = nextParams.toString();
-      window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
-    }
+    window.history.pushState(
+      null,
+      "",
+      `${query ? `${pathname}?${query}` : pathname}#catalogo-resultados`,
+    );
+    window.requestAnimationFrame(() => {
+      document.getElementById("catalogo-resultados")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
 
   const updateFilters = (nextFilters: ProductFilterState) => {
     setFilters(nextFilters);
     setActivePage(1);
-
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete("pagina");
-
-    if (nextFilters.onSale) {
-      nextParams.set("oferta", "1");
-    } else {
-      nextParams.delete("oferta");
-    }
-
+    const nextParams = writeProductListingUrlState(
+      searchParams,
+      getUrlState(nextFilters, 1),
+      { maximumPrice: maxProductPrice, defaultSort },
+    );
     const query = nextParams.toString();
     window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
   };
 
-  const updateSort = (sort: string) => {
-    setFilters((current) => ({ ...current, sort }));
-    resetPagination();
+  const updateSort = (sort: ProductSort) => {
+    const nextFilters = { ...filters, sort };
+    setFilters(nextFilters);
+    setActivePage(1);
+    const nextParams = writeProductListingUrlState(
+      searchParams,
+      getUrlState(nextFilters, 1),
+      { maximumPrice: maxProductPrice, defaultSort },
+    );
+    const query = nextParams.toString();
+    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
   };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
       <aside className="hidden lg:block">
         <ProductFilters
+          idPrefix="catalogo-desktop"
           value={filters}
           onChange={updateFilters}
           maxProductPrice={maxProductPrice}
           categories={categoryOptions}
           brands={brandOptions}
+          attributeFacets={attributeFacets}
           saleCount={saleCount}
+          highlightCatalogMatches={Boolean(searchTerm)}
         />
       </aside>
 
-      <div className="min-w-0">
+      <div id="catalogo-resultados" className="min-w-0 scroll-mt-24">
         {searchTerm ? (
           <div className="mb-4 flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-dark-blue">
               Resultados para <span className="font-bold">“{searchTerm}”</span>
             </p>
-            <Link
-              href="/productos"
+            <FullCatalogLink
               className="w-fit text-sm font-semibold text-primary underline-offset-4 transition hover:text-dark-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Ver todos los productos
-            </Link>
+            </FullCatalogLink>
+          </div>
+        ) : null}
+        {relatedSuggestions.length ? (
+          <div className="mb-4 rounded-lg border border-primary/20 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-dark-blue">
+              No encontramos coincidencias para “{searchTerm}” en el catálogo.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Quizás buscabas:
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {relatedSuggestions.map((suggestion) => (
+                <Link
+                  key={suggestion.href}
+                  href={suggestion.href}
+                  className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary transition hover:border-primary hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {suggestion.label}
+                </Link>
+              ))}
+            </div>
           </div>
         ) : null}
         <div className="mb-5 flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -305,111 +360,37 @@ function ProductCatalogInner({
                 </SheetHeader>
                 <div className="mt-6">
                   <ProductFilters
+                    idPrefix="catalogo-mobile"
                     value={filters}
                     onChange={updateFilters}
                     maxProductPrice={maxProductPrice}
                     categories={categoryOptions}
                     brands={brandOptions}
+                    attributeFacets={attributeFacets}
                     saleCount={saleCount}
+                    highlightCatalogMatches={Boolean(searchTerm)}
                   />
                 </div>
               </SheetContent>
             </Sheet>
 
-            <Select
+            <ProductSortSelect
               value={filters.sort}
-              onValueChange={updateSort}
-            >
-              <SelectTrigger className="w-48" aria-label="Ordenar productos">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Nombre A-Z</SelectItem>
-                <SelectItem value="price-asc">Precio menor</SelectItem>
-                <SelectItem value="price-desc">Precio mayor</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={updateSort}
+              includeRelevance={Boolean(searchTerm)}
+            />
           </div>
         </div>
 
         <ProductGrid products={paginatedProducts} compactPrice />
-        <CatalogPagination
+        <ProductPagination
           currentPage={currentPage}
           totalPages={totalPages}
           totalProducts={filteredProducts.length}
+          productsPerPage={productsPerPage}
           onPageChange={updatePage}
         />
       </div>
     </div>
-  );
-}
-
-function getVisiblePages(currentPage: number, totalPages: number) {
-  const pageWindow = 5;
-  const halfWindow = Math.floor(pageWindow / 2);
-  const start = Math.max(1, Math.min(currentPage - halfWindow, totalPages - pageWindow + 1));
-  const end = Math.min(totalPages, start + pageWindow - 1);
-
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-}
-
-function CatalogPagination({
-  currentPage,
-  totalPages,
-  totalProducts,
-  onPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalProducts: number;
-  onPageChange: (page: number) => void;
-}) {
-  if (totalProducts <= productsPerPage) {
-    return null;
-  }
-
-  const visiblePages = getVisiblePages(currentPage, totalPages);
-
-  return (
-    <nav
-      className="mt-8 flex flex-col gap-3 rounded-lg border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-      aria-label="Paginacion de productos"
-    >
-      <p className="text-sm text-muted-foreground">
-        Pagina {currentPage} de {totalPages}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
-        >
-          Anterior
-        </Button>
-        {visiblePages.map((page) => (
-          <Button
-            key={page}
-            type="button"
-            variant={page === currentPage ? "default" : "outline"}
-            size="sm"
-            aria-current={page === currentPage ? "page" : undefined}
-            onClick={() => onPageChange(page)}
-          >
-            {page}
-          </Button>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentPage === totalPages}
-          onClick={() => onPageChange(currentPage + 1)}
-        >
-          Siguiente
-        </Button>
-      </div>
-    </nav>
   );
 }

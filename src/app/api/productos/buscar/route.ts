@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
-  getSearchTerms,
-  matchesProductSearch,
+  getRelatedSearchSuggestions,
   normalizeSearchText,
+  rankProductsForSearch,
 } from "@/lib/busqueda-productos";
-import { searchProductsByTerms } from "@/lib/supabase/data";
+import { getProducts } from "@/lib/supabase/data";
 import { getProductPricingSummary } from "@/lib/precios-producto";
 import { consumeRateLimit, getRequestAddress } from "@/lib/rate-limit";
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (!allowed) {
     return NextResponse.json(
-      { results: [] },
+      { results: [], total: 0, suggestions: [] },
       { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
     );
   }
@@ -29,25 +29,13 @@ export async function GET(request: NextRequest) {
   );
 
   if (query.length < 2) {
-    return NextResponse.json({ results: [] });
+    return NextResponse.json({ results: [], total: 0, suggestions: [] });
   }
 
-  const products = await searchProductsByTerms(getSearchTerms(query));
-  const matchingProducts = products
-    .filter((product) => product.isActive)
-    .filter((product) => {
-      const searchableText = [
-        product.name,
-        product.brand,
-        product.category,
-        product.subcategory,
-        product.description,
-        ...product.features,
-        ...product.catalogPath.map((item) => item.name),
-      ].join(" ");
-
-      return matchesProductSearch(query, searchableText);
-    });
+  const products = (await getProducts()).filter((product) => product.isActive);
+  const matchingProducts = rankProductsForSearch(query, products).map(
+    ({ product }) => product,
+  );
   const results = matchingProducts
     .slice(0, 6)
     .map((product) => ({
@@ -61,7 +49,13 @@ export async function GET(request: NextRequest) {
     }));
 
   return NextResponse.json(
-    { results, total: matchingProducts.length },
+    {
+      results,
+      total: matchingProducts.length,
+      suggestions: matchingProducts.length
+        ? []
+        : getRelatedSearchSuggestions(query, products),
+    },
     {
       headers: {
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",

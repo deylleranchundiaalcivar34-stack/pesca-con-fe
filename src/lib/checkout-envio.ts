@@ -43,6 +43,30 @@ export function isGalapagosDestination(province?: string, city?: string) {
   return isGalapagosProvince(province) || normalizarTexto(city ?? "") === "galapagos";
 }
 
+type DeliveryAddressInput = {
+  deliveryType: "envio_servientrega" | "retiro_local";
+  address?: string;
+  city?: string;
+  province?: string;
+};
+
+export function getServientregaOfficeAddress(city?: string, province?: string) {
+  const destination = [city?.trim(), province?.trim()].filter(Boolean).join(", ");
+
+  return destination
+    ? `Oficina central de Servientrega de ${destination}`
+    : "Oficina central de Servientrega de la ciudad seleccionada";
+}
+
+export function resolveCheckoutDeliveryAddress(input: DeliveryAddressInput) {
+  if (input.deliveryType !== "envio_servientrega") return null;
+
+  return (
+    input.address?.trim() ||
+    getServientregaOfficeAddress(input.city, input.province)
+  );
+}
+
 export function normalizeEcuadorianCedula(value: string) {
   return value.replace(/\D/g, "");
 }

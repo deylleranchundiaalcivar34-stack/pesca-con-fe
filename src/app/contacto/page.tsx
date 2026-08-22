@@ -89,8 +89,7 @@ export default function ContactPage() {
                     Horario del negocio
                   </p>
                   <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                    <span className="block">Lunes a Sábado</span>
-                    <span className="block">08:30 AM - 06:00 PM</span>
+                    {businessConfig.schedule}
                   </p>
                 </div>
               </CardContent>
@@ -134,7 +133,7 @@ export default function ContactPage() {
               style={{ border: 0 }}
               allowFullScreen
               loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
+              referrerPolicy="strict-origin-when-cross-origin"
               title="Mapa de ubicación de Pesca Con Fe"
             />
           </div>

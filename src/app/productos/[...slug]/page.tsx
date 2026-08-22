@@ -7,7 +7,12 @@ import { PublicShell } from "@/components/layout/contenedor-publico";
 import { PaginatedProductGrid } from "@/components/products/listado-productos-paginado";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
 import { getCatalogBanner } from "@/data/imagenes-catalogo";
-import { getCatalogAttributes, getCatalogLanding, getProductBySlug } from "@/lib/supabase/data";
+import {
+  getCatalogAttributes,
+  getCatalogLanding,
+  getCatalogNavigation,
+  getProductBySlug,
+} from "@/lib/supabase/data";
 import { SITE_URL } from "@/lib/constantes";
 
 interface CatalogLandingPageProps {
@@ -47,9 +52,10 @@ export async function generateMetadata({
 // Landing del catálogo: contenido principal y clasificaciones en una sola cabecera.
 export default async function CatalogLandingPage({ params }: CatalogLandingPageProps) {
   const { slug } = await params;
-  const [landing, catalogAttributes] = await Promise.all([
+  const [landing, catalogAttributes, catalogNodes] = await Promise.all([
     getCatalogLanding(slug),
     getCatalogAttributes(),
+    getCatalogNavigation(),
   ]);
 
   if (!landing) {
@@ -164,10 +170,8 @@ export default async function CatalogLandingPage({ params }: CatalogLandingPageP
           <div className="mt-8">
             <PaginatedProductGrid
               products={landing.products}
-              attributes={catalogAttributes.filter(
-                (attribute) =>
-                  attribute.catalogNodeId === landing.breadcrumbs[0]?.id && attribute.isFilterable,
-              )}
+              attributes={catalogAttributes}
+              catalogNodes={catalogNodes}
             />
           </div>
         </div>

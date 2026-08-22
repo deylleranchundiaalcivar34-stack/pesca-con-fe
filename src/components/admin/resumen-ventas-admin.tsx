@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn, formatCurrency } from "@/lib/utilidades";
+import { getEcuadorDateKey } from "@/lib/operacion-admin";
 
 type Period = "today" | "week" | "month" | "year" | "custom";
 
@@ -19,22 +20,13 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "custom", label: "Rango" },
 ];
 
-function localDateKey(value: Date | string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Guayaquil",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value));
-}
-
 function isCollected(order: Order) {
   return order.paymentStatus === "aprobado";
 }
 
 function rangeFor(period: Period, start: string, end: string) {
   const today = new Date();
-  const todayKey = localDateKey(today);
+  const todayKey = getEcuadorDateKey(today);
   const startDate = new Date(today);
 
   if (period === "week") startDate.setDate(today.getDate() - 6);
@@ -42,7 +34,7 @@ function rangeFor(period: Period, start: string, end: string) {
   if (period === "year") startDate.setFullYear(today.getFullYear() - 1);
 
   return {
-    start: period === "custom" ? start : period === "today" ? todayKey : localDateKey(startDate),
+    start: period === "custom" ? start : period === "today" ? todayKey : getEcuadorDateKey(startDate),
     end: period === "custom" ? end : todayKey,
   };
 }
@@ -57,7 +49,7 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
   const inRangeOrders = useMemo(
     () =>
       orders.filter((order) => {
-        const key = localDateKey(order.createdAt);
+        const key = getEcuadorDateKey(order.createdAt);
         return (!range.start || key >= range.start) && (!range.end || key <= range.end);
       }),
     [orders, range.end, range.start],
@@ -65,12 +57,12 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
   const collected = orders.filter(
     (order) => {
       if (!isCollected(order)) return false;
-      const key = localDateKey(order.paidAt ?? order.createdAt);
+      const key = getEcuadorDateKey(order.paidAt ?? order.createdAt);
       return (!range.start || key >= range.start) && (!range.end || key <= range.end);
     },
   );
   const inRangePhysicalSales = physicalSales.filter((sale) => {
-    const key = localDateKey(sale.createdAt);
+    const key = getEcuadorDateKey(sale.createdAt);
     return (!range.start || key >= range.start) && (!range.end || key <= range.end);
   });
   const onlineTotal = collected.reduce((sum, order) => sum + order.total, 0);
@@ -87,14 +79,14 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
   const dailyRows = (() => {
     const byDay = new Map<string, { total: number; orders: number }>();
     for (const order of collected) {
-      const key = localDateKey(order.paidAt ?? order.createdAt);
+      const key = getEcuadorDateKey(order.paidAt ?? order.createdAt);
       const current = byDay.get(key) ?? { total: 0, orders: 0 };
       current.total += order.total;
       current.orders += 1;
       byDay.set(key, current);
     }
     for (const sale of inRangePhysicalSales) {
-      const key = localDateKey(sale.createdAt);
+      const key = getEcuadorDateKey(sale.createdAt);
       const current = byDay.get(key) ?? { total: 0, orders: 0 };
       current.total += sale.total;
       current.orders += 1;

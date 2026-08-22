@@ -30,6 +30,11 @@ export interface BusinessConfig {
   city: string;
   country: string;
   schedule: string;
+  openingHours: {
+    days: string[];
+    opens: string;
+    closes: string;
+  };
   phones: string[];
   whatsappPhoneE164: string;
   email: string;

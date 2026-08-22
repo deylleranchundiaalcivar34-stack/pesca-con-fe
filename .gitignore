@@ -10,11 +10,12 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/docs/*
-!/docs/ANALISIS-PROYECTO-ERP.md
-!/docs/AUDITORIA-SEGURIDAD-2026-07-17.md
-!/docs/REMEDIACION-SEGURIDAD-2026-07-17.md
-!/docs/reiniciar-base-datos.sql
+
+# Internal project material is kept local because this repository is public.
+/docs/
+/AGENTS.md
+/CLAUDE.md
+/supabase/migrations/
 
 # testing
 /coverage

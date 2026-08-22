@@ -37,6 +37,7 @@ async function getVerifiedPaymentOrder(orderCode?: string): Promise<VerifiedPaym
     .select("codigo, estado, estado_pago, pedido_items(producto_id)")
     .eq("codigo", orderCode)
     .eq("cliente_id", user.id)
+    .eq("es_borrador_pago", false)
     .maybeSingle();
 
   if (error || !data) return null;

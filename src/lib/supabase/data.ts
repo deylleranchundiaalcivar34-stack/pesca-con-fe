@@ -464,6 +464,26 @@ async function getProductImagesByProductIds(
   );
 }
 
+// Completa las tarjetas en dos consultas agrupadas, sin consultar por cada producto.
+async function mapPublicProductsWithMedia(
+  supabase: SupabaseClient,
+  rows: DbProduct[],
+) {
+  const productIds = rows.map((row) => row.id);
+  const [imagesByProduct, variantsByProduct] = await Promise.all([
+    getProductImagesByProductIds(supabase, productIds),
+    getProductVariantsByProductIds(supabase, productIds),
+  ]);
+
+  return rows.map((row) =>
+    mapProduct(
+      row,
+      imagesByProduct.get(row.id),
+      variantsByProduct.get(row.id),
+    ),
+  );
+}
+
 const getCachedProducts = unstable_cache(
   async () => {
     const supabase = createPublicClient();
@@ -476,15 +496,7 @@ const getCachedProducts = unstable_cache(
       return [];
     }
 
-    const rows = data as DbProduct[];
-    const variantsByProduct = await getProductVariantsByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
-
-    return rows.map((row) =>
-      mapProduct(row, undefined, variantsByProduct.get(row.id)),
-    );
+    return mapPublicProductsWithMedia(supabase, data as DbProduct[]);
   },
   ["public-products"],
   {
@@ -536,15 +548,7 @@ const getCachedHomeProducts = unstable_cache(
       rowsById.set(row.id, row);
     }
 
-    const rows = Array.from(rowsById.values());
-    const variantsByProduct = await getProductVariantsByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
-
-    return rows.map((row) =>
-      mapProduct(row, undefined, variantsByProduct.get(row.id)),
-    );
+    return mapPublicProductsWithMedia(supabase, Array.from(rowsById.values()));
   },
   ["public-home-products"],
   {
@@ -565,15 +569,7 @@ const getCachedProductsByIds = unstable_cache(
 
     if (error || !data) return [];
 
-    const rows = data as DbProduct[];
-    const variantsByProduct = await getProductVariantsByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
-
-    return rows.map((row) =>
-      mapProduct(row, undefined, variantsByProduct.get(row.id)),
-    );
+    return mapPublicProductsWithMedia(supabase, data as DbProduct[]);
   },
   ["public-products-by-ids"],
   {
@@ -595,15 +591,7 @@ const getCachedRelatedCandidates = unstable_cache(
 
     if (error || !data) return [];
 
-    const rows = data as DbProduct[];
-    const variantsByProduct = await getProductVariantsByProductIds(
-      supabase,
-      rows.map((row) => row.id),
-    );
-
-    return rows.map((row) =>
-      mapProduct(row, undefined, variantsByProduct.get(row.id)),
-    );
+    return mapPublicProductsWithMedia(supabase, data as DbProduct[]);
   },
   ["public-related-products"],
   {
@@ -818,8 +806,9 @@ export async function getProductsByIds(productIds: string[]) {
   );
 }
 
-// Busca un conjunto acotado de candidatos sin descargar el catalogo completo.
-export async function searchProductsByTerms(terms: string[], limit = 48) {
+// Busca candidatos por nombre o por su slug derivado del nombre sin descargar
+// el catálogo completo. La coincidencia final se valida sobre el título visible.
+export async function searchProductsByTitleTerms(terms: string[], limit = 100) {
   const safeTerms = Array.from(
     new Set(
       terms
@@ -830,15 +819,7 @@ export async function searchProductsByTerms(terms: string[], limit = 48) {
 
   if (!safeTerms.length) return [];
 
-  const searchableColumns = [
-    "nombre",
-    "marca",
-    "categoria",
-    "categoria_slug",
-    "subcategoria",
-    "subcategoria_slug",
-    "descripcion",
-  ];
+  const searchableColumns = ["nombre", "slug"];
   const filters = safeTerms.flatMap((term) =>
     searchableColumns.map((column) => `${column}.ilike.%${term}%`),
   );
@@ -1215,6 +1196,7 @@ export async function getAdminOrders(): Promise<Order[]> {
   const { data: orders, error: ordersError } = await supabase
     .from("pedidos")
     .select("*")
+    .eq("es_borrador_pago", false)
     .order("creado_en", { ascending: false });
 
   if (ordersError) throw new Error(ordersError.message);
@@ -1322,6 +1304,7 @@ export async function getCustomerOrders(userId: string): Promise<Order[]> {
     .from("pedidos")
     .select("*")
     .eq("cliente_id", userId)
+    .eq("es_borrador_pago", false)
     .order("creado_en", { ascending: false });
 
   if (ordersError) throw new Error(ordersError.message);

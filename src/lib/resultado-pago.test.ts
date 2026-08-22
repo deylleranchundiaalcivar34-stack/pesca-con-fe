@@ -17,6 +17,9 @@ describe("resolvePaymentResult", () => {
   it("no aprueba estados de pago o pedido inconsistentes", () => {
     expect(resolvePaymentResult({ ...approvedOrder, paymentStatus: "pendiente" })).toBe("error");
     expect(resolvePaymentResult({ ...approvedOrder, status: "pendiente_pago" })).toBe("error");
+    expect(resolvePaymentResult({ ...approvedOrder, paymentStatus: "requiere_revision" })).toBe(
+      "error",
+    );
   });
 
   it("reconoce una cancelación almacenada", () => {

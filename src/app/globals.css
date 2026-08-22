@@ -90,6 +90,30 @@ html body[data-scroll-locked] {
   padding-right: 0 !important;
 }
 
+/* Select oculta su barra nativa para favorecer botones de auto-scroll. En este
+   proyecto se mantiene el desplazamiento normal y una barra discreta visible. */
+[data-pesca-select-viewport] {
+  scrollbar-color: color-mix(in srgb, var(--primary) 38%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin !important;
+}
+
+[data-pesca-select-viewport]::-webkit-scrollbar {
+  display: block !important;
+  width: 0.5rem;
+}
+
+[data-pesca-select-viewport]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-pesca-select-viewport]::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 38%, transparent);
+  background-clip: padding-box;
+}
+
 /* Las paginas publicas comparten el azul claro del catalogo; las tarjetas siguen blancas. */
 .public-page-canvas > section.bg-white,
 .public-page-canvas > article.bg-white {
@@ -104,7 +128,126 @@ textarea {
   outline-color: var(--ring);
 }
 
+/* Comunica las acciones de forma consistente sin agregar listeners ni trabajo al cliente. */
+@layer base {
+  :where(
+    a[href]:not([aria-disabled="true"]),
+    button:not(:disabled),
+    summary,
+    select:not(:disabled),
+    input:is(
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      [type="checkbox"],
+      [type="radio"],
+      [type="range"],
+      [type="file"],
+      [type="color"]
+    ):not(:disabled),
+    label:has(
+      input:is([type="checkbox"], [type="radio"], [type="file"]):not(:disabled)
+    ),
+    [role="button"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="link"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="menuitem"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="option"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="tab"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="switch"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="checkbox"]:not([aria-disabled="true"]):not([data-disabled]),
+    [role="radio"]:not([aria-disabled="true"]):not([data-disabled])
+  ) {
+    cursor: pointer;
+  }
+}
+
 ::selection {
   background: rgb(236 197 80 / 0.35);
   color: var(--dark-blue);
+}
+
+/* Sacudida breve del botón completo; permanece quieto la mayor parte del tiempo. */
+@keyframes product-whatsapp-attention {
+  0%,
+  100% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  2% {
+    translate: -4px 0;
+    rotate: -0.6deg;
+  }
+  6% {
+    translate: 4px 0;
+    rotate: 0.6deg;
+  }
+  10% {
+    translate: -4px 0;
+    rotate: -0.55deg;
+  }
+  14% {
+    translate: 4px 0;
+    rotate: 0.55deg;
+  }
+  18% {
+    translate: -3px 0;
+    rotate: -0.45deg;
+  }
+  22% {
+    translate: 3px 0;
+    rotate: 0.45deg;
+  }
+  26% {
+    translate: -3px 0;
+    rotate: -0.35deg;
+  }
+  30% {
+    translate: 3px 0;
+    rotate: 0.35deg;
+  }
+  34% {
+    translate: -1px 0;
+    rotate: -0.2deg;
+  }
+  38% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+}
+
+.product-whatsapp-attention-button {
+  animation: product-whatsapp-attention 4.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+  animation-delay: 2s;
+  transform-origin: center;
+}
+
+/* Pulso discreto para descubrir la ayuda general sin distraer durante la compra. */
+@keyframes general-whatsapp-help-attention {
+  0%,
+  68%,
+  100% {
+    scale: 1;
+    box-shadow: 0 18px 40px rgb(18 140 70 / 0.28);
+  }
+  76% {
+    scale: 1.06;
+    box-shadow: 0 18px 44px rgb(18 140 70 / 0.38);
+  }
+  84% {
+    scale: 0.99;
+  }
+  92% {
+    scale: 1.03;
+  }
+}
+
+.general-whatsapp-help-button[aria-expanded="false"] {
+  animation: general-whatsapp-help-attention 5.5s ease-in-out 1.5s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-whatsapp-attention-button,
+  .general-whatsapp-help-button {
+    animation: none;
+  }
 }

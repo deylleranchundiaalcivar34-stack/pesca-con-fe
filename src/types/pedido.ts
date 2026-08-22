@@ -18,7 +18,8 @@ export type PaymentStatus =
   | "aprobado"
   | "cancelado"
   | "fallido"
-  | "expirado";
+  | "expirado"
+  | "requiere_revision";
 
 export interface CustomerInfo {
   fullName: string;

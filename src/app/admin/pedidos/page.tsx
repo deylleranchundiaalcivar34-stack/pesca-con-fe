@@ -1,9 +1,20 @@
 import { AdminOrderTable } from "@/components/admin/tabla-pedidos-admin";
+import { resolveSelectedOrderId } from "@/lib/operacion-admin";
 import { getAdminOrders } from "@/lib/supabase/data";
 
+interface AdminOrdersPageProps {
+  searchParams: Promise<{ pedido?: string | string[] }>;
+}
+
 // Pagina admin que carga pedidos y los entrega a la tabla.
-export default async function AdminOrdersPage() {
-  const orders = await getAdminOrders();
+export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageProps) {
+  const ordersPromise = getAdminOrders();
+  const requestedOrder = (await searchParams).pedido;
+  const orders = await ordersPromise;
+  const initialExpandedOrderId = resolveSelectedOrderId(
+    requestedOrder,
+    orders.map((order) => order.id),
+  );
 
   return (
     <div className="space-y-6">
@@ -13,7 +24,7 @@ export default async function AdminOrdersPage() {
           Confirma pagos y gestiona los pedidos generados por la web.
         </p>
       </div>
-      <AdminOrderTable orders={orders} />
+      <AdminOrderTable orders={orders} initialExpandedOrderId={initialExpandedOrderId} />
     </div>
   );
 }

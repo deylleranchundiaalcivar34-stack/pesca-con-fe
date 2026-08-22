@@ -10,7 +10,7 @@ import {
   toggleProductActive,
 } from "@/app/admin/productos/acciones";
 import type { Product } from "@/types/producto";
-import { brands, categories } from "@/data/datos-negocio";
+import { categories } from "@/data/datos-negocio";
 import { DeleteProductDialog } from "@/components/admin/dialogo-eliminar-producto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utilidades";
 import { getProductPricingSummary } from "@/lib/precios-producto";
+import { isLowStock } from "@/lib/operacion-admin";
 
 interface AdminProductTableProps {
   products: Product[];
+  brandOptions: string[];
 }
 
 function AdminProductPrice({ product }: { product: Product }) {
@@ -68,7 +70,10 @@ function AdminProductPrice({ product }: { product: Product }) {
 }
 
 // Muestra productos del panel admin con busqueda, filtros y acciones rapidas.
-export function AdminProductTable({ products }: AdminProductTableProps) {
+export function AdminProductTable({
+  products,
+  brandOptions,
+}: AdminProductTableProps) {
   const [rows, setRows] = useState(products);
   const [pendingProductIds, setPendingProductIds] = useState<string[]>([]);
   const [, startTransition] = useTransition();
@@ -89,7 +94,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
       const matchesBrand = brand === "all" || product.brand === brand;
       const matchesStock =
         stock === "all" ||
-        (stock === "low" && product.stock > 0 && product.stock <= 4) ||
+        (stock === "low" && isLowStock(product.stock)) ||
         (stock === "out" && product.stock === 0) ||
         (stock === "active" && product.isActive) ||
         (stock === "inactive" && !product.isActive);
@@ -213,7 +218,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {brands.map((item) => (
+                {brandOptions.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
                   </SelectItem>
@@ -279,7 +284,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Stock</p>
-                <Badge variant={product.stock === 0 ? "destructive" : product.stock <= 4 ? "warning" : "success"}>
+                <Badge variant={product.stock === 0 ? "destructive" : isLowStock(product.stock) ? "warning" : "success"}>
                   {product.stock}
                 </Badge>
               </div>
@@ -374,7 +379,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                 <TableCell>{product.category}</TableCell>
                 <TableCell><AdminProductPrice product={product} /></TableCell>
                 <TableCell>
-                  <Badge variant={product.stock === 0 ? "destructive" : product.stock <= 4 ? "warning" : "success"}>
+                  <Badge variant={product.stock === 0 ? "destructive" : isLowStock(product.stock) ? "warning" : "success"}>
                     {product.stock}
                   </Badge>
                 </TableCell>

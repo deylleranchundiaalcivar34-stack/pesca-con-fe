@@ -3,6 +3,10 @@
 import { useEffect, useState, type PointerEvent } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  preventProtectedImageAction,
+  ProductImageWatermark,
+} from "@/components/products/marca-agua-imagen-producto";
 import type { ProductImage } from "@/types/producto";
 import { cn } from "@/lib/utilidades";
 
@@ -149,10 +153,12 @@ export function ProductImageLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-dark-blue/85 p-4 backdrop-blur-sm sm:p-8"
+      className="fixed inset-0 z-50 flex select-none items-center justify-center bg-dark-blue/85 p-4 backdrop-blur-sm [-webkit-touch-callout:none] sm:p-8"
       role="dialog"
       aria-modal="true"
       aria-label="Visor ampliado de imagen del producto"
+      onContextMenu={preventProtectedImageAction}
+      onDragStart={preventProtectedImageAction}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -183,7 +189,14 @@ export function ProductImageLightbox({
                   )}
                   aria-label={`Ver imagen: ${image.alt}`}
                 >
-                  <Image src={image.url} alt={image.alt} fill sizes="80px" className="object-contain p-1" />
+                  <Image
+                    src={image.url}
+                    alt={image.alt}
+                    fill
+                    draggable={false}
+                    sizes="80px"
+                    className="object-contain p-1"
+                  />
                 </button>
               ))}
             </div>
@@ -194,6 +207,7 @@ export function ProductImageLightbox({
               src={selected.url}
               alt={selected.alt}
               fill
+              draggable={false}
               priority
               sizes="(min-width: 1024px) 1100px, 100vw"
               onLoad={(event) => {
@@ -255,12 +269,14 @@ export function ProductImageLightbox({
                   src={selected.url}
                   alt=""
                   fill
+                  draggable={false}
                   sizes="100vw"
                   className="object-contain"
                 />
               </div>
             </div>
             ) : null}
+            <ProductImageWatermark />
           </div>
         </div>
       </div>

@@ -48,6 +48,7 @@ import {
 import { useCartStore } from "@/store/tienda-carrito";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
+import type { ProductSearchLinkSuggestion } from "@/lib/busqueda-productos";
 import { cn, formatCurrency } from "@/lib/utilidades";
 import type { PublicUserSummary } from "@/types/usuario";
 import { navItems } from "./items-navegacion";
@@ -63,7 +64,13 @@ type ProductSearchSuggestion = {
   price: number;
 };
 
-const searchSuggestionCache = new Map<string, { results: ProductSearchSuggestion[]; total: number }>();
+type ProductSearchResponse = {
+  results: ProductSearchSuggestion[];
+  total: number;
+  suggestions: ProductSearchLinkSuggestion[];
+};
+
+const searchSuggestionCache = new Map<string, ProductSearchResponse>();
 
 // Lee la sesion sin convertir todo el shell publico en render dinamico.
 function usePublicUser() {
@@ -269,6 +276,7 @@ export function HeaderSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProductSearchSuggestion[]>([]);
   const [totalResults, setTotalResults] = useState(0);
+  const [suggestions, setSuggestions] = useState<ProductSearchLinkSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -285,6 +293,7 @@ export function HeaderSearch() {
       const timer = window.setTimeout(() => {
         setResults(cached.results);
         setTotalResults(cached.total);
+        setSuggestions(cached.suggestions);
         setIsLoading(false);
       }, 0);
 
@@ -297,18 +306,28 @@ export function HeaderSearch() {
         const response = await fetch(`/api/productos/buscar?q=${encodeURIComponent(normalizedQuery)}`, {
           signal: controller.signal,
         });
-        const data = (await response.json()) as { results?: ProductSearchSuggestion[]; total?: number };
+        const data = (await response.json()) as {
+          results?: ProductSearchSuggestion[];
+          total?: number;
+          suggestions?: ProductSearchLinkSuggestion[];
+        };
 
         if (!response.ok) throw new Error("No se pudieron cargar las sugerencias.");
 
-        const next = { results: data.results ?? [], total: data.total ?? 0 };
+        const next = {
+          results: data.results ?? [],
+          total: data.total ?? 0,
+          suggestions: data.suggestions ?? [],
+        };
         searchSuggestionCache.set(cacheKey, next);
         setResults(next.results);
         setTotalResults(next.total);
+        setSuggestions(next.suggestions);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setResults([]);
           setTotalResults(0);
+          setSuggestions([]);
         }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -343,6 +362,7 @@ export function HeaderSearch() {
           setQuery(nextQuery);
           setResults([]);
           setTotalResults(0);
+          setSuggestions([]);
           setIsLoading(nextQuery.trim().length >= 2);
           setIsOpen(true);
         }}
@@ -393,6 +413,27 @@ export function HeaderSearch() {
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
             </>
+          ) : suggestions.length ? (
+            <div className="px-4 py-4">
+              <p className="text-sm font-medium text-dark-blue">
+                No encontramos productos con “{query.trim()}” en el título.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Quizás buscabas:
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {suggestions.map((suggestion) => (
+                  <Link
+                    key={suggestion.href}
+                    href={suggestion.href}
+                    onClick={() => setIsOpen(false)}
+                    className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-bold text-primary transition hover:border-primary hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {suggestion.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ) : (
             <p className="px-4 py-4 text-sm text-muted-foreground">
               No se encontraron productos.

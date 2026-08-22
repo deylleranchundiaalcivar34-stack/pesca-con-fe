@@ -1,9 +1,12 @@
 import { AdminProductTable } from "@/components/admin/tabla-productos-admin";
-import { getAdminProducts } from "@/lib/supabase/data";
+import { getAdminProducts, getBrands } from "@/lib/supabase/data";
 
 // Pagina admin que carga productos para gestionarlos.
 export default async function AdminProductsPage() {
-  const products = await getAdminProducts();
+  const [products, registeredBrands] = await Promise.all([
+    getAdminProducts(),
+    getBrands(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -13,7 +16,10 @@ export default async function AdminProductsPage() {
           Busca, filtra, edita, desactiva o elimina productos inactivos.
         </p>
       </div>
-      <AdminProductTable products={products} />
+      <AdminProductTable
+        products={products}
+        brandOptions={registeredBrands.map((brand) => brand.nombre)}
+      />
     </div>
   );
 }

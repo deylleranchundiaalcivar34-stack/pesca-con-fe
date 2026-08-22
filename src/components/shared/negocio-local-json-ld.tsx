@@ -22,16 +22,9 @@ export function LocalBusinessJsonLd() {
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-        ],
-        opens: "08:30",
-        closes: "18:00",
+        dayOfWeek: businessConfig.openingHours.days,
+        opens: businessConfig.openingHours.opens,
+        closes: businessConfig.openingHours.closes,
       },
     ],
     sameAs: [

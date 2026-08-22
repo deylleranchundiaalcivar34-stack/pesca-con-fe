@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Clock3, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { SiDinersclub, SiDiscover, SiMastercard, SiVisa } from "react-icons/si";
 import { businessConfig } from "@/data/datos-negocio";
 
 const informationLinks = [
@@ -122,6 +123,39 @@ export function Footer() {
               </a>
             ))}
           </div>
+
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-gold-light">
+              Métodos de pago
+            </h3>
+            <ul
+              className="mt-2 flex flex-wrap gap-1"
+              aria-label="Métodos de pago aceptados"
+            >
+              <PaymentMethod label="Visa" hoverColor="group-hover:text-[#1434CB]" className="size-[30px]">
+                <SiVisa className="size-[18px]" aria-hidden="true" />
+              </PaymentMethod>
+              <PaymentMethod label="Mastercard" hoverColor="group-hover:text-[#EB001B]" className="size-[30px]">
+                <SiMastercard className="size-[18px]" aria-hidden="true" />
+              </PaymentMethod>
+              <PaymentMethod label="Diners Club" hoverColor="group-hover:text-[#0079BE]" className="size-[30px]">
+                <SiDinersclub className="size-[18px]" aria-hidden="true" />
+              </PaymentMethod>
+              <PaymentMethod label="Discover" hoverColor="group-hover:text-[#FF6000]" className="size-[30px]">
+                <SiDiscover className="size-[18px]" aria-hidden="true" />
+              </PaymentMethod>
+              <PaymentMethod label="PayPhone" className="size-[30px]">
+                <Image
+                  src="/images/metodos-de-pago/payphone-icon.svg"
+                  alt=""
+                  width={62}
+                  height={36}
+                  aria-hidden="true"
+                  className="h-auto w-5 opacity-65 grayscale transition duration-200 group-hover:opacity-100 group-hover:grayscale-0 motion-reduce:transition-none"
+                />
+              </PaymentMethod>
+            </ul>
+          </div>
         </FooterColumn>
       </div>
 
@@ -145,5 +179,27 @@ function FooterColumn({
       <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-gold-light">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+function PaymentMethod({
+  label,
+  children,
+  hoverColor = "",
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  hoverColor?: string;
+  className?: string;
+}) {
+  return (
+    <li
+      title={label}
+      className={`group flex shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/[0.05] text-white/55 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-gold-light/60 hover:bg-white/10 hover:shadow-[0_4px_12px_rgba(0,0,0,0.14)] motion-reduce:transform-none motion-reduce:transition-none ${hoverColor} ${className}`}
+    >
+      <span className="sr-only">{label}</span>
+      {children}
+    </li>
   );
 }

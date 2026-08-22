@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Copy, Heart, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
+import { ArrowUpRight, Copy, Heart, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogAttribute, Product, ProductVariant } from "@/types/producto";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,11 @@ import {
   SIZE_VARIANT_ATTRIBUTE_KEY,
 } from "@/lib/opciones-producto";
 import { brandLogos } from "@/data/datos-negocio";
+import { SITE_URL } from "@/lib/constantes";
+import {
+  buildProductInquiryWhatsAppMessage,
+  getWhatsAppPrefilledUrl,
+} from "@/lib/whatsapp";
 
 interface ProductDetailActionsProps {
   product: Product;
@@ -183,6 +188,16 @@ export function ProductDetailActions({
       .filter((attribute): attribute is { id: string; label: string; value: string } => Boolean(attribute.value));
   }, [product.attributes, product.categorySlug, selectableAttributes, selectedVariant, variantAttributes]);
   const canCompareVariants = product.variants.length > 1 && ["canas", "carrete", "carretes", "combos"].includes(product.categorySlug);
+  const selectedLooseColor = colorImages.find(
+    (image) => image.id === (selectedImageId ?? product.images[0]?.id),
+  )?.color;
+  const productInquiryUrl = getWhatsAppPrefilledUrl(
+    buildProductInquiryWhatsAppMessage({
+      productName: product.name,
+      productUrl: `${SITE_URL}/producto/${product.slug}`,
+      selectedOption: selectedVariant?.name ?? selectedLooseColor,
+    }),
+  );
   const shareUrl = typeof window === "undefined" ? "" : window.location.href;
   const shareText = `Mira ${product.name} en Pesca Con Fe`;
 
@@ -459,17 +474,53 @@ export function ProductDetailActions({
         </div>
       ) : null}
 
-      {brandLogo ? (
-        <div className="flex h-12 w-24 items-center justify-center rounded-md border border-border bg-white px-2">
-          <Image
-            src={brandLogo.image}
-            alt={`Logo de ${product.brand}`}
-            width={brandLogo.width}
-            height={brandLogo.height}
-            className="max-h-8 w-auto max-w-full object-contain"
+      <div
+        className={`grid gap-3 ${
+          brandLogo ? "sm:grid-cols-[auto_minmax(0,1fr)] sm:items-stretch" : ""
+        }`}
+      >
+        {brandLogo ? (
+          <div className="flex h-14 w-24 items-center justify-center rounded-lg border border-border bg-white px-2 shadow-sm">
+            <Image
+              src={brandLogo.image}
+              alt={`Logo de ${product.brand}`}
+              width={brandLogo.width}
+              height={brandLogo.height}
+              className="max-h-9 w-auto max-w-full object-contain"
+            />
+          </div>
+        ) : null}
+        <a
+          href={productInquiryUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="product-whatsapp-attention-button group flex min-h-14 min-w-0 items-center gap-3 rounded-lg border border-[#1da851] bg-[linear-gradient(135deg,#20ba5a,#128c46)] px-3 py-2 text-white shadow-sm transition-[box-shadow,transform,filter] duration-300 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_10px_24px_rgb(18_140_70_/_0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25d366] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
+          aria-label={`Consultar por WhatsApp acerca de ${product.name}`}
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
+            <Image
+              src="/images/redes-sociales/whatsapp-icon.webp"
+              alt=""
+              width={40}
+              height={40}
+              aria-hidden="true"
+              className="size-8 object-contain"
+            />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-medium leading-4 text-white/85">
+              ¿Deseas saber más de este producto?
+            </span>
+            <span className="block text-sm font-black leading-5">
+              {outOfStock ? "Consultar disponibilidad" : "Consultar por WhatsApp"}
+            </span>
+          </span>
+          <ArrowUpRight
+            className="size-4 shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none"
+            aria-hidden="true"
           />
-        </div>
-      ) : null}
+        </a>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end">
         <div>

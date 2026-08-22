@@ -1,7 +1,10 @@
 import type { BankAccount, BusinessConfig } from "@/types/negocio";
 import type { CustomerInfo, DeliveryType, OrderItem } from "@/types/pedido";
 import { businessConfig } from "@/data/datos-negocio";
-import { isGalapagosDestination } from "./checkout-envio";
+import {
+  isGalapagosDestination,
+  resolveCheckoutDeliveryAddress,
+} from "./checkout-envio";
 import { formatCurrency } from "./utilidades";
 
 interface CheckoutMessageInput {
@@ -21,37 +24,45 @@ interface CustomerQuestionMessageInput {
   fullName?: string;
 }
 
+interface ProductInquiryMessageInput {
+  productName: string;
+  productUrl: string;
+  selectedOption?: string;
+}
+
 // Arma el mensaje que se envia al WhatsApp de la tienda al finalizar checkout.
 export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
+  const business = input.business ?? businessConfig;
   const isGalapagosDelivery =
     input.deliveryType === "envio_servientrega" &&
     isGalapagosDestination(input.customer.province, input.customer.city);
   const productLines = input.items
     .map(
       (item) =>
-        `• ${item.productName} x${item.quantity}: ${formatCurrency(
+        `• ${item.quantity} x ${item.productName} — ${formatCurrency(
           item.price * item.quantity,
         )}`,
     )
     .join("\n");
   const contactPhone = input.customer.contactPhone || input.customer.phone;
-  const deliveryAddress = input.customer.address?.trim();
-  const officeDeliveryMessage = input.customer.city
-    ? `Oficina de Servientrega de ${input.customer.city}`
-    : "Oficina de Servientrega de la ciudad seleccionada";
+  const deliveryAddress = resolveCheckoutDeliveryAddress({
+    deliveryType: input.deliveryType,
+    address: input.customer.address,
+    city: input.customer.city,
+    province: input.customer.province,
+  });
 
   return [
-    input.orderCode ? `*PEDIDO ${input.orderCode}*` : "*PEDIDO*",
-    `Pedido enviado por: ${input.customer.fullName}`,
-    `Número celular: ${contactPhone}`,
+    input.orderCode
+      ? `*${business.name.toUpperCase()} | PEDIDO ${input.orderCode}*`
+      : `*${business.name.toUpperCase()} | NUEVO PEDIDO*`,
     "",
-    "*PRODUCTOS*",
-    productLines,
-    "",
-    "*DATOS PARA EL ENVÍO*",
+    "*CLIENTE*",
     `Nombre: ${input.customer.fullName}`,
     input.customer.cedula ? `Cédula: ${input.customer.cedula}` : undefined,
     `Celular: ${contactPhone}`,
+    "",
+    "*ENTREGA*",
     input.deliveryType === "retiro_local"
       ? "Modalidad: Retiro en el local"
       : "Modalidad: Envío por Servientrega",
@@ -62,7 +73,7 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
       ? `Ciudad: ${input.customer.city}`
       : undefined,
     input.deliveryType === "envio_servientrega"
-      ? `Dirección de referencia: ${deliveryAddress || officeDeliveryMessage}`
+      ? `Destino: ${deliveryAddress}`
       : undefined,
     input.deliveryType === "envio_servientrega" && input.customer.deliveryReference
       ? `Referencia adicional: ${input.customer.deliveryReference}`
@@ -71,12 +82,29 @@ export function buildCheckoutWhatsAppMessage(input: CheckoutMessageInput) {
       ? "La tarifa de envío a Galápagos se confirmará según peso y tamaño."
       : undefined,
     "",
+    "*PRODUCTOS*",
+    productLines,
+    "",
+    "*RESUMEN*",
+    `Subtotal: ${formatCurrency(input.subtotal)}`,
+    isGalapagosDelivery
+      ? "Envío: Por confirmar"
+      : `Envío: ${formatCurrency(input.shipping)}`,
+    isGalapagosDelivery
+      ? `Total parcial: ${formatCurrency(input.total)}`
+      : `Total: ${formatCurrency(input.total)}`,
+    "",
+    "*PAGO POR TRANSFERENCIA*",
     input.bankAccount
-      ? `El cliente seleccionó la banca: ${input.bankAccount.bank}.`
+      ? `Banco seleccionado: ${input.bankAccount.bank}`
       : isGalapagosDelivery
-        ? "El cliente espera la cotización de envío antes de seleccionar la banca."
+        ? "Banco: Se seleccionará después de confirmar el valor del envío."
         : undefined,
-    input.bankAccount ? "El cliente enviará el comprobante de transferencia para corroborar la información." : undefined,
+    input.bankAccount
+      ? "Adjunto el comprobante de transferencia para validar el pago."
+      : isGalapagosDelivery
+        ? "Quedo pendiente de la cotización para continuar con el pago."
+        : undefined,
   ]
     .filter(Boolean)
     .join("\n");
@@ -97,6 +125,30 @@ export function buildCustomerQuestionWhatsAppMessage(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+// Prepara una consulta contextual desde la ficha del producto.
+export function buildProductInquiryWhatsAppMessage(
+  input: ProductInquiryMessageInput,
+) {
+  const selectedOption = input.selectedOption?.trim();
+
+  return [
+    "Hola, quiero saber más de este producto:",
+    `*${input.productName}*`,
+    selectedOption ? `Opción elegida: ${selectedOption}` : undefined,
+    "",
+    `Enlace: ${input.productUrl}`,
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
+// Mantiene breve y privada la consulta iniciada desde el acceso flotante general.
+export function buildGeneralSalesWhatsAppMessage(
+  business: BusinessConfig = businessConfig,
+) {
+  return `Hola, necesito ayuda. Quisiera comunicarme con el Departamento de Ventas de ${business.name}.`;
 }
 
 // Codifica un mensaje para abrir WhatsApp con texto precargado.

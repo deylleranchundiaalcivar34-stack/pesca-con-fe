@@ -3,6 +3,7 @@ import { PackagePlus } from "lucide-react";
 import { AdminOperationalSummary } from "@/components/admin/resumen-operativo-admin";
 import { AdminSalesSummary } from "@/components/admin/resumen-ventas-admin";
 import { Button } from "@/components/ui/button";
+import { isLowStock, isTodayInEcuador } from "@/lib/operacion-admin";
 import { getAdminOrders, getAdminPhysicalSales, getAdminProducts } from "@/lib/supabase/data";
 
 // Dashboard operativo: ventas filtrables, pedidos recientes e inventario a vigilar.
@@ -12,9 +13,11 @@ export default async function AdminDashboardPage() {
     getAdminProducts(),
     getAdminPhysicalSales(),
   ]);
-  const lowStockProducts = products.filter(
-    (product) => product.stock > 0 && product.stock <= 4,
-  );
+  const today = new Date();
+  const todayOrders = orders.filter((order) => isTodayInEcuador(order.createdAt, today));
+  const lowStockProducts = products
+    .filter((product) => isLowStock(product.stock))
+    .sort((first, second) => first.stock - second.stock || first.name.localeCompare(second.name, "es"));
 
   return (
     <div className="space-y-6">
@@ -35,7 +38,7 @@ export default async function AdminDashboardPage() {
 
       <AdminSalesSummary orders={orders} physicalSales={physicalSales} />
 
-      <AdminOperationalSummary orders={orders} lowStockProducts={lowStockProducts} />
+      <AdminOperationalSummary orders={todayOrders} lowStockProducts={lowStockProducts} />
     </div>
   );
 }

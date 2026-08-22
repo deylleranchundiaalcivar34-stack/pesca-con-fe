@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, type PointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, ShoppingCart } from "lucide-react";
@@ -10,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utilidades";
 import { getProductPricingSummary } from "@/lib/precios-producto";
+import {
+  getAlternateProductImages,
+  pickRandomProductImage,
+} from "@/lib/imagenes-tarjeta-producto";
 import { useCartStore } from "@/store/tienda-carrito";
 import { useWishlistStore } from "@/store/tienda-lista-deseos";
 import { useWishlistHydrated } from "@/hooks/use-lista-deseos-hidratada";
@@ -31,15 +36,40 @@ export function ProductCard({
   const toggleWishlist = useWishlistStore((state) => state.toggleProduct);
   const wishlistHydrated = useWishlistHydrated();
   const isWishlisted = wishlistHydrated && wishlistedProductIds.includes(product.id);
+  const alternateImages = getAlternateProductImages(product.images, product.mainImage);
+  const [hoverImage, setHoverImage] = useState<(typeof alternateImages)[number] | null>(null);
+  const [loadedHoverImageUrl, setLoadedHoverImageUrl] = useState<string | null>(null);
+  const [isPointerOverCard, setIsPointerOverCard] = useState(false);
   const outOfStock = product.stock === 0;
   const pricing = getProductPricingSummary(product);
   const productSummary =
     product.description.trim() ||
     product.features.filter(Boolean).slice(0, 2).join(" · ") ||
     "Consulta sus características y opciones disponibles.";
+  const showHoverImage =
+    isPointerOverCard &&
+    Boolean(hoverImage) &&
+    loadedHoverImageUrl === hoverImage?.url;
+
+  const handlePointerEnter = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse" || !alternateImages.length) return;
+
+    const nextImage = pickRandomProductImage(alternateImages, hoverImage?.url);
+
+    if (!nextImage) return;
+
+    setHoverImage(nextImage);
+    setIsPointerOverCard(true);
+  };
+
+  const handlePointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse") setIsPointerOverCard(false);
+  };
 
   return (
     <Card
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
       className={`group flex h-full flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-soft)] ${
         pricing.hasOffer
           ? "border-red-200 shadow-[0_8px_24px_rgba(220,38,38,0.10)] hover:border-red-400"
@@ -52,19 +82,35 @@ export function ProductCard({
           className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
-          <Image
-            src={product.mainImage}
-            alt={product.imageAlt}
-            fill
-            priority={priority}
-            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          {pricing.hasOffer ? (
-            <div className="absolute left-0 top-3 z-10 rounded-r-full border border-l-0 border-red-700 bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-md">
-              Oferta {pricing.hasVariants ? "hasta " : ""}-{pricing.maximumDiscountPercentage}%
-            </div>
-          ) : null}
+            <Image
+              src={product.mainImage}
+              alt={product.imageAlt}
+              fill
+              priority={priority}
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+              className={`object-cover transition-[opacity,transform] duration-500 group-hover:scale-105 motion-reduce:transition-none ${
+                showHoverImage ? "opacity-0" : "opacity-100"
+              }`}
+            />
+            {hoverImage ? (
+              <Image
+                key={hoverImage.url}
+                src={hoverImage.url}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                onLoad={() => setLoadedHoverImageUrl(hoverImage.url)}
+                onError={() => setLoadedHoverImageUrl(null)}
+                className={`object-cover transition-[opacity,transform] duration-500 motion-reduce:transition-none ${
+                  showHoverImage ? "scale-105 opacity-100" : "scale-100 opacity-0"
+                }`}
+              />
+            ) : null}
+            {pricing.hasOffer ? (
+              <div className="absolute left-0 top-3 z-10 rounded-r-full border border-l-0 border-red-700 bg-red-600 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-md">
+                Oferta {pricing.hasVariants ? "hasta " : ""}-{pricing.maximumDiscountPercentage}%
+              </div>
+            ) : null}
           </div>
         </Link>
         <button

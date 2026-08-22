@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { FullCatalogLink } from "@/components/products/enlace-catalogo-completo";
 
 type FixedMenuItem = { label: string; href: string; children?: FixedMenuItem[] };
 type FixedMenuSection = { label: string; href: string; items: FixedMenuItem[] };
@@ -69,19 +71,40 @@ const equipmentSections: FixedMenuSection[] = [
 ];
 
 export function FishingArticlesMenu() {
-  return <FixedMegaMenu label="Artículos de Pesca" sections={fishingSections} wide />;
+  return (
+    <FixedMegaMenu
+      label="Artículos de Pesca"
+      sections={fishingSections}
+      wide
+    />
+  );
 }
 
 export function EquipmentMenu() {
   return <FixedMegaMenu label="Indumentaria y Camping" sections={equipmentSections} />;
 }
 
-function FixedMegaMenu({ label, sections, wide = false }: { label: string; sections: FixedMenuSection[]; wide?: boolean }) {
+function FixedMegaMenu({ label, href, sections, wide = false }: { label: string; href?: string; sections: FixedMenuSection[]; wide?: boolean }) {
   return (
     <div className="group relative">
-      <button type="button" className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-sm font-semibold text-dark-blue transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {label}<ChevronDown className="size-4 transition group-hover:rotate-180" aria-hidden="true" />
-      </button>
+      <div className="inline-flex h-9 items-center whitespace-nowrap rounded-md text-sm font-semibold text-dark-blue transition hover:bg-secondary hover:text-primary focus-within:ring-2 focus-within:ring-ring">
+        {href ? (
+          <FullCatalogLink
+            className="inline-flex h-full items-center rounded-l-md px-2 focus-visible:outline-none"
+          >
+            {label}
+          </FullCatalogLink>
+        ) : (
+          <span className="pl-2">{label}</span>
+        )}
+        <button
+          type="button"
+          aria-label={`Mostrar menú de ${label}`}
+          className="grid h-full w-7 place-items-center rounded-r-md focus-visible:outline-none"
+        >
+          <ChevronDown className="size-4 transition group-hover:rotate-180" aria-hidden="true" />
+        </button>
+      </div>
       <div className={`invisible z-50 -translate-x-1/2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${wide ? "fixed left-1/2 top-12 w-[min(74rem,calc(100vw-2rem))] pt-4" : "absolute left-1/2 top-full w-[min(34rem,calc(100vw-2rem))] pt-3"}`}>
         <div className={`grid gap-7 rounded-lg border border-border bg-white p-6 shadow-xl ${wide ? "md:grid-cols-3 xl:grid-cols-6" : "grid-cols-2"}`}>
           {sections.map((section) => <MenuSection key={section.href} section={section} />)}
@@ -116,12 +139,38 @@ export function MobileFixedNavigation() {
   </div>;
 }
 
-function MobileMenuGroup({ label, sections }: { label: string; sections: FixedMenuSection[] }) {
-  return <details className="group rounded-lg border border-border bg-white">
-    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-3 font-bold text-dark-blue transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-      {label}
-      <ChevronDown className="size-5 shrink-0 text-primary transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
-    </summary>
-    <div className="mt-1 space-y-4 border-t border-border p-3">{sections.map((section) => <MenuSection key={section.href} section={section} />)}</div>
-  </details>;
+function MobileMenuGroup({ label, href, sections }: { label: string; href?: string; sections: FixedMenuSection[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return <div className="rounded-lg border border-border bg-white">
+    <div className="flex items-stretch">
+      {href ? (
+        <FullCatalogLink
+          className="flex min-w-0 flex-1 items-center rounded-l-lg px-3 py-3 font-bold text-dark-blue transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {label}
+        </FullCatalogLink>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="flex min-w-0 flex-1 items-center rounded-l-lg px-3 py-3 text-left font-bold text-dark-blue transition hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {label}
+        </button>
+      )}
+      <button
+        type="button"
+        aria-label={`Mostrar menú de ${label}`}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+        className="grid w-12 cursor-pointer list-none place-items-center rounded-r-lg text-primary transition hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <ChevronDown className={`size-5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+    </div>
+    {isOpen ? (
+      <div className="mt-1 space-y-4 border-t border-border p-3">{sections.map((section) => <MenuSection key={section.href} section={section} />)}</div>
+    ) : null}
+  </div>;
 }

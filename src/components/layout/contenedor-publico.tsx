@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FloatingWhatsAppHelp } from "@/components/shared/ayuda-whatsapp-flotante";
 import { Footer } from "./footer";
 import { Header } from "./header";
 
@@ -9,6 +10,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
       <Header />
       <main className="public-page-canvas flex-1 bg-secondary pt-16">{children}</main>
       <Footer />
+      <FloatingWhatsAppHelp />
     </>
   );
 }

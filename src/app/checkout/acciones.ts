@@ -9,6 +9,7 @@ import {
   isGalapagosDestination,
   isValidEcuadorianCedula,
   normalizeEcuadorianCedula,
+  resolveCheckoutDeliveryAddress,
 } from "@/lib/checkout-envio";
 import { getCustomerProfile } from "@/lib/usuario";
 import { isSameCustomerAddress } from "@/lib/direcciones-cliente";
@@ -61,6 +62,13 @@ type PersistedCheckoutItem = {
 
 type PersistedCheckoutOrder = {
   codigo: string;
+  cliente_nombre_completo: string;
+  cliente_cedula: string | null;
+  cliente_celular: string | null;
+  cliente_provincia: string | null;
+  cliente_ciudad: string | null;
+  cliente_direccion: string | null;
+  cliente_referencia_entrega: string | null;
   subtotal: number | string;
   envio: number | string;
   total: number | string;
@@ -177,6 +185,33 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const isGalapagosDelivery =
     isServientrega && isGalapagosDestination(input.customer.province, input.customer.city);
   const cedula = normalizeEcuadorianCedula(input.customer.cedula ?? "");
+  const contactPhone = input.customer.contactPhone?.trim() ?? "";
+  const province = input.customer.province?.trim() || undefined;
+  const city = input.customer.city?.trim() || undefined;
+  const manualDeliveryAddress = input.customer.address?.trim() || undefined;
+  const deliveryReference = input.customer.deliveryReference?.trim() || undefined;
+  const deliveryAddress = resolveCheckoutDeliveryAddress({
+    deliveryType: input.deliveryType,
+    address: manualDeliveryAddress,
+    city,
+    province,
+  });
+
+  if (contactPhone.length < 9) {
+    return {
+      ok: false,
+      message: "Ingresa un celular de contacto válido.",
+      code: null,
+    };
+  }
+
+  if (isServientrega && (!province || !city)) {
+    return {
+      ok: false,
+      message: "Para envío por Servientrega selecciona la provincia y la ciudad.",
+      code: null,
+    };
+  }
 
   if (isServientrega && !isValidEcuadorianCedula(cedula)) {
     return {
@@ -237,9 +272,9 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     input.deliveryType === "envio_servientrega" &&
     input.customer.saveAddress &&
     !addressId &&
-    input.customer.province &&
-    input.customer.city &&
-    input.customer.address
+    province &&
+    city &&
+    manualDeliveryAddress
   ) {
     const { data: activeAddresses, error: activeAddressesError } = await supabase
       .from("direcciones_cliente")
@@ -266,11 +301,11 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
           contactPhone: savedAddress.celular_contacto,
         },
         {
-          province: input.customer.province!,
-          city: input.customer.city!,
-          address: input.customer.address!,
-          deliveryReference: input.customer.deliveryReference,
-          contactPhone: input.customer.contactPhone,
+          province,
+          city,
+          address: manualDeliveryAddress,
+          deliveryReference,
+          contactPhone,
         },
       ),
     );
@@ -284,11 +319,11 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
       .insert({
         cliente_id: user.id,
         alias: input.customer.addressAlias || "Principal",
-        provincia: input.customer.province,
-        ciudad: input.customer.city,
-        direccion: input.customer.address,
-        referencia: input.customer.deliveryReference || null,
-        celular_contacto: input.customer.contactPhone || null,
+        provincia: province,
+        ciudad: city,
+        direccion: manualDeliveryAddress,
+        referencia: deliveryReference || null,
+        celular_contacto: contactPhone,
         principal: !activeAddresses?.length,
         activa: true,
       })
@@ -310,11 +345,11 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
 
   const payload = {
     cliente_cedula: isServientrega ? cedula : null,
-    cliente_provincia: input.customer.province || null,
-    cliente_ciudad: input.customer.city || null,
-    cliente_direccion: input.customer.address || null,
-    cliente_referencia_entrega: input.customer.deliveryReference || null,
-    cliente_celular: input.customer.contactPhone || null,
+    cliente_provincia: province || null,
+    cliente_ciudad: city || null,
+    cliente_direccion: deliveryAddress,
+    cliente_referencia_entrega: deliveryReference || null,
+    cliente_celular: contactPhone,
     direccion_cliente_id: addressId,
     tipo_entrega: input.deliveryType,
     items: input.items.map((item) => ({
@@ -445,7 +480,7 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
   const { data: persistedOrder, error: persistedOrderError } = await supabase
     .from("pedidos")
     .select(
-      "codigo, subtotal, envio, total, pedido_items(id, producto_id, variante_id, variante_nombre, variante_sku, producto_nombre, producto_slug, producto_imagen, categoria_slug, precio, cantidad)",
+      "codigo, cliente_nombre_completo, cliente_cedula, cliente_celular, cliente_provincia, cliente_ciudad, cliente_direccion, cliente_referencia_entrega, subtotal, envio, total, pedido_items(id, producto_id, variante_id, variante_nombre, variante_sku, producto_nombre, producto_slug, producto_imagen, categoria_slug, precio, cantidad)",
     )
     .eq("id", rpcOrder.id)
     .single<PersistedCheckoutOrder>();
@@ -467,6 +502,16 @@ export async function createCheckoutOrder(input: CreateCheckoutOrderInput) {
     message: "Pedido creado.",
     code: persistedOrder.codigo,
     order: {
+      customer: {
+        fullName: persistedOrder.cliente_nombre_completo,
+        cedula: persistedOrder.cliente_cedula ?? undefined,
+        phone: persistedOrder.cliente_celular ?? "",
+        contactPhone: persistedOrder.cliente_celular ?? undefined,
+        province: persistedOrder.cliente_provincia ?? undefined,
+        city: persistedOrder.cliente_ciudad ?? undefined,
+        address: persistedOrder.cliente_direccion ?? undefined,
+        deliveryReference: persistedOrder.cliente_referencia_entrega ?? undefined,
+      },
       items: persistedOrder.pedido_items.map<OrderItem>((item) => ({
         productId: item.producto_id ?? item.id,
         variantId: item.variante_id ?? undefined,

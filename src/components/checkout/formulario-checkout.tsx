@@ -113,14 +113,6 @@ const checkoutSchema = z
       });
     }
 
-    if (values.saveAddress && (!values.address || values.address.trim().length < 8)) {
-      context.addIssue({
-        code: "custom",
-        path: ["address"],
-        message: "Escribe una dirección de referencia para guardarla.",
-      });
-    }
-
   });
 
 type CheckoutValues = z.infer<typeof checkoutSchema>;
@@ -209,6 +201,7 @@ export function CheckoutForm({
   const selectedCity = useWatch({ control, name: "city" });
   const selectedAddressId = useWatch({ control, name: "addressId" });
   const saveAddress = useWatch({ control, name: "saveAddress" });
+  const manualAddress = useWatch({ control, name: "address" });
   const visibleItems = isClient ? items : [];
   const checkoutItems = visibleItems.map((item) => ({
     productId: item.product.id,
@@ -254,7 +247,14 @@ export function CheckoutForm({
     clearSelectedAddress();
     setValue("city", city, { shouldDirty: true, shouldValidate: true });
   };
-  const addressField = register("address", { onChange: clearSelectedAddress });
+  const addressField = register("address", {
+    onChange: (event) => {
+      clearSelectedAddress();
+      if (!event.target.value.trim()) {
+        setValue("saveAddress", false, { shouldDirty: true });
+      }
+    },
+  });
   const deliveryReferenceField = register("deliveryReference", {
     onChange: clearSelectedAddress,
   });
@@ -292,7 +292,7 @@ export function CheckoutForm({
   const onInvalid = () => {
     toast.error(
       deliveryType === "envio_servientrega"
-        ? "Para abrir PayPhone con envío completa cédula, provincia, ciudad y celular. Esos datos son para Servientrega."
+        ? "Completa cédula, provincia, ciudad y celular para el envío por Servientrega. La dirección y la referencia adicional son opcionales."
         : "Completa los datos requeridos antes de continuar.",
     );
   };
@@ -376,10 +376,7 @@ export function CheckoutForm({
     }
 
     const message = buildCheckoutWhatsAppMessage({
-      customer: {
-        ...values,
-        phone: values.contactPhone ?? "",
-      },
+      customer: createdOrder.order.customer,
       items: createdOrder.order.items,
       subtotal: createdOrder.order.subtotal,
       shipping: createdOrder.order.shipping,
@@ -407,7 +404,7 @@ export function CheckoutForm({
     setPayPhonePayment(null);
     setCheckoutAttemptId(crypto.randomUUID());
     toast.message(
-      "Solicitud de cancelación registrada. Verificaremos PayPhone antes de liberar la reserva.",
+      "Pago cerrado. No se generó ningún pedido y tus productos siguen en el carrito. Cuando quieras, estaremos encantados de atenderte.",
     );
   };
 
@@ -730,10 +727,17 @@ export function CheckoutForm({
                         <input
                           type="checkbox"
                           {...register("saveAddress")}
+                          disabled={!manualAddress?.trim()}
                           className="mt-0.5 size-4 rounded border-border"
                         />
                         Guardar esta dirección para próximas compras
                       </label>
+                      {!manualAddress?.trim() ? (
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          Si deseas guardarla, primero escribe una dirección. Dejarla vacía no
+                          impide generar el pedido.
+                        </p>
+                      ) : null}
                       {saveAddress ? (
                         <Field
                           id="addressAlias"

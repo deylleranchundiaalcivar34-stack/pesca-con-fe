@@ -9,9 +9,14 @@ export const businessConfig: BusinessConfig = {
   location: "Mega Mercado Municipal, Local N° 145 - Planta Alta",
   city: "Shushufindi",
   country: "Ecuador",
-  schedule: "Lunes a Sábado, 08:30 AM - 06:00 PM",
+  schedule: "Lunes a Viernes, 08:00 AM - 05:00 PM",
+  openingHours: {
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    opens: "08:00",
+    closes: "17:00",
+  },
   phones: ["0984967946","0939927826"],
-  whatsappPhoneE164: "593939927826",
+  whatsappPhoneE164: "593984967946",
   email: "pescaconfe@gmail.com",
   social: {
     facebook: "https://www.facebook.com/share/1DgLKz6Qez/?mibextid=wwXIfr",
@@ -21,7 +26,7 @@ export const businessConfig: BusinessConfig = {
     whatsapp: "https://wa.me/message/3VVYXYKPQKUQP1",
   },
   mapsEmbedUrl:
-    "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d7979.593868717105!2d-76.637618!3d-0.187597!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x91d7f138f2bf2a27%3A0x76c7ed6cdb45a227!2sStore%20Fishing%20%26%20Camping%20Pesca%20Con%20Fe!5e0!3m2!1ses!2sec!4v1778720578588!5m2!1ses!2sec",
+    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.7970036823826!2d-76.63761!3d-0.18729269999999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x91d7f138f2bf2a27%3A0x76c7ed6cdb45a227!2sStore%20Fishing%20%26%20Camping%20Pesca%20Con%20Fe!5e0!3m2!1ses!2sec!4v1787368445444!5m2!1ses!2sec",
   shippingService: "Servientrega Ecuador",
   shippingBase: 6.5,
   localPickupEnabled: true,

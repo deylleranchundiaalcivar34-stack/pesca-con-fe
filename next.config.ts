@@ -13,7 +13,7 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   "media-src 'self' https://res.cloudinary.com",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.payphonetodoesposible.com https://hcaptcha.com https://*.hcaptcha.com",
-  "frame-src 'self' https://*.payphonetodoesposible.com https://hcaptcha.com https://*.hcaptcha.com https://www.youtube.com https://www.youtube-nocookie.com https://*.elf.site",
+  "frame-src 'self' https://*.payphonetodoesposible.com https://hcaptcha.com https://*.hcaptcha.com https://www.google.com https://www.youtube.com https://www.youtube-nocookie.com https://*.elf.site",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),

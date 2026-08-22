@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+} from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductImageLightbox } from "@/components/products/visor-imagen-producto";
+import {
+  preventProtectedImageAction,
+  ProductImageWatermark,
+} from "@/components/products/marca-agua-imagen-producto";
 import type { Product, ProductImage } from "@/types/producto";
+import { canAutoRotateProductGallery } from "@/lib/rotacion-galeria-producto";
 import { cn } from "@/lib/utilidades";
 
 interface ProductGalleryProps {
@@ -14,24 +26,37 @@ interface ProductGalleryProps {
 }
 
 const fallbackImage = "/images/products/product-placeholder.png";
+const autoAdvanceDelayMs = 4_000;
+const imageTransitionDurationMs = 450;
+
 // Muestra imagen principal y miniaturas del producto.
 export function ProductGallery({ product, selectedImageId, onSelectedImageIdChange }: ProductGalleryProps) {
-  const images: ProductImage[] = product.images.length
-    ? product.images
-    : [
-        {
-          id: "placeholder",
-          url: fallbackImage,
-          alt: product.name,
-          isMain: true,
-        },
-      ];
+  const images = useMemo<ProductImage[]>(
+    () =>
+      product.images.length
+        ? product.images
+        : [
+            {
+              id: "placeholder",
+              url: fallbackImage,
+              alt: product.name,
+              isMain: true,
+            },
+          ],
+    [product.images, product.name],
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [displayedImageId, setDisplayedImageId] = useState(
     selectedImageId ?? images[0].id,
   );
+  const [transitioningImageId, setTransitioningImageId] = useState<string | null>(null);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
   const isCurrican = product.catalogPath.some((node) => node.slug === "curricanes");
+  const canAutoAdvance = canAutoRotateProductGallery(product);
   const controlledIndex = selectedImageId
     ? images.findIndex((image) => image.id === selectedImageId)
     : -1;
@@ -41,21 +66,117 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
   const displayedImages =
     displayed.id === selected.id ? [selected] : [displayed, selected];
 
-  const selectImage = (index: number) => {
-    setSelectedIndex(index);
-    onSelectedImageIdChange?.(images[index]?.id ?? images[0].id);
-  };
+  const clearAutoAdvance = useCallback(() => {
+    if (autoAdvanceTimerRef.current === null) return;
+
+    window.clearTimeout(autoAdvanceTimerRef.current);
+    autoAdvanceTimerRef.current = null;
+  }, []);
+
+  const selectImage = useCallback(
+    (index: number) => {
+      setTransitioningImageId(null);
+      setSelectedIndex(index);
+      onSelectedImageIdChange?.(images[index]?.id ?? images[0].id);
+    },
+    [images, onSelectedImageIdChange],
+  );
+
+  const selectNextImage = useCallback(() => {
+    selectImage((activeIndex + 1) % images.length);
+  }, [activeIndex, images.length, selectImage]);
+
+  const scheduleAutoAdvance = useCallback(() => {
+    clearAutoAdvance();
+
+    if (
+      !canAutoAdvance ||
+      isLightboxOpen ||
+      isFocusedWithin ||
+      !isPageVisible ||
+      prefersReducedMotion
+    ) {
+      return;
+    }
+
+    autoAdvanceTimerRef.current = window.setTimeout(
+      selectNextImage,
+      autoAdvanceDelayMs,
+    );
+  }, [
+    canAutoAdvance,
+    clearAutoAdvance,
+    isFocusedWithin,
+    isLightboxOpen,
+    isPageVisible,
+    prefersReducedMotion,
+    selectNextImage,
+  ]);
 
   const selectPreviousImage = () => {
     selectImage((activeIndex - 1 + images.length) % images.length);
   };
 
-  const selectNextImage = () => {
-    selectImage((activeIndex + 1) % images.length);
+  useEffect(() => {
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => {
+      setPrefersReducedMotion(motionPreference.matches);
+    };
+
+    updateMotionPreference();
+    motionPreference.addEventListener("change", updateMotionPreference);
+
+    return () => {
+      motionPreference.removeEventListener("change", updateMotionPreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    const updatePageVisibility = () => {
+      setIsPageVisible(document.visibilityState === "visible");
+    };
+
+    updatePageVisibility();
+    document.addEventListener("visibilitychange", updatePageVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", updatePageVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    scheduleAutoAdvance();
+    return clearAutoAdvance;
+  }, [clearAutoAdvance, scheduleAutoAdvance]);
+
+  useEffect(() => {
+    if (!transitioningImageId) return;
+
+    const transitionTimer = window.setTimeout(() => {
+      setDisplayedImageId(transitioningImageId);
+      setTransitioningImageId(null);
+    }, imageTransitionDurationMs);
+
+    return () => window.clearTimeout(transitionTimer);
+  }, [transitioningImageId]);
+
+  const handleBlurWithin = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setIsFocusedWithin(false);
+    }
   };
 
   return (
-    <div className="lg:h-[640px] xl:h-[680px]">
+    <div
+      data-auto-advance={canAutoAdvance ? "enabled" : "disabled"}
+      onPointerMove={scheduleAutoAdvance}
+      onPointerDown={scheduleAutoAdvance}
+      onContextMenu={preventProtectedImageAction}
+      onDragStart={preventProtectedImageAction}
+      onFocusCapture={() => setIsFocusedWithin(true)}
+      onBlurCapture={handleBlurWithin}
+      className="select-none [-webkit-touch-callout:none] lg:h-[640px] xl:h-[680px]"
+    >
       <div className="flex flex-col gap-3 sm:flex-row lg:h-full">
         {images.length > 1 ? (
           <div className="order-2 flex shrink-0 gap-3 overflow-x-auto p-1 sm:order-1 sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto sm:pr-2">
@@ -76,6 +197,7 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
                   src={image.url}
                   alt={image.alt}
                   fill
+                  draggable={false}
                   sizes="96px"
                   className="object-contain p-2"
                 />
@@ -90,6 +212,11 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
           {displayedImages.map((image) => {
             const isDisplayed = image.id === displayed.id;
             const isTarget = image.id === selected.id;
+            const isTransitionTarget =
+              isTarget && transitioningImageId === image.id;
+            const isVisible = isTarget
+              ? isDisplayed || isTransitionTarget
+              : isDisplayed && transitioningImageId !== selected.id;
 
             return (
               <Image
@@ -97,21 +224,25 @@ export function ProductGallery({ product, selectedImageId, onSelectedImageIdChan
                 src={image.url}
                 alt={isDisplayed ? image.alt : ""}
                 fill
+                draggable={false}
                 loading="eager"
                 fetchPriority={isTarget ? "high" : "auto"}
                 decoding="sync"
                 sizes="(min-width: 1600px) 880px, (min-width: 1024px) 58vw, (min-width: 640px) calc(100vw - 8rem), calc(100vw - 2rem)"
                 onLoad={() => {
-                  if (isTarget) setDisplayedImageId(image.id);
+                  if (isTarget && !isDisplayed) {
+                    setTransitioningImageId(image.id);
+                  }
                 }}
                 className={cn(
-                  "object-contain",
-                  isDisplayed ? "opacity-100" : "opacity-0",
+                  "object-contain transition-opacity duration-[450ms] ease-out motion-reduce:transition-none",
+                  isVisible ? "opacity-100" : "opacity-0",
                   isCurrican && "p-2",
                 )}
               />
             );
           })}
+          <ProductImageWatermark />
           <button
             type="button"
             onClick={() => setIsLightboxOpen(true)}

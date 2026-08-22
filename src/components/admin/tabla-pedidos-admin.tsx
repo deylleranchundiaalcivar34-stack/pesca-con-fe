@@ -18,31 +18,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/insignia-estado";
 import { DELIVERY_TYPE_LABELS, ORDER_STATUS_LABELS } from "@/lib/constantes";
+import { getEcuadorDateKey } from "@/lib/operacion-admin";
 import { formatCurrency, formatDate } from "@/lib/utilidades";
 
-interface AdminOrderTableProps { orders: Order[]; }
+interface AdminOrderTableProps {
+  orders: Order[];
+  initialExpandedOrderId?: string | null;
+}
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = { transferencia: "Transferencia", payphone: "PayPhone" };
 
-function localDateKey(value: string) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Guayaquil", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
-}
-
 // Mesa operativa de pedidos: búsqueda, filtros y ficha completa para preparar cada despacho.
-export function AdminOrderTable({ orders }: AdminOrderTableProps) {
+export function AdminOrderTable({ orders, initialExpandedOrderId = null }: AdminOrderTableProps) {
   const [status, setStatus] = useState<OrderStatus | "all">("all");
   const [payment, setPayment] = useState<PaymentMethod | "all">("all");
   const [delivery, setDelivery] = useState<DeliveryType | "all">("all");
   const [query, setQuery] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(initialExpandedOrderId);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("es-EC");
     return orders.filter((order) => {
       const searchable = [order.code, order.customer.fullName, order.customer.phone, order.customer.cedula, order.customer.city].filter(Boolean).join(" ").toLocaleLowerCase("es-EC");
-      const orderDate = localDateKey(order.createdAt);
+      const orderDate = getEcuadorDateKey(order.createdAt);
       return (status === "all" || order.status === status)
         && (payment === "all" || order.paymentMethod === payment)
         && (delivery === "all" || order.deliveryType === delivery)
@@ -146,4 +146,4 @@ function DetailLine({ label, value, empty = "No disponible" }: { label: string; 
 function PaymentBadge({ order }: { order: Order }) { return <Badge variant={order.paymentMethod === "payphone" ? "premium" : "outline"}>{PAYMENT_METHOD_LABELS[order.paymentMethod]}</Badge>; }
 function Info({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) { return <div><p className="text-xs text-muted-foreground">{label}</p><p className={strong ? "font-bold text-dark-blue" : "font-medium"}>{value}</p></div>; }
 function EmptyOrders() { return <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No hay pedidos que coincidan con los filtros.</div>; }
-function paymentStatusLabel(status: Order["paymentStatus"]) { return ({ pendiente: "Pendiente", preparando: "Preparando cobro", preparado: "Cobro preparado", aprobado: "Aprobado", cancelado: "Cancelado", fallido: "Fallido", expirado: "Expirado" })[status]; }
+function paymentStatusLabel(status: Order["paymentStatus"]) { return ({ pendiente: "Pendiente", preparando: "Preparando cobro", preparado: "Cobro preparado", aprobado: "Aprobado", cancelado: "Cancelado", fallido: "Fallido", expirado: "Expirado", requiere_revision: "Requiere revisión" })[status]; }
