@@ -245,9 +245,43 @@ textarea {
   animation: general-whatsapp-help-attention 5.5s ease-in-out 1.5s infinite;
 }
 
+/* La tarjeta de bienvenida permanece disponible sin competir continuamente con WhatsApp. */
+@keyframes welcome-promotion-card-attention {
+  0%,
+  66%,
+  100% {
+    translate: 0 0;
+    rotate: 0deg;
+    box-shadow: 0 15px 38px rgb(0 0 0 / 0.36);
+  }
+  72% {
+    translate: 0 -4px;
+    rotate: -1deg;
+    box-shadow: 0 18px 46px rgb(236 197 80 / 0.26);
+  }
+  78% {
+    translate: 0 0;
+    rotate: 1deg;
+  }
+  84% {
+    translate: 0 -2px;
+    rotate: -0.5deg;
+  }
+  90% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+}
+
+.welcome-promotion-card-attention {
+  animation: welcome-promotion-card-attention 5.8s ease-in-out 1.8s infinite;
+  transform-origin: bottom left;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .product-whatsapp-attention-button,
-  .general-whatsapp-help-button {
+  .general-whatsapp-help-button,
+  .welcome-promotion-card-attention {
     animation: none;
   }
 }
