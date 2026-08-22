@@ -29,7 +29,7 @@ export function ProductImageWatermark() {
       {watermarkPositions.map((position) => (
         <span
           key={position}
-          className={`absolute h-[23%] w-[46%] -rotate-[14deg] opacity-[0.035] mix-blend-multiply ${position}`}
+          className={`absolute h-[23%] w-[46%] -rotate-[14deg] opacity-15 mix-blend-multiply ${position}`}
           style={watermarkPatternStyle}
         />
       ))}
