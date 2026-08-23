@@ -12,6 +12,7 @@ import {
   refreshPublicSession,
   subscribePublicSession,
 } from "@/lib/sesion-publica";
+import { isWelcomePromotionActive, WELCOME_PROMOTION } from "@/lib/promocion-bienvenida";
 
 const DISMISSAL_KEY = "pesca-con-fe:promocion-bienvenida-cerrada:v3";
 const DISMISSAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,7 +55,11 @@ export function WelcomePromotionPopup() {
   }, []);
 
   const isExcluded = EXCLUDED_PATHS.some((path) => pathname.startsWith(path));
-  const canOffer = session.status === "ready" && !session.user && !isExcluded;
+  const canOffer =
+    session.status === "ready" &&
+    !session.user &&
+    !isExcluded &&
+    isWelcomePromotionActive();
   const canAutoOpen = canOffer && !wasRecentlyDismissed();
 
   useEffect(() => {
@@ -164,6 +169,15 @@ export function WelcomePromotionPopup() {
                   <p className="mt-3 text-center text-[10px] leading-4 text-white/55 sm:text-xs sm:leading-5">
                     No acumulable con otras promociones. Aplica solo a productos; no incluye envío ni recargos de pago.
                   </p>
+                  <p className="mt-1.5 text-center text-[10px] leading-4 text-white/65 sm:text-xs sm:leading-5">
+                    Vigente hasta el {WELCOME_PROMOTION.endDateLabel} ·{" "}
+                    <Link
+                      href="/preguntas-frecuentes#promocion-bienvenida"
+                      className="font-semibold text-[#f6e3a1] underline decoration-[#ecc550]/70 underline-offset-2 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550]"
+                    >
+                      Ver términos de la promoción
+                    </Link>
+                  </p>
                 </div>
               </div>
             </div>
@@ -175,15 +189,33 @@ export function WelcomePromotionPopup() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="welcome-promotion-card-attention fixed bottom-20 left-4 z-[39] flex min-h-14 items-center gap-2 rounded-2xl border border-[#ecc550]/80 bg-[#090909] px-3 py-2 text-left text-white shadow-[0_15px_38px_rgb(0_0_0_/_0.36)] transition hover:-translate-y-0.5 hover:border-[#f6e3a1] hover:shadow-[0_18px_44px_rgb(236_197_80_/_0.22)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550] motion-reduce:transform-none sm:bottom-[5.5rem] sm:left-6"
+          className="group fixed bottom-[5.25rem] left-4 z-[39] flex size-12 items-center justify-center rounded-full bg-[#ecc550] text-black shadow-[0_3px_10px_rgb(0_0_0_/_0.18)] transition hover:bg-[#f6d86f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07366f] sm:left-6"
           aria-label="Abrir promoción de bienvenida con 10% de descuento"
+          title="10% de descuento de bienvenida"
         >
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#ecc550] text-black shadow-inner">
+          <svg
+            className="pointer-events-none absolute inset-0 size-12 -rotate-90"
+            viewBox="0 0 48 48"
+            aria-hidden="true"
+          >
+            <circle cx="24" cy="24" r="21" fill="none" stroke="rgb(0 0 0 / 0.14)" strokeWidth="2" />
+            <circle
+              className="welcome-promotion-clock-ring"
+              cx="24"
+              cy="24"
+              r="21"
+              fill="none"
+              pathLength="1"
+              stroke="#fff2b5"
+              strokeLinecap="round"
+              strokeWidth="2.5"
+            />
+          </svg>
+          <span className="relative flex size-9 items-center justify-center rounded-full">
             <BadgePercent className="size-6" aria-hidden="true" />
           </span>
-          <span className="pr-1">
-            <strong className="block text-base font-black leading-none text-[#f6e3a1]">10% OFF</strong>
-            <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">Bienvenida</span>
+          <span className="pointer-events-none absolute left-14 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#090909] px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-sm transition group-hover:opacity-100 group-focus-visible:opacity-100 sm:block">
+            10% de descuento de bienvenida
           </span>
         </button>
       ) : null}

@@ -245,43 +245,45 @@ textarea {
   animation: general-whatsapp-help-attention 5.5s ease-in-out 1.5s infinite;
 }
 
-/* La tarjeta de bienvenida permanece disponible sin competir continuamente con WhatsApp. */
-@keyframes welcome-promotion-card-attention {
+/* El aro descubre el beneficio sin aumentar el tamaño ni la sombra del botón. */
+@keyframes welcome-promotion-clock-ring {
   0%,
-  66%,
+  8% {
+    stroke-dashoffset: 1;
+    opacity: 0.35;
+  }
+  52%,
+  82% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgb(255 242 181 / 0));
+  }
+  60% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+    filter: drop-shadow(0 0 3px rgb(255 242 181 / 0.8));
+  }
   100% {
-    translate: 0 0;
-    rotate: 0deg;
-    box-shadow: 0 15px 38px rgb(0 0 0 / 0.36);
-  }
-  72% {
-    translate: 0 -4px;
-    rotate: -1deg;
-    box-shadow: 0 18px 46px rgb(236 197 80 / 0.26);
-  }
-  78% {
-    translate: 0 0;
-    rotate: 1deg;
-  }
-  84% {
-    translate: 0 -2px;
-    rotate: -0.5deg;
-  }
-  90% {
-    translate: 0 0;
-    rotate: 0deg;
+    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 
-.welcome-promotion-card-attention {
-  animation: welcome-promotion-card-attention 5.8s ease-in-out 1.8s infinite;
-  transform-origin: bottom left;
+.welcome-promotion-clock-ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: welcome-promotion-clock-ring 5.6s ease-in-out 1s infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .product-whatsapp-attention-button,
   .general-whatsapp-help-button,
-  .welcome-promotion-card-attention {
+  .welcome-promotion-clock-ring {
     animation: none;
+  }
+
+  .welcome-promotion-clock-ring {
+    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }

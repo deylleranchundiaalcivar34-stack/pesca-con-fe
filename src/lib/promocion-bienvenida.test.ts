@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { calculateWelcomePromotion } from "./promocion-bienvenida";
+import {
+  calculateWelcomePromotion,
+  getWelcomePromotionDaysRemaining,
+  getWelcomePromotionPhase,
+  isWelcomePromotionActive,
+} from "./promocion-bienvenida";
 
 describe("calculateWelcomePromotion", () => {
   it("no aplica por debajo de $50", () => {
@@ -35,5 +40,17 @@ describe("calculateWelcomePromotion", () => {
     expect(
       calculateWelcomePromotion({ subtotal: 80, available: false, hasExistingOffer: false }),
     ).toMatchObject({ applies: false, discount: 0, reason: "no_disponible" });
+  });
+
+  it("respeta el inicio y el cierre de la vigencia en Ecuador", () => {
+    expect(getWelcomePromotionPhase(new Date("2026-08-22T04:59:59.999Z"))).toBe("programada");
+    expect(isWelcomePromotionActive(new Date("2026-08-22T05:00:00.000Z"))).toBe(true);
+    expect(isWelcomePromotionActive(new Date("2027-01-01T04:59:59.999Z"))).toBe(true);
+    expect(getWelcomePromotionPhase(new Date("2027-01-01T05:00:00.000Z"))).toBe("finalizada");
+  });
+
+  it("calcula los dias restantes sin valores negativos", () => {
+    expect(getWelcomePromotionDaysRemaining(new Date("2026-12-31T17:00:00.000Z"))).toBe(1);
+    expect(getWelcomePromotionDaysRemaining(new Date("2027-01-02T05:00:00.000Z"))).toBe(0);
   });
 });

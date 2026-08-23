@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { ChevronDown, CircleHelp } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import { CustomerQuestionForm } from "@/components/faq/formulario-pregunta";
+import { FrequentlyAskedQuestionsList } from "@/components/faq/lista-preguntas-frecuentes";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { SectionHeading } from "@/components/shared/encabezado-seccion";
-import { frequentlyAskedQuestions } from "@/data/preguntas-frecuentes";
 
 export const metadata: Metadata = {
   title: "Preguntas frecuentes",
@@ -33,25 +33,7 @@ export default function FrequentlyAskedQuestionsPage() {
               <h1 className="text-2xl font-bold text-dark-blue">Respuestas para comprar con confianza</h1>
             </div>
 
-            <div className="space-y-3">
-              {frequentlyAskedQuestions.map((item) => (
-                <details
-                  key={item.question}
-                  className="group rounded-lg border border-border bg-white shadow-sm open:border-primary/30"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold text-dark-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                    {item.question}
-                    <ChevronDown
-                      className="size-5 shrink-0 text-primary transition-transform group-open:rotate-180"
-                      aria-hidden="true"
-                    />
-                  </summary>
-                  <p className="border-t border-border px-5 py-4 text-sm leading-7 text-muted-foreground">
-                    {item.answer}
-                  </p>
-                </details>
-              ))}
-            </div>
+            <FrequentlyAskedQuestionsList />
           </div>
 
           <CustomerQuestionForm />

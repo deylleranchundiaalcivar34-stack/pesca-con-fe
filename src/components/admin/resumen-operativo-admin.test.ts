@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Order } from "@/types/pedido";
 import type { Product } from "@/types/producto";
+import { AdminWelcomePromotionCard } from "./promocion-bienvenida-admin";
 import { AdminOperationalSummary } from "./resumen-operativo-admin";
 
 const order: Order = {
@@ -55,4 +56,19 @@ describe("resumen operativo del administrador", () => {
     expect(html).toContain("/admin/productos/producto-1/editar");
     expect(html).not.toContain("Ver todos");
   });
+
+  it("resume la promoción en el dashboard sin crear un módulo financiero", () => {
+    const html = renderToStaticMarkup(
+      AdminWelcomePromotionCard({
+        orders: [{ ...order, discount: 5, promotionCode: "BIENVENIDA10" }],
+        nowIso: "2026-08-22T17:00:00.000Z",
+      }),
+    );
+
+    expect(html).toContain("Descuentos activos");
+    expect(html).toContain("Bienvenida 10%");
+    expect(html).toContain("cliente(s) con compra confirmada");
+    expect(html).not.toContain("Rentabilidad");
+  });
+
 });
