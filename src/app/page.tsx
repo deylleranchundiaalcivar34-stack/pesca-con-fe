@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PublicShell } from "@/components/layout/contenedor-publico";
 import { HeroSection } from "@/components/home/seccion-principal";
+import { HomeAnnouncementStrip } from "@/components/home/franja-anuncio-inicio";
 import { CategoryCard } from "@/components/home/tarjeta-categoria";
 import { BrandStrip } from "@/components/home/franja-marcas";
 import { BenefitsSection } from "@/components/home/seccion-beneficios";
@@ -49,6 +50,7 @@ export default async function HomePage() {
 
   return (
     <PublicShell>
+      <HomeAnnouncementStrip />
       <HeroSection />
 
       <section className="bg-white py-10 sm:py-20">

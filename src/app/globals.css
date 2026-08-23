@@ -166,6 +166,61 @@ textarea {
   color: var(--dark-blue);
 }
 
+/* Alterna los avisos del inicio sin JavaScript y mantiene la franja sin acciones. */
+@keyframes home-announcement-message-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(125%);
+  }
+  5%,
+  45% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  52.5% {
+    opacity: 0;
+    transform: translateY(-125%);
+  }
+  52.6%,
+  100% {
+    opacity: 0;
+    transform: translateY(125%);
+  }
+}
+
+.home-announcement-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: home-announcement-message-cycle 8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.home-announcement-message-primary {
+  animation-delay: -0.4s;
+}
+
+.home-announcement-message-secondary {
+  animation-delay: 3.4s;
+}
+
+@media (min-width: 40rem) {
+  .home-announcement-message {
+    font-size: 0.78rem;
+    letter-spacing: 0.13em;
+  }
+}
+
 /* Sacudida breve del botón completo; permanece quieto la mayor parte del tiempo. */
 @keyframes product-whatsapp-attention {
   0%,
@@ -321,5 +376,19 @@ textarea {
   .welcome-promotion-clock-ring {
     stroke-dashoffset: 0;
     opacity: 1;
+  }
+
+  .home-announcement-message {
+    animation: none;
+    will-change: auto;
+  }
+
+  .home-announcement-message-primary {
+    opacity: 1;
+    transform: none;
+  }
+
+  .home-announcement-message-secondary {
+    display: none;
   }
 }
