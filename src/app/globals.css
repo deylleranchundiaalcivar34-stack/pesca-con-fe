@@ -194,12 +194,13 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  column-gap: 0.45rem;
   overflow: hidden;
   white-space: nowrap;
   text-align: center;
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   opacity: 0;
   animation: home-announcement-message-cycle 8s ease-in-out infinite;
@@ -217,7 +218,8 @@ textarea {
 @media (min-width: 40rem) {
   .home-announcement-message {
     font-size: 0.78rem;
-    letter-spacing: 0.13em;
+    column-gap: 0.65rem;
+    letter-spacing: 0.16em;
   }
 }
 
