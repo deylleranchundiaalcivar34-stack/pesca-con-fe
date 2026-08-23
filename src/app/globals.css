@@ -82,6 +82,13 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Desactiva acciones casuales de descarga solo mientras esta montado el sitio publico. */
+body[data-public-image-protection="enabled"] img:not([data-allow-image-actions]) {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 /* Radix bloquea el scroll de Select, Dialog y Sheet y añade una compensación lateral
    al body. `scrollbar-gutter` ya reserva ese espacio, así que la compensación extra
    desplaza el fondo al abrir un desplegable o el carrito. */

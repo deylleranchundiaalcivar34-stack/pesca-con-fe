@@ -9,7 +9,7 @@ export function HomeAnnouncementStrip() {
 
   return (
     <aside
-      className="relative overflow-hidden border-y border-[#b68400]/55 bg-[#f7c928] text-[#071d37] shadow-[0_5px_16px_rgb(0_0_0_/_0.14)]"
+      className="sticky top-16 z-30 overflow-hidden border-y border-dark-blue/15 bg-gold text-dark-blue shadow-[0_3px_10px_rgb(5_44_101_/_0.12)]"
       aria-label={promotionLabel}
     >
       <div className="mx-auto flex h-10 max-w-[96rem] items-center gap-2 px-3 sm:h-11 sm:gap-4 sm:px-6 lg:px-8">
