@@ -77,8 +77,8 @@ export function AdminWelcomePromotionCard({
       </Card>
 
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-dark-blue/60 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90svh] w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-white shadow-2xl outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-dark-blue/50 backdrop-blur-[1px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none" />
+        <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90svh] w-[calc(100%-1.5rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-gold/35 bg-white shadow-[0_18px_55px_rgb(5_44_101_/_0.22)] outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none">
           <div className="border-b border-border bg-[linear-gradient(110deg,rgb(5_44_101),rgb(7_54_111))] p-5 pr-14 text-white sm:p-6 sm:pr-16">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={phase === "activa" ? "success" : phase === "programada" ? "warning" : "muted"}>{phaseLabel}</Badge>

@@ -6,14 +6,13 @@ import { AdminSalesSummary } from "@/components/admin/resumen-ventas-admin";
 import { Button } from "@/components/ui/button";
 import { isLowStock, isTodayInEcuador } from "@/lib/operacion-admin";
 import { WELCOME_PROMOTION } from "@/lib/promocion-bienvenida";
-import { getAdminOrders, getAdminPhysicalSales, getAdminProducts } from "@/lib/supabase/data";
+import { getAdminOrders, getAdminProducts } from "@/lib/supabase/data";
 
 // Dashboard operativo: ventas filtrables, pedidos recientes e inventario a vigilar.
 export default async function AdminDashboardPage() {
-  const [orders, products, physicalSales] = await Promise.all([
+  const [orders, products] = await Promise.all([
     getAdminOrders(),
     getAdminProducts(),
-    getAdminPhysicalSales(),
   ]);
   const today = new Date();
   const todayOrders = orders.filter((order) => isTodayInEcuador(order.createdAt, today));
@@ -30,7 +29,7 @@ export default async function AdminDashboardPage() {
         <div>
           <h1 className="text-2xl font-black text-dark-blue sm:text-3xl">Dashboard</h1>
           <p className="mt-1 text-muted-foreground">
-            Controla ventas, pagos e inventario desde un solo lugar.
+            Controla pedidos, pagos e inventario desde un solo lugar.
           </p>
         </div>
         <Button asChild className="w-full sm:w-auto">
@@ -41,7 +40,7 @@ export default async function AdminDashboardPage() {
         </Button>
       </div>
 
-      <AdminSalesSummary orders={orders} physicalSales={physicalSales} />
+      <AdminSalesSummary orders={orders} />
 
       <AdminWelcomePromotionCard orders={welcomePromotionOrders} nowIso={today.toISOString()} />
 

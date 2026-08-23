@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, CreditCard, DollarSign, ReceiptText, TrendingUp } from "lucide-react";
 import type { Order } from "@/types/pedido";
-import type { PhysicalSale } from "@/types/venta-fisica";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,7 +39,7 @@ function rangeFor(period: Period, start: string, end: string) {
 }
 
 // Analítica de ventas basada únicamente en pedidos ya cobrados.
-export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Order[]; physicalSales?: PhysicalSale[] }) {
+export function AdminSalesSummary({ orders }: { orders: Order[] }) {
   const [period, setPeriod] = useState<Period>("week");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -54,21 +53,17 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
       }),
     [orders, range.end, range.start],
   );
-  const collected = orders.filter(
-    (order) => {
-      if (!isCollected(order)) return false;
-      const key = getEcuadorDateKey(order.paidAt ?? order.createdAt);
-      return (!range.start || key >= range.start) && (!range.end || key <= range.end);
-    },
+  const collected = useMemo(
+    () =>
+      orders.filter((order) => {
+        if (!isCollected(order)) return false;
+        const key = getEcuadorDateKey(order.paidAt ?? order.createdAt);
+        return (!range.start || key >= range.start) && (!range.end || key <= range.end);
+      }),
+    [orders, range.end, range.start],
   );
-  const inRangePhysicalSales = physicalSales.filter((sale) => {
-    const key = getEcuadorDateKey(sale.createdAt);
-    return (!range.start || key >= range.start) && (!range.end || key <= range.end);
-  });
-  const onlineTotal = collected.reduce((sum, order) => sum + order.total, 0);
-  const physicalTotal = inRangePhysicalSales.reduce((sum, sale) => sum + sale.total, 0);
-  const total = onlineTotal + physicalTotal;
-  const saleCount = collected.length + inRangePhysicalSales.length;
+  const total = collected.reduce((sum, order) => sum + order.total, 0);
+  const saleCount = collected.length;
   const average = saleCount ? total / saleCount : 0;
   const pending = inRangeOrders.filter((order) => order.status === "pendiente_pago");
   const payphoneTotal = collected
@@ -85,14 +80,6 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
       current.orders += 1;
       byDay.set(key, current);
     }
-    for (const sale of inRangePhysicalSales) {
-      const key = getEcuadorDateKey(sale.createdAt);
-      const current = byDay.get(key) ?? { total: 0, orders: 0 };
-      current.total += sale.total;
-      current.orders += 1;
-      byDay.set(key, current);
-    }
-
     return [...byDay.entries()]
       .map(([date, values]) => ({ date, ...values }))
       .sort((a, b) => b.date.localeCompare(a.date));
@@ -109,8 +96,8 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
                 <TrendingUp className="size-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="font-bold">Control de ventas</p>
-                <p className="text-sm text-muted-foreground">Solo cuenta pedidos ya cobrados.</p>
+                <p className="font-bold">Ventas del sitio</p>
+                <p className="text-sm text-muted-foreground">Solo cuenta pedidos online ya cobrados.</p>
               </div>
             </div>
           </div>
@@ -143,8 +130,8 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={DollarSign} title="Ventas cobradas" value={formatCurrency(total)} helper={`${saleCount} venta(s) registradas`} />
-        <Metric icon={ReceiptText} title="Ticket promedio" value={formatCurrency(average)} helper="Promedio por venta registrada" />
+        <Metric icon={DollarSign} title="Ventas cobradas" value={formatCurrency(total)} helper={`${saleCount} pedido(s) cobrado(s)`} />
+        <Metric icon={ReceiptText} title="Ticket promedio" value={formatCurrency(average)} helper="Promedio por pedido cobrado" />
         <Metric icon={CalendarDays} title="Pendientes" value={String(pending.length)} helper="Esperan confirmación de pago" />
         <Metric icon={CreditCard} title="PayPhone" value={formatCurrency(payphoneTotal)} helper={`Otros cobros: ${formatCurrency(otherTotal)}`} />
       </div>
@@ -174,7 +161,7 @@ export function AdminSalesSummary({ orders, physicalSales = [] }: { orders: Orde
           <CardHeader className="pb-3"><CardTitle>Lectura rápida</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
             <SummaryLine label="Pedidos online" value={String(inRangeOrders.length)} />
-            <SummaryLine label="Ventas físicas" value={String(inRangePhysicalSales.length)} success />
+            <SummaryLine label="Pedidos cobrados" value={String(collected.length)} success />
             <SummaryLine label="Pendientes de pago" value={String(pending.length)} />
             <div className="rounded-lg border border-primary/15 bg-secondary/60 p-3 text-muted-foreground">
               Para preparar un envío, abre <span className="font-semibold text-dark-blue">Pedidos</span>: ahí está la ficha completa con cédula, ciudad, dirección, referencias y productos.

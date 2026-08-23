@@ -47,6 +47,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/admin/ventas-fisicas/:path*",
+        destination: "/admin",
+        permanent: true,
+      },
+      {
         source: "/productos/equipamiento/:path*",
         destination: "/productos/camping/:path*",
         permanent: true,

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { AdminPermission } from "@/lib/admin-permissions";
-import { getAdminHome, hasAdminPermission, isAdminRole } from "@/lib/admin-permissions";
+import { hasAdminPermission, isAdminRole } from "@/lib/admin-permissions";
 import { getSupabaseEnv } from "./env";
 
 type SessionCookie = {
@@ -50,7 +50,6 @@ function requiredPermission(pathname: string): AdminPermission {
   }
 
   if (pathname.startsWith("/admin/pedidos")) return "orders.read";
-  if (pathname.startsWith("/admin/ventas-fisicas")) return "sales.create";
   if (pathname.startsWith("/admin/inventario")) return "inventory.export";
   return "dashboard.read";
 }
@@ -167,7 +166,7 @@ export async function updateSession(request: NextRequest) {
     !hasAdminPermission(adminProfile.rol, requiredPermission(request.nextUrl.pathname))
   ) {
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = getAdminHome(adminProfile.rol);
+    homeUrl.pathname = "/admin";
     homeUrl.search = "";
 
     if (homeUrl.pathname === request.nextUrl.pathname) {

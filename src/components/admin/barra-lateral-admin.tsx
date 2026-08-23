@@ -11,7 +11,6 @@ import {
   LogOut,
   Menu,
   PackagePlus,
-  ReceiptText,
   ShieldCheck,
   ShoppingBag,
   Tags,
@@ -40,7 +39,6 @@ const adminLinks: Array<{
   { href: "/admin/productos/nuevo", label: "Crear producto", icon: PackagePlus, permission: "catalog.write" },
   { href: "/admin/marcas", label: "Marcas", icon: Tags, permission: "catalog.write" },
   { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag, permission: "orders.read" },
-  { href: "/admin/ventas-fisicas", label: "Venta física", icon: ReceiptText, permission: "sales.create" },
   { href: "/admin/inventario", label: "Exportar inventario", icon: FileSpreadsheet, permission: "inventory.export" },
   { href: "/admin/seguridad", label: "Seguridad", icon: ShieldCheck, permission: "admin.access" },
 ];
