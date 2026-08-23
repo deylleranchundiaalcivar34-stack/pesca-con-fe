@@ -275,9 +275,45 @@ textarea {
   animation: welcome-promotion-clock-ring 5.6s ease-in-out 1s infinite;
 }
 
+/* Una alarma breve y espaciada llama la atención sin mantener el botón temblando. */
+@keyframes welcome-promotion-gentle-alert {
+  0%,
+  72%,
+  84%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  74% {
+    transform: translateX(-1px) rotate(-2deg);
+  }
+  76% {
+    transform: translateX(1.5px) rotate(2.4deg);
+  }
+  78% {
+    transform: translateX(-1.5px) rotate(-2.4deg);
+  }
+  80% {
+    transform: translateX(1px) rotate(1.6deg);
+  }
+  82% {
+    transform: translateX(-0.5px) rotate(-0.8deg);
+  }
+}
+
+.welcome-promotion-attention-button {
+  animation: welcome-promotion-gentle-alert 6s ease-in-out 1.8s infinite;
+  transform-origin: center;
+}
+
+.welcome-promotion-attention-button:hover,
+.welcome-promotion-attention-button:focus-visible {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .product-whatsapp-attention-button,
   .general-whatsapp-help-button,
+  .welcome-promotion-attention-button,
   .welcome-promotion-clock-ring {
     animation: none;
   }

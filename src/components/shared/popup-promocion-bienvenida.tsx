@@ -1,9 +1,10 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { preload } from "react-dom";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BadgePercent, Check, Sparkles, X } from "lucide-react";
 import {
@@ -12,17 +13,19 @@ import {
   refreshPublicSession,
   subscribePublicSession,
 } from "@/lib/sesion-publica";
+import { shouldShowFloatingWhatsAppHelp } from "@/lib/ayuda-whatsapp";
 import { isWelcomePromotionActive, WELCOME_PROMOTION } from "@/lib/promocion-bienvenida";
 
 const DISMISSAL_KEY = "pesca-con-fe:promocion-bienvenida-cerrada:v3";
 const DISMISSAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-const EXCLUDED_PATHS = [
-  "/login",
-  "/checkout",
-  "/mi-cuenta",
-  "/recuperar-contrasena",
-  "/restablecer-contrasena",
-];
+const PROMOTION_IMAGE_SRC = "/images/promociones/pescador-bienvenida.webp";
+const PROMOTION_IMAGE_SIZES = "(max-width: 767px) calc(100vw - 1.5rem), 40vw";
+const promotionImageProps = getImageProps({
+  src: PROMOTION_IMAGE_SRC,
+  alt: "",
+  fill: true,
+  sizes: PROMOTION_IMAGE_SIZES,
+}).props;
 
 function wasRecentlyDismissed() {
   try {
@@ -54,18 +57,29 @@ export function WelcomePromotionPopup() {
     void refreshPublicSession();
   }, []);
 
-  const isExcluded = EXCLUDED_PATHS.some((path) => pathname.startsWith(path));
+  const isAllowedRoute = shouldShowFloatingWhatsAppHelp(pathname);
   const canOffer =
     session.status === "ready" &&
     !session.user &&
-    !isExcluded &&
+    isAllowedRoute &&
     isWelcomePromotionActive();
   const canAutoOpen = canOffer && !wasRecentlyDismissed();
 
   useEffect(() => {
+    if (!canOffer) return;
+
+    preload(promotionImageProps.src, {
+      as: "image",
+      fetchPriority: "high",
+      imageSizes: promotionImageProps.sizes,
+      imageSrcSet: promotionImageProps.srcSet,
+    });
+  }, [canOffer]);
+
+  useEffect(() => {
     if (!canAutoOpen) return;
 
-    const timer = window.setTimeout(() => setOpen(true), 1400);
+    const timer = window.setTimeout(() => setOpen(true), 350);
     return () => window.clearTimeout(timer);
   }, [canAutoOpen]);
 
@@ -78,33 +92,34 @@ export function WelcomePromotionPopup() {
     <>
       <DialogPrimitive.Root open={open && canOffer} onOpenChange={changeOpen}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-[3px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in" />
-          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[91] max-h-[92svh] w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-[#d9b84f] bg-[#080808] text-white shadow-[0_28px_100px_rgb(0_0_0_/_0.68)] outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/[0.66] backdrop-blur-[1px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none" />
+          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[91] max-h-[92svh] w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[1.25rem] bg-[#0b0a08] text-white shadow-[0_22px_70px_rgb(0_0_0_/_0.48)] ring-1 ring-inset ring-[#ecc550]/75 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none sm:rounded-3xl">
             <DialogPrimitive.Close
-              className="absolute right-3 top-3 z-30 flex size-10 items-center justify-center rounded-full border border-white/35 bg-black/65 text-white shadow-lg backdrop-blur transition hover:border-[#ecc550] hover:text-[#ecc550] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550] sm:right-5 sm:top-5"
+              className="absolute right-3 top-3 z-30 flex size-10 items-center justify-center rounded-full border border-[#ecc550]/55 bg-[#0b0a08]/90 text-white shadow-sm transition hover:border-[#ecc550] hover:text-[#ecc550] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550] sm:right-5 sm:top-5"
               aria-label="Cerrar promoción"
             >
               <X className="size-5" aria-hidden="true" />
             </DialogPrimitive.Close>
 
             <div className="grid md:grid-cols-[1.12fr_0.88fr]">
-              <div className="relative h-36 overflow-hidden border-b border-[#ecc550]/35 md:order-2 md:h-auto md:min-h-[570px] md:border-b-0 md:border-l">
+              <div className="relative h-40 overflow-hidden md:order-2 md:h-auto md:min-h-[570px]">
                 <Image
-                  src="/images/promociones/pescador-bienvenida.webp"
+                  src={PROMOTION_IMAGE_SRC}
                   alt="Pescador de Pesca Con Fe con una captura deportiva"
                   fill
                   loading="eager"
-                  sizes="(max-width: 767px) calc(100vw - 1.5rem), 40vw"
-                  className="object-cover object-[center_38%] md:object-contain md:object-center"
+                  fetchPriority="high"
+                  sizes={PROMOTION_IMAGE_SIZES}
+                  className="object-cover object-[center_38%] md:object-[52%_center]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#080808] via-black/10 to-black/20 md:bg-gradient-to-r md:from-[#080808]/80 md:via-transparent md:to-transparent" />
-                <div className="absolute bottom-3 left-4 rounded-full border border-[#ecc550]/70 bg-black/75 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#f6e3a1] backdrop-blur md:bottom-6 md:left-auto md:right-6">
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08] via-transparent to-black/15 md:bg-gradient-to-r md:from-[#0b0a08] md:via-[#0b0a08]/20 md:to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0b0a08] to-transparent md:inset-y-0 md:-left-px md:right-auto md:h-auto md:w-20 md:bg-gradient-to-r md:via-[#0b0a08]/70" />
+                <div className="absolute bottom-3 left-4 rounded-full bg-[#0b0a08]/85 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#f6e3a1] ring-1 ring-inset ring-[#ecc550]/55 md:bottom-6 md:left-auto md:right-6">
                   Fe, pasión y naturaleza
                 </div>
               </div>
 
-              <div className="relative p-4 sm:p-6 md:p-8">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top_left,rgb(236_197_80_/_0.18),transparent_72%)]" />
+              <div className="relative bg-[radial-gradient(circle_at_top_left,rgb(236_197_80_/_0.14),transparent_58%)] p-4 sm:p-6 md:p-8">
                 <div className="relative">
                   <div className="flex items-center justify-between gap-3 pr-11 md:pr-0">
                     <div className="inline-flex rounded-xl bg-white px-3 py-1.5 shadow-sm">
@@ -131,7 +146,7 @@ export function WelcomePromotionPopup() {
                     ¡Bienvenido a Pesca Con Fe!
                   </DialogPrimitive.Title>
 
-                  <div className="mt-2 flex items-end gap-3 border-b border-[#ecc550]/40 pb-3 md:mt-4 md:pb-4">
+                  <div className="mt-3 flex items-end gap-3 rounded-2xl bg-[linear-gradient(135deg,rgb(236_197_80_/_0.12),rgb(255_255_255_/_0.025))] px-3 py-3 ring-1 ring-inset ring-[#ecc550]/20 md:mt-4 md:px-4 md:py-4">
                     <span className="bg-gradient-to-b from-[#f8dc7b] to-[#d79a16] bg-clip-text text-6xl font-black leading-none text-transparent sm:text-7xl">
                       10%
                     </span>
@@ -146,7 +161,7 @@ export function WelcomePromotionPopup() {
                     Crea tu cuenta y recibe automáticamente un beneficio exclusivo en tu primera compra elegible.
                   </DialogPrimitive.Description>
 
-                  <div className="mt-3 grid gap-1.5 rounded-xl border border-white/15 bg-white/[0.06] p-3 text-xs text-white/85 sm:grid-cols-3 sm:gap-3 md:mt-5 md:text-sm">
+                  <div className="mt-3 grid gap-2 rounded-2xl bg-white/[0.055] p-3 text-xs text-white/85 ring-1 ring-inset ring-[#ecc550]/15 sm:grid-cols-3 sm:gap-3 md:mt-5 md:text-sm">
                     <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Compra mínima de $50</p>
                     <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Descuento máximo $10</p>
                     <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Una vez por cliente</p>
@@ -189,7 +204,7 @@ export function WelcomePromotionPopup() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="group fixed bottom-[5.25rem] left-4 z-[39] flex size-12 items-center justify-center rounded-full bg-[#ecc550] text-black shadow-[0_3px_10px_rgb(0_0_0_/_0.18)] transition hover:bg-[#f6d86f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07366f] sm:left-6"
+          className="welcome-promotion-attention-button group fixed bottom-[5.25rem] left-4 z-[39] flex size-12 items-center justify-center rounded-full bg-[#ecc550] text-black shadow-[0_3px_10px_rgb(0_0_0_/_0.18)] transition hover:bg-[#f6d86f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07366f] sm:left-6"
           aria-label="Abrir promoción de bienvenida con 10% de descuento"
           title="10% de descuento de bienvenida"
         >
