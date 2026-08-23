@@ -11,7 +11,7 @@ export function HomeAnnouncementStrip() {
     <div className="h-10 sm:h-11">
       <aside
         data-home-announcement-strip
-        className="fixed inset-x-0 top-16 z-[51] overflow-hidden border-y border-dark-blue/15 bg-gold text-dark-blue shadow-[0_3px_10px_rgb(5_44_101_/_0.12)]"
+        className="fixed inset-x-0 top-16 z-[39] overflow-hidden border-y border-dark-blue/15 bg-gold text-dark-blue shadow-[0_3px_10px_rgb(5_44_101_/_0.12)]"
         aria-label={promotionLabel}
       >
         <div className="mx-auto flex h-10 max-w-[96rem] items-center gap-2 px-3 sm:h-11 sm:gap-4 sm:px-6 lg:px-8">

@@ -173,12 +173,7 @@ textarea {
   color: var(--dark-blue);
 }
 
-/* Mantiene la promoción superior legible cuando el diálogo está abierto. */
-body:has([data-welcome-promotion-overlay][data-state="open"])
-  [data-home-announcement-strip] {
-  z-index: 92;
-}
-
+/* Reserva el diálogo debajo de la franja; el filtro azul cubre ambos como una sola escena. */
 body:has([data-home-announcement-strip])
   .welcome-promotion-dialog[data-state="open"] {
   top: calc(50% + 3.25rem);
