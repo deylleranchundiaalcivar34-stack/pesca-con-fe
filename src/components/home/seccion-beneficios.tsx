@@ -27,7 +27,7 @@ const benefits = [
 // Resume beneficios comerciales de comprar en Pesca Con Fe.
 export function BenefitsSection() {
   return (
-    <section className="bg-white py-16 sm:py-20">
+    <section className="home-deferred-section bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           title="Pesca con confianza y preparación"

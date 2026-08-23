@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { preload } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import infoPesca from "../../../public/images/banners/info_pesca.webp";
 import infoPescaPortada from "../../../public/images/banners/info_pesca_portada.webp";
@@ -49,6 +50,7 @@ const AUTO_ADVANCE_DELAY = 6500;
 export function HeroSection() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const slide = HERO_SLIDES[activeSlide];
 
   useEffect(() => {
     if (isPaused) return;
@@ -59,6 +61,27 @@ export function HeroSection() {
 
     return () => window.clearInterval(interval);
   }, [isPaused]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const nextSlide = HERO_SLIDES[(activeSlide + 1) % HERO_SLIDES.length];
+      const nextImage = getImageProps({
+        src: nextSlide.src,
+        alt: "",
+        fill: true,
+        sizes: "100vw",
+      }).props;
+
+      preload(nextImage.src, {
+        as: "image",
+        fetchPriority: "low",
+        imageSizes: nextImage.sizes,
+        imageSrcSet: nextImage.srcSet,
+      });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [activeSlide]);
 
   const showSlide = (index: number) => {
     setActiveSlide(index);
@@ -72,35 +95,24 @@ export function HeroSection() {
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="relative h-[clamp(10rem,35vw,42rem)] overflow-hidden bg-black">
-        {HERO_SLIDES.map((slide, index) => (
-          <div
-            key={slide.id}
-            aria-hidden={index === activeSlide ? undefined : "true"}
-            className={`absolute inset-0 block transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none ${
-              index === activeSlide
-                ? "z-10 scale-100 opacity-100"
-                : "pointer-events-none scale-105 opacity-0"
-            }`}
-          >
-            <Image
-              src={slide.src}
-              alt={index === activeSlide ? slide.alt : ""}
-              fill
-              preload={index === 0}
-              loading={index === 1 ? "eager" : undefined}
-              sizes="100vw"
-              className={slide.imageClassName}
+        <div key={slide.id} className="home-hero-slide absolute inset-0 z-10 block">
+          <Image
+            src={slide.src}
+            alt={slide.alt}
+            fill
+            preload={activeSlide === 0}
+            loading="eager"
+            sizes="100vw"
+            className={slide.imageClassName}
+          />
+          {"href" in slide ? (
+            <Link
+              href={slide.href}
+              aria-label={`Ver productos de ${slide.alt}`}
+              className="absolute inset-0 z-20 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold"
             />
-            {"href" in slide ? (
-              <Link
-                href={slide.href}
-                aria-label={`Ver productos de ${slide.alt}`}
-                tabIndex={index === activeSlide ? undefined : -1}
-                className="absolute inset-0 z-20 focus-visible:outline-4 focus-visible:outline-offset-[-4px] focus-visible:outline-gold"
-              />
-            ) : null}
-          </div>
-        ))}
+          ) : null}
+        </div>
       </div>
 
       <div className="relative z-30 flex justify-center bg-dark-blue px-4 py-2.5 sm:py-3">

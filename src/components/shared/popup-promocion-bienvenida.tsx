@@ -1,20 +1,18 @@
 "use client";
 
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import Image, { getImageProps } from "next/image";
-import Link from "next/link";
+import { getImageProps } from "next/image";
 import { usePathname } from "next/navigation";
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
 import { preload } from "react-dom";
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { BadgePercent, Check, Sparkles, X } from "lucide-react";
+import { BadgePercent } from "lucide-react";
+import { shouldShowFloatingWhatsAppHelp } from "@/lib/ayuda-whatsapp";
+import { isWelcomePromotionActive } from "@/lib/promocion-bienvenida";
 import {
   getPublicSessionServerSnapshot,
   getPublicSessionSnapshot,
   refreshPublicSession,
   subscribePublicSession,
 } from "@/lib/sesion-publica";
-import { shouldShowFloatingWhatsAppHelp } from "@/lib/ayuda-whatsapp";
-import { isWelcomePromotionActive, WELCOME_PROMOTION } from "@/lib/promocion-bienvenida";
 
 const DISMISSAL_KEY = "pesca-con-fe:promocion-bienvenida-cerrada:v3";
 const DISMISSAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,6 +24,17 @@ const promotionImageProps = getImageProps({
   fill: true,
   sizes: PROMOTION_IMAGE_SIZES,
 }).props;
+
+type PromotionDialogModule = typeof import("./dialogo-promocion-bienvenida");
+
+let promotionDialogPromise: Promise<PromotionDialogModule> | undefined;
+
+function loadPromotionDialog() {
+  promotionDialogPromise ??= import("./dialogo-promocion-bienvenida");
+  return promotionDialogPromise;
+}
+
+const PromotionDialog = lazy(loadPromotionDialog);
 
 function wasRecentlyDismissed() {
   try {
@@ -44,6 +53,15 @@ function rememberDismissal() {
   }
 }
 
+function preloadPromotionImage() {
+  preload(promotionImageProps.src, {
+    as: "image",
+    fetchPriority: "high",
+    imageSizes: promotionImageProps.sizes,
+    imageSrcSet: promotionImageProps.srcSet,
+  });
+}
+
 export function WelcomePromotionPopup() {
   const pathname = usePathname();
   const session = useSyncExternalStore(
@@ -52,6 +70,7 @@ export function WelcomePromotionPopup() {
     getPublicSessionServerSnapshot,
   );
   const [open, setOpen] = useState(false);
+  const [dialogReady, setDialogReady] = useState(false);
 
   useEffect(() => {
     void refreshPublicSession();
@@ -66,22 +85,37 @@ export function WelcomePromotionPopup() {
   const canAutoOpen = canOffer && !wasRecentlyDismissed();
 
   useEffect(() => {
-    if (!canOffer) return;
-
-    preload(promotionImageProps.src, {
-      as: "image",
-      fetchPriority: "high",
-      imageSizes: promotionImageProps.sizes,
-      imageSrcSet: promotionImageProps.srcSet,
-    });
-  }, [canOffer]);
-
-  useEffect(() => {
     if (!canAutoOpen) return;
 
-    const timer = window.setTimeout(() => setOpen(true), 350);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    preloadPromotionImage();
+
+    const timer = window.setTimeout(() => {
+      void loadPromotionDialog().then(() => {
+        if (cancelled) return;
+        setDialogReady(true);
+        setOpen(true);
+      });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [canAutoOpen]);
+
+  const preparePromotion = () => {
+    preloadPromotionImage();
+    void loadPromotionDialog().then(() => setDialogReady(true));
+  };
+
+  const showPromotion = () => {
+    preloadPromotionImage();
+    void loadPromotionDialog().then(() => {
+      setDialogReady(true);
+      setOpen(true);
+    });
+  };
 
   const changeOpen = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -90,121 +124,19 @@ export function WelcomePromotionPopup() {
 
   return (
     <>
-      <DialogPrimitive.Root open={open && canOffer} onOpenChange={changeOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/[0.66] backdrop-blur-[1px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none" />
-          <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-[91] max-h-[92svh] w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[1.25rem] bg-[#0b0a08] text-white shadow-[0_22px_70px_rgb(0_0_0_/_0.48)] ring-1 ring-inset ring-[#ecc550]/75 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:duration-100 data-[state=open]:duration-150 motion-reduce:animate-none sm:rounded-3xl">
-            <DialogPrimitive.Close
-              className="absolute right-3 top-3 z-30 flex size-10 items-center justify-center rounded-full border border-[#ecc550]/55 bg-[#0b0a08]/90 text-white shadow-sm transition hover:border-[#ecc550] hover:text-[#ecc550] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550] sm:right-5 sm:top-5"
-              aria-label="Cerrar promoción"
-            >
-              <X className="size-5" aria-hidden="true" />
-            </DialogPrimitive.Close>
-
-            <div className="grid md:grid-cols-[1.12fr_0.88fr]">
-              <div className="relative h-40 overflow-hidden md:order-2 md:h-auto md:min-h-[570px]">
-                <Image
-                  src={PROMOTION_IMAGE_SRC}
-                  alt="Pescador de Pesca Con Fe con una captura deportiva"
-                  fill
-                  loading="eager"
-                  fetchPriority="high"
-                  sizes={PROMOTION_IMAGE_SIZES}
-                  className="object-cover object-[center_38%] md:object-[52%_center]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08] via-transparent to-black/15 md:bg-gradient-to-r md:from-[#0b0a08] md:via-[#0b0a08]/20 md:to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#0b0a08] to-transparent md:inset-y-0 md:-left-px md:right-auto md:h-auto md:w-20 md:bg-gradient-to-r md:via-[#0b0a08]/70" />
-                <div className="absolute bottom-3 left-4 rounded-full bg-[#0b0a08]/85 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#f6e3a1] ring-1 ring-inset ring-[#ecc550]/55 md:bottom-6 md:left-auto md:right-6">
-                  Fe, pasión y naturaleza
-                </div>
-              </div>
-
-              <div className="relative bg-[radial-gradient(circle_at_top_left,rgb(236_197_80_/_0.14),transparent_58%)] p-4 sm:p-6 md:p-8">
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-3 pr-11 md:pr-0">
-                    <div className="inline-flex rounded-xl bg-white px-3 py-1.5 shadow-sm">
-                      <Image
-                        src="/images/logos/logo-nuevo-negro.webp"
-                        alt="Pesca Con Fe"
-                        width={382}
-                        height={187}
-                        className="h-8 w-auto object-contain sm:h-10"
-                      />
-                    </div>
-                    <div className="hidden items-center gap-2 rounded-full border border-[#ecc550]/50 bg-[#ecc550]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#f6e3a1] sm:inline-flex">
-                      <Sparkles className="size-3.5" aria-hidden="true" />
-                      Beneficio exclusivo
-                    </div>
-                  </div>
-
-                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#ecc550]/50 bg-[#ecc550]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#f6e3a1] sm:hidden">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    Beneficio exclusivo
-                  </div>
-
-                  <DialogPrimitive.Title className="mt-3 text-2xl font-black leading-tight text-white sm:text-3xl md:mt-5 md:text-4xl">
-                    ¡Bienvenido a Pesca Con Fe!
-                  </DialogPrimitive.Title>
-
-                  <div className="mt-3 flex items-end gap-3 rounded-2xl bg-[linear-gradient(135deg,rgb(236_197_80_/_0.12),rgb(255_255_255_/_0.025))] px-3 py-3 ring-1 ring-inset ring-[#ecc550]/20 md:mt-4 md:px-4 md:py-4">
-                    <span className="bg-gradient-to-b from-[#f8dc7b] to-[#d79a16] bg-clip-text text-6xl font-black leading-none text-transparent sm:text-7xl">
-                      10%
-                    </span>
-                    <span className="pb-1 text-lg font-black uppercase leading-[1.05] text-white sm:text-2xl">
-                      de
-                      <br />
-                      descuento
-                    </span>
-                  </div>
-
-                  <DialogPrimitive.Description className="mt-3 text-sm leading-5 text-white/78 sm:leading-6 md:mt-4 md:text-base">
-                    Crea tu cuenta y recibe automáticamente un beneficio exclusivo en tu primera compra elegible.
-                  </DialogPrimitive.Description>
-
-                  <div className="mt-3 grid gap-2 rounded-2xl bg-white/[0.055] p-3 text-xs text-white/85 ring-1 ring-inset ring-[#ecc550]/15 sm:grid-cols-3 sm:gap-3 md:mt-5 md:text-sm">
-                    <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Compra mínima de $50</p>
-                    <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Descuento máximo $10</p>
-                    <p className="flex items-start gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[#ecc550]" aria-hidden="true" />Una vez por cliente</p>
-                  </div>
-
-                  <div className="mt-4 flex flex-col gap-2 sm:flex-row md:mt-5">
-                    <DialogPrimitive.Close asChild>
-                      <Link
-                        href="/login?mode=register"
-                        className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-[#ecc550] px-4 py-2.5 text-center text-sm font-black text-black transition hover:bg-[#f6e3a1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550] sm:min-h-12 sm:text-base"
-                      >
-                        Quiero mi beneficio
-                      </Link>
-                    </DialogPrimitive.Close>
-                    <DialogPrimitive.Close className="min-h-11 rounded-xl border border-white/25 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/50 hover:bg-white/10 sm:min-h-12">
-                      Ahora no
-                    </DialogPrimitive.Close>
-                  </div>
-
-                  <p className="mt-3 text-center text-[10px] leading-4 text-white/55 sm:text-xs sm:leading-5">
-                    No acumulable con otras promociones. Aplica solo a productos; no incluye envío ni recargos de pago.
-                  </p>
-                  <p className="mt-1.5 text-center text-[10px] leading-4 text-white/65 sm:text-xs sm:leading-5">
-                    Vigente hasta el {WELCOME_PROMOTION.endDateLabel} ·{" "}
-                    <Link
-                      href="/preguntas-frecuentes#promocion-bienvenida"
-                      className="font-semibold text-[#f6e3a1] underline decoration-[#ecc550]/70 underline-offset-2 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ecc550]"
-                    >
-                      Ver términos de la promoción
-                    </Link>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+      {dialogReady ? (
+        <Suspense fallback={null}>
+          <PromotionDialog open={open && canOffer} onOpenChange={changeOpen} />
+        </Suspense>
+      ) : null}
 
       {canOffer && !open ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="welcome-promotion-attention-button group fixed bottom-[5.25rem] left-4 z-[39] flex size-12 items-center justify-center rounded-full bg-[#ecc550] text-black shadow-[0_3px_10px_rgb(0_0_0_/_0.18)] transition hover:bg-[#f6d86f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07366f] sm:left-6"
+          onClick={showPromotion}
+          onFocus={preparePromotion}
+          onPointerEnter={preparePromotion}
+          className="welcome-promotion-attention-button group fixed bottom-[5.25rem] left-4 z-[39] flex size-12 items-center justify-center rounded-full bg-gold text-black shadow-[0_3px_10px_rgb(0_0_0_/_0.18)] transition hover:bg-gold-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dark-blue sm:left-6"
           aria-label="Abrir promoción de bienvenida con 10% de descuento"
           title="10% de descuento de bienvenida"
         >

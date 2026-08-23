@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { consumeRateLimit, getRequestAddress } from "@/lib/rate-limit";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { hasSupabaseAuthCookie } from "@/lib/supabase/session-cookie";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicUserSummary } from "@/lib/usuario";
 import type { PublicUserSummary } from "@/types/usuario";
@@ -13,6 +14,12 @@ const noStoreHeaders = {
 
 // Devuelve el resumen de sesion usado por el header publico.
 export async function GET(request: NextRequest) {
+  // La mayoría de visitas públicas son anónimas. Evita rate limit, cliente y red
+  // hacia Supabase cuando el navegador ni siquiera posee una sesión posible.
+  if (!hasSupabaseAuthCookie(request.cookies.getAll())) {
+    return NextResponse.json({ user: null }, { headers: noStoreHeaders });
+  }
+
   const allowed = await consumeRateLimit({
     bucket: "public.session",
     identifier: getRequestAddress(request.headers),

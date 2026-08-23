@@ -173,6 +173,39 @@ textarea {
   color: var(--dark-blue);
 }
 
+/* Mantiene la promoción superior legible cuando el diálogo está abierto. */
+body:has([data-welcome-promotion-overlay][data-state="open"])
+  [data-home-announcement-strip] {
+  z-index: 92;
+}
+
+body:has([data-home-announcement-strip])
+  .welcome-promotion-dialog[data-state="open"] {
+  top: calc(50% + 3.25rem);
+  max-height: calc(100svh - 7.25rem);
+}
+
+/* Aplaza el pintado de bloques lejanos sin ocultarlos ni añadir pantallas de carga. */
+.home-deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 650px;
+}
+
+@keyframes home-hero-slide-enter {
+  from {
+    opacity: 0.35;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.home-hero-slide {
+  animation: home-hero-slide-enter 420ms ease-out both;
+}
+
 /* Alterna los avisos del inicio sin JavaScript y mantiene la franja sin acciones. */
 @keyframes home-announcement-message-cycle {
   0% {
@@ -399,5 +432,9 @@ textarea {
 
   .home-announcement-message-secondary {
     display: none;
+  }
+
+  .home-hero-slide {
+    animation: none;
   }
 }

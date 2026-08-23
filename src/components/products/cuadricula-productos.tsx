@@ -42,7 +42,7 @@ export function ProductGrid({
         <ProductCard
           key={product.id}
           product={product}
-          priority={index < (variant === "home" ? 4 : 3)}
+          priority={variant !== "home" && index < 3}
           compactPrice={compactPrice}
         />
       ))}

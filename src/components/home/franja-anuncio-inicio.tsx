@@ -9,6 +9,7 @@ export function HomeAnnouncementStrip() {
 
   return (
     <aside
+      data-home-announcement-strip
       className="sticky top-16 z-30 overflow-hidden border-y border-dark-blue/15 bg-gold text-dark-blue shadow-[0_3px_10px_rgb(5_44_101_/_0.12)]"
       aria-label={promotionLabel}
     >
